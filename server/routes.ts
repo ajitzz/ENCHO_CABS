@@ -272,6 +272,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.get("/api/substitute-drivers", async (req, res) => {
+    try {
+      const { vehicleId, weekStart, weekEnd } = req.query;
+      
+      let substitutes;
+      if (vehicleId) {
+        const vehicleIdNum = parseInt(vehicleId as string);
+        const startDate = weekStart ? new Date(weekStart as string) : undefined;
+        const endDate = weekEnd ? new Date(weekEnd as string) : undefined;
+        
+        if (startDate && endDate) {
+          substitutes = await storage.getSubstituteDriversByVehicleAndDateRange(vehicleIdNum, startDate, endDate);
+        } else {
+          substitutes = await storage.getSubstituteDriversByVehicle(vehicleIdNum);
+        }
+      } else {
+        substitutes = await storage.getAllSubstituteDrivers();
+      }
+      
+      res.json(substitutes);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch substitute drivers", error: error.message });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }

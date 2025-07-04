@@ -9,12 +9,20 @@ import QuickActions from "@/components/QuickActions";
 import RecentTripsTable from "@/components/RecentTripsTable";
 import SettlementStatusCard from "@/components/SettlementStatusCard";
 import TripLogModal from "@/components/TripLogModal";
+import SubstituteDriverForm from "@/components/SubstituteDriverForm";
+import SubstituteDriverList from "@/components/SubstituteDriverList";
 import { Plus, Activity } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useQuery } from "@tanstack/react-query";
 
 export default function Dashboard() {
   const [selectedVehicleId, setSelectedVehicleId] = useState<number | null>(null);
   const [showTripLogModal, setShowTripLogModal] = useState(false);
+
+  // Fetch vehicles for substitute driver form
+  const { data: vehicles } = useQuery({
+    queryKey: ["/api/vehicles"],
+  });
 
   return (
     <div className="flex h-screen bg-gray-50">
@@ -78,6 +86,20 @@ export default function Dashboard() {
 
               {/* Quick Actions */}
               <QuickActions onAddTripLog={() => setShowTripLogModal(true)} />
+
+              {/* Substitute Driver Section */}
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-lg font-semibold text-gray-900">Substitute Drivers</h3>
+                  {vehicles && vehicles.length > 0 && (
+                    <SubstituteDriverForm
+                      vehicleId={selectedVehicleId}
+                      vehicles={vehicles}
+                    />
+                  )}
+                </div>
+                <SubstituteDriverList vehicleId={selectedVehicleId} />
+              </div>
             </div>
           </div>
 

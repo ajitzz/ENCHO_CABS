@@ -51,6 +51,9 @@ export interface IStorage {
   createSubstituteDriver(substitute: InsertSubstituteDriver): Promise<SubstituteDriver>;
   getSubstituteDriver(id: number): Promise<SubstituteDriver | undefined>;
   getSubstituteDriversByVehicleAndDate(vehicleId: number, date: Date): Promise<SubstituteDriver[]>;
+  getSubstituteDriversByVehicle(vehicleId: number): Promise<Array<SubstituteDriver & { vehicleNumber: string }>>;
+  getSubstituteDriversByVehicleAndDateRange(vehicleId: number, startDate: Date, endDate: Date): Promise<Array<SubstituteDriver & { vehicleNumber: string }>>;
+  getAllSubstituteDrivers(): Promise<Array<SubstituteDriver & { vehicleNumber: string }>>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -273,6 +276,69 @@ export class DatabaseStorage implements IStorage {
         eq(substituteDrivers.date, date)
       ))
       .orderBy(desc(substituteDrivers.createdAt));
+  }
+
+  async getSubstituteDriversByVehicle(vehicleId: number): Promise<Array<SubstituteDriver & { vehicleNumber: string }>> {
+    const result = await db.select({
+      id: substituteDrivers.id,
+      name: substituteDrivers.name,
+      vehicleId: substituteDrivers.vehicleId,
+      date: substituteDrivers.date,
+      shift: substituteDrivers.shift,
+      shiftHours: substituteDrivers.shiftHours,
+      charge: substituteDrivers.charge,
+      createdAt: substituteDrivers.createdAt,
+      updatedAt: substituteDrivers.updatedAt,
+      vehicleNumber: vehicles.vehicleNumber,
+    }).from(substituteDrivers)
+      .innerJoin(vehicles, eq(substituteDrivers.vehicleId, vehicles.id))
+      .where(eq(substituteDrivers.vehicleId, vehicleId))
+      .orderBy(desc(substituteDrivers.date));
+    
+    return result;
+  }
+
+  async getSubstituteDriversByVehicleAndDateRange(vehicleId: number, startDate: Date, endDate: Date): Promise<Array<SubstituteDriver & { vehicleNumber: string }>> {
+    const result = await db.select({
+      id: substituteDrivers.id,
+      name: substituteDrivers.name,
+      vehicleId: substituteDrivers.vehicleId,
+      date: substituteDrivers.date,
+      shift: substituteDrivers.shift,
+      shiftHours: substituteDrivers.shiftHours,
+      charge: substituteDrivers.charge,
+      createdAt: substituteDrivers.createdAt,
+      updatedAt: substituteDrivers.updatedAt,
+      vehicleNumber: vehicles.vehicleNumber,
+    }).from(substituteDrivers)
+      .innerJoin(vehicles, eq(substituteDrivers.vehicleId, vehicles.id))
+      .where(and(
+        eq(substituteDrivers.vehicleId, vehicleId),
+        gte(substituteDrivers.date, startDate),
+        lte(substituteDrivers.date, endDate)
+      ))
+      .orderBy(desc(substituteDrivers.date));
+    
+    return result;
+  }
+
+  async getAllSubstituteDrivers(): Promise<Array<SubstituteDriver & { vehicleNumber: string }>> {
+    const result = await db.select({
+      id: substituteDrivers.id,
+      name: substituteDrivers.name,
+      vehicleId: substituteDrivers.vehicleId,
+      date: substituteDrivers.date,
+      shift: substituteDrivers.shift,
+      shiftHours: substituteDrivers.shiftHours,
+      charge: substituteDrivers.charge,
+      createdAt: substituteDrivers.createdAt,
+      updatedAt: substituteDrivers.updatedAt,
+      vehicleNumber: vehicles.vehicleNumber,
+    }).from(substituteDrivers)
+      .innerJoin(vehicles, eq(substituteDrivers.vehicleId, vehicles.id))
+      .orderBy(desc(substituteDrivers.date));
+    
+    return result;
   }
 }
 
