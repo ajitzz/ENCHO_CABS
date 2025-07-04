@@ -16,11 +16,15 @@ export interface IStorage {
   getVehicle(id: number): Promise<Vehicle | undefined>;
   getAllVehicles(): Promise<Vehicle[]>;
   getVehicleByNumber(vehicleNumber: string): Promise<Vehicle | undefined>;
+  updateVehicle(id: number, vehicle: Partial<InsertVehicle>): Promise<Vehicle>;
+  deleteVehicle(id: number): Promise<void>;
 
   // Driver operations
   createDriver(driver: InsertDriver): Promise<Driver>;
   getDriver(id: number): Promise<Driver | undefined>;
   getAllDrivers(): Promise<Driver[]>;
+  updateDriver(id: number, driver: Partial<InsertDriver>): Promise<Driver>;
+  deleteDriver(id: number): Promise<void>;
 
   // Vehicle-Driver assignments
   createVehicleDriverAssignment(assignment: InsertVehicleDriverAssignment): Promise<VehicleDriverAssignment>;
@@ -77,6 +81,18 @@ export class DatabaseStorage implements IStorage {
     return result || undefined;
   }
 
+  async updateVehicle(id: number, vehicle: Partial<InsertVehicle>): Promise<Vehicle> {
+    const [result] = await db.update(vehicles)
+      .set(vehicle)
+      .where(eq(vehicles.id, id))
+      .returning();
+    return result;
+  }
+
+  async deleteVehicle(id: number): Promise<void> {
+    await db.delete(vehicles).where(eq(vehicles.id, id));
+  }
+
   // Driver operations
   async createDriver(driver: InsertDriver): Promise<Driver> {
     const [result] = await db.insert(drivers).values(driver).returning();
@@ -90,6 +106,18 @@ export class DatabaseStorage implements IStorage {
 
   async getAllDrivers(): Promise<Driver[]> {
     return await db.select().from(drivers).orderBy(asc(drivers.name));
+  }
+
+  async updateDriver(id: number, driver: Partial<InsertDriver>): Promise<Driver> {
+    const [result] = await db.update(drivers)
+      .set(driver)
+      .where(eq(drivers.id, id))
+      .returning();
+    return result;
+  }
+
+  async deleteDriver(id: number): Promise<void> {
+    await db.delete(drivers).where(eq(drivers.id, id));
   }
 
   // Vehicle-Driver assignments

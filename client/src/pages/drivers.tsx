@@ -1,248 +1,271 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Plus, Edit2, Trash2, Users, Phone, Home, HomeIcon } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { api, type Driver } from "@/lib/api";
+import { api } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { z } from "zod";
-import {
-  Form,
-  FormControl,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from "@/components/ui/form";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Plus, Edit, Trash2, Home } from "lucide-react";
+import Sidebar from "@/components/Sidebar";
 
-const driverSchema = z.object({
-  name: z.string().min(1, "Driver name is required"),
-  phone: z.string().min(10, "Phone number must be at least 10 digits"),
-  hasAccommodation: z.boolean(),
-});
+interface Driver {
+  id: number;
+  name: string;
+  phone: string;
+  hasAccommodation: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
 
-type DriverFormData = z.infer<typeof driverSchema>;
+export default function DriversPage() {
+  const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [isEditOpen, setIsEditOpen] = useState(false);
+  const [editingDriver, setEditingDriver] = useState<Driver | null>(null);
+  const [formData, setFormData] = useState({
+    name: "",
+    phone: "",
+    hasAccommodation: false,
+  });
 
-export default function Drivers() {
-  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  const { data: drivers, isLoading } = useQuery({
+  const { data: drivers, isLoading } = useQuery<Driver[]>({
     queryKey: ["/api/drivers"],
-    queryFn: () => api.getDrivers(),
   });
 
-  const form = useForm<DriverFormData>({
-    resolver: zodResolver(driverSchema),
-    defaultValues: {
-      name: "",
-      phone: "",
-      hasAccommodation: false,
-    },
-  });
-
-  const createDriverMutation = useMutation({
-    mutationFn: (data: DriverFormData) => api.createDriver(data),
+  const createMutation = useMutation({
+    mutationFn: api.createDriver,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/drivers"] });
-      setIsAddModalOpen(false);
-      form.reset();
-      toast({
-        title: "Success",
-        description: "Driver added successfully",
-      });
+      setIsCreateOpen(false);
+      setFormData({ name: "", phone: "", hasAccommodation: false });
+      toast({ title: "Success", description: "Driver created successfully" });
     },
-    onError: (error) => {
-      toast({
-        title: "Error",
-        description: "Failed to add driver",
-        variant: "destructive",
-      });
+    onError: () => {
+      toast({ title: "Error", description: "Failed to create driver", variant: "destructive" });
     },
   });
 
-  const onSubmit = (data: DriverFormData) => {
-    createDriverMutation.mutate(data);
+  const updateMutation = useMutation({
+    mutationFn: ({ id, data }: { id: number; data: Partial<Driver> }) => api.updateDriver(id, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/drivers"] });
+      setIsEditOpen(false);
+      setEditingDriver(null);
+      toast({ title: "Success", description: "Driver updated successfully" });
+    },
+    onError: () => {
+      toast({ title: "Error", description: "Failed to update driver", variant: "destructive" });
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: api.deleteDriver,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/drivers"] });
+      toast({ title: "Success", description: "Driver deleted successfully" });
+    },
+    onError: () => {
+      toast({ title: "Error", description: "Failed to delete driver", variant: "destructive" });
+    },
+  });
+
+  const handleCreate = () => {
+    createMutation.mutate(formData);
   };
 
-  if (isLoading) {
-    return (
-      <div className="flex-1 p-8">
-        <div className="animate-pulse">
-          <div className="h-8 bg-gray-200 rounded w-48 mb-6"></div>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {[...Array(6)].map((_, i) => (
-              <div key={i} className="h-32 bg-gray-200 rounded-lg"></div>
-            ))}
-          </div>
-        </div>
-      </div>
-    );
-  }
+  const handleEdit = (driver: Driver) => {
+    setEditingDriver(driver);
+    setFormData({
+      name: driver.name,
+      phone: driver.phone,
+      hasAccommodation: driver.hasAccommodation,
+    });
+    setIsEditOpen(true);
+  };
+
+  const handleUpdate = () => {
+    if (editingDriver) {
+      updateMutation.mutate({
+        id: editingDriver.id,
+        data: formData,
+      });
+    }
+  };
+
+  const handleDelete = (id: number) => {
+    if (confirm("Are you sure you want to delete this driver?")) {
+      deleteMutation.mutate(id);
+    }
+  };
 
   return (
-    <div className="flex-1 p-8">
-      <div className="flex justify-between items-center mb-8">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">Drivers</h1>
-          <p className="text-gray-600 mt-1">Manage your fleet drivers</p>
-        </div>
-        <Dialog open={isAddModalOpen} onOpenChange={setIsAddModalOpen}>
-          <DialogTrigger asChild>
-            <Button>
-              <Plus className="w-4 h-4 mr-2" />
-              Add Driver
-            </Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Add New Driver</DialogTitle>
-            </DialogHeader>
-            <Form {...form}>
-              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-                <FormField
-                  control={form.control}
-                  name="name"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Driver Name</FormLabel>
-                      <FormControl>
-                        <Input placeholder="Enter driver name" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="phone"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Phone Number</FormLabel>
-                      <FormControl>
-                        <Input placeholder="+91-9876543210" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="hasAccommodation"
-                  render={({ field }) => (
-                    <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
-                      <div className="space-y-0.5">
-                        <FormLabel className="text-base">
-                          Accommodation Provided
-                        </FormLabel>
-                        <div className="text-sm text-muted-foreground">
-                          Driver has company accommodation (₹600/day rent vs ₹500/day)
-                        </div>
-                      </div>
-                      <FormControl>
-                        <Switch
-                          checked={field.value}
-                          onCheckedChange={field.onChange}
-                        />
-                      </FormControl>
-                    </FormItem>
-                  )}
-                />
-                <div className="flex justify-end space-x-2">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => setIsAddModalOpen(false)}
-                  >
-                    Cancel
-                  </Button>
-                  <Button type="submit" disabled={createDriverMutation.isPending}>
-                    {createDriverMutation.isPending ? "Adding..." : "Add Driver"}
-                  </Button>
-                </div>
-              </form>
-            </Form>
-          </DialogContent>
-        </Dialog>
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {drivers?.map((driver: Driver) => (
-          <Card key={driver.id} className="hover:shadow-lg transition-shadow">
-            <CardHeader className="pb-3">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-3">
-                  <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
-                    <Users className="w-5 h-5 text-green-600" />
+    <div className="flex h-screen bg-gray-50">
+      <Sidebar />
+      <main className="flex-1 p-6 overflow-auto">
+        <div className="max-w-6xl mx-auto space-y-6">
+          <div className="flex items-center justify-between">
+            <h1 className="text-2xl font-bold text-gray-900">Driver Management</h1>
+            
+            <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
+              <DialogTrigger asChild>
+                <Button>
+                  <Plus className="w-4 h-4 mr-2" />
+                  Add Driver
+                </Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Add New Driver</DialogTitle>
+                </DialogHeader>
+                <div className="space-y-4">
+                  <div>
+                    <Label htmlFor="name">Driver Name</Label>
+                    <Input
+                      id="name"
+                      value={formData.name}
+                      onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                      placeholder="e.g., Rajesh Kumar"
+                    />
                   </div>
                   <div>
-                    <CardTitle className="text-lg">{driver.name}</CardTitle>
-                    <div className="flex items-center space-x-2 mt-1">
-                      <Badge variant={driver.hasAccommodation ? "default" : "secondary"}>
-                        {driver.hasAccommodation ? "₹600/day" : "₹500/day"}
-                      </Badge>
-                      {driver.hasAccommodation && (
-                        <div className="w-4 h-4 text-blue-600">
-                          <Home className="w-4 h-4" />
-                        </div>
-                      )}
-                    </div>
+                    <Label htmlFor="phone">Phone Number</Label>
+                    <Input
+                      id="phone"
+                      value={formData.phone}
+                      onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                      placeholder="e.g., 9876543210"
+                    />
                   </div>
-                </div>
-                <div className="flex space-x-1">
-                  <Button variant="ghost" size="sm">
-                    <Edit2 className="w-4 h-4" />
+                  <div className="flex items-center space-x-2">
+                    <Switch
+                      id="hasAccommodation"
+                      checked={formData.hasAccommodation}
+                      onCheckedChange={(checked) => setFormData({ ...formData, hasAccommodation: checked })}
+                    />
+                    <Label htmlFor="hasAccommodation" className="flex items-center space-x-2">
+                      <Home className="w-4 h-4" />
+                      <span>Has Accommodation</span>
+                    </Label>
+                  </div>
+                  <Button onClick={handleCreate} disabled={createMutation.isPending} className="w-full">
+                    {createMutation.isPending ? "Creating..." : "Create Driver"}
                   </Button>
-                  <Button variant="ghost" size="sm">
-                    <Trash2 className="w-4 h-4" />
-                  </Button>
                 </div>
-              </div>
+              </DialogContent>
+            </Dialog>
+          </div>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>All Drivers</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="space-y-2">
-                <div className="flex items-center space-x-2 text-sm text-gray-600">
-                  <Phone className="w-4 h-4" />
-                  <span>{driver.phone}</span>
-                </div>
-                <div className="flex items-center space-x-2 text-sm text-gray-600">
-                  <HomeIcon className="w-4 h-4" />
-                  <span>{driver.hasAccommodation ? "Company accommodation" : "Own accommodation"}</span>
-                </div>
-                <div className="text-sm text-gray-500 mt-2">
-                  <p>Added: {new Date(driver.createdAt).toLocaleDateString()}</p>
-                </div>
-              </div>
+              {isLoading ? (
+                <div>Loading drivers...</div>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Name</TableHead>
+                      <TableHead>Phone</TableHead>
+                      <TableHead>Accommodation</TableHead>
+                      <TableHead>Created</TableHead>
+                      <TableHead>Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {drivers?.map((driver) => (
+                      <TableRow key={driver.id}>
+                        <TableCell className="font-medium">{driver.name}</TableCell>
+                        <TableCell>{driver.phone}</TableCell>
+                        <TableCell>
+                          <div className="flex items-center space-x-2">
+                            {driver.hasAccommodation ? (
+                              <>
+                                <Home className="w-4 h-4 text-green-600" />
+                                <span className="text-green-600">Yes</span>
+                              </>
+                            ) : (
+                              <span className="text-gray-500">No</span>
+                            )}
+                          </div>
+                        </TableCell>
+                        <TableCell>{new Date(driver.createdAt).toLocaleDateString()}</TableCell>
+                        <TableCell>
+                          <div className="flex space-x-2">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleEdit(driver)}
+                            >
+                              <Edit className="w-4 h-4" />
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleDelete(driver.id)}
+                              disabled={deleteMutation.isPending}
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              )}
             </CardContent>
           </Card>
-        ))}
-      </div>
 
-      {drivers?.length === 0 && (
-        <div className="text-center py-12">
-          <Users className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-          <h3 className="text-lg font-medium text-gray-900 mb-2">No drivers yet</h3>
-          <p className="text-gray-600 mb-4">Add your first driver to get started</p>
-          <Button onClick={() => setIsAddModalOpen(true)}>
-            <Plus className="w-4 h-4 mr-2" />
-            Add Driver
-          </Button>
+          {/* Edit Dialog */}
+          <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Edit Driver</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-4">
+                <div>
+                  <Label htmlFor="editName">Driver Name</Label>
+                  <Input
+                    id="editName"
+                    value={formData.name}
+                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="editPhone">Phone Number</Label>
+                  <Input
+                    id="editPhone"
+                    value={formData.phone}
+                    onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                  />
+                </div>
+                <div className="flex items-center space-x-2">
+                  <Switch
+                    id="editHasAccommodation"
+                    checked={formData.hasAccommodation}
+                    onCheckedChange={(checked) => setFormData({ ...formData, hasAccommodation: checked })}
+                  />
+                  <Label htmlFor="editHasAccommodation" className="flex items-center space-x-2">
+                    <Home className="w-4 h-4" />
+                    <span>Has Accommodation</span>
+                  </Label>
+                </div>
+                <Button onClick={handleUpdate} disabled={updateMutation.isPending} className="w-full">
+                  {updateMutation.isPending ? "Updating..." : "Update Driver"}
+                </Button>
+              </div>
+            </DialogContent>
+          </Dialog>
         </div>
-      )}
+      </main>
     </div>
   );
 }

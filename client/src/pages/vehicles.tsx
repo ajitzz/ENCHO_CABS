@@ -1,222 +1,240 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Plus, Edit2, Trash2, Car } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { api, type Vehicle } from "@/lib/api";
+import { api } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { z } from "zod";
-import {
-  Form,
-  FormControl,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from "@/components/ui/form";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Plus, Edit, Trash2 } from "lucide-react";
+import Sidebar from "@/components/Sidebar";
 
-const vehicleSchema = z.object({
-  vehicleNumber: z.string().min(1, "Vehicle number is required"),
-  company: z.enum(["PMV", "Letzryd"]),
-});
+interface Vehicle {
+  id: number;
+  vehicleNumber: string;
+  company: "PMV" | "Letzryd";
+  createdAt: string;
+  updatedAt: string;
+}
 
-type VehicleFormData = z.infer<typeof vehicleSchema>;
+export default function VehiclesPage() {
+  const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [isEditOpen, setIsEditOpen] = useState(false);
+  const [editingVehicle, setEditingVehicle] = useState<Vehicle | null>(null);
+  const [formData, setFormData] = useState({
+    vehicleNumber: "",
+    company: "PMV" as "PMV" | "Letzryd",
+  });
 
-export default function Vehicles() {
-  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  const { data: vehicles, isLoading } = useQuery({
+  const { data: vehicles, isLoading } = useQuery<Vehicle[]>({
     queryKey: ["/api/vehicles"],
-    queryFn: () => api.getVehicles(),
   });
 
-  const form = useForm<VehicleFormData>({
-    resolver: zodResolver(vehicleSchema),
-    defaultValues: {
-      vehicleNumber: "",
-      company: "PMV",
-    },
-  });
-
-  const createVehicleMutation = useMutation({
-    mutationFn: (data: VehicleFormData) => api.createVehicle(data),
+  const createMutation = useMutation({
+    mutationFn: api.createVehicle,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/vehicles"] });
-      setIsAddModalOpen(false);
-      form.reset();
-      toast({
-        title: "Success",
-        description: "Vehicle added successfully",
-      });
+      setIsCreateOpen(false);
+      setFormData({ vehicleNumber: "", company: "PMV" });
+      toast({ title: "Success", description: "Vehicle created successfully" });
     },
-    onError: (error) => {
-      toast({
-        title: "Error",
-        description: "Failed to add vehicle",
-        variant: "destructive",
-      });
+    onError: () => {
+      toast({ title: "Error", description: "Failed to create vehicle", variant: "destructive" });
     },
   });
 
-  const onSubmit = (data: VehicleFormData) => {
-    createVehicleMutation.mutate(data);
+  const updateMutation = useMutation({
+    mutationFn: ({ id, data }: { id: number; data: Partial<Vehicle> }) => api.updateVehicle(id, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/vehicles"] });
+      setIsEditOpen(false);
+      setEditingVehicle(null);
+      toast({ title: "Success", description: "Vehicle updated successfully" });
+    },
+    onError: () => {
+      toast({ title: "Error", description: "Failed to update vehicle", variant: "destructive" });
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: api.deleteVehicle,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/vehicles"] });
+      toast({ title: "Success", description: "Vehicle deleted successfully" });
+    },
+    onError: () => {
+      toast({ title: "Error", description: "Failed to delete vehicle", variant: "destructive" });
+    },
+  });
+
+  const handleCreate = () => {
+    createMutation.mutate(formData);
   };
 
-  if (isLoading) {
-    return (
-      <div className="flex-1 p-8">
-        <div className="animate-pulse">
-          <div className="h-8 bg-gray-200 rounded w-48 mb-6"></div>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {[...Array(6)].map((_, i) => (
-              <div key={i} className="h-32 bg-gray-200 rounded-lg"></div>
-            ))}
-          </div>
-        </div>
-      </div>
-    );
-  }
+  const handleEdit = (vehicle: Vehicle) => {
+    setEditingVehicle(vehicle);
+    setFormData({
+      vehicleNumber: vehicle.vehicleNumber,
+      company: vehicle.company,
+    });
+    setIsEditOpen(true);
+  };
+
+  const handleUpdate = () => {
+    if (editingVehicle) {
+      updateMutation.mutate({
+        id: editingVehicle.id,
+        data: formData,
+      });
+    }
+  };
+
+  const handleDelete = (id: number) => {
+    if (confirm("Are you sure you want to delete this vehicle?")) {
+      deleteMutation.mutate(id);
+    }
+  };
 
   return (
-    <div className="flex-1 p-8">
-      <div className="flex justify-between items-center mb-8">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">Vehicles</h1>
-          <p className="text-gray-600 mt-1">Manage your fleet vehicles</p>
-        </div>
-        <Dialog open={isAddModalOpen} onOpenChange={setIsAddModalOpen}>
-          <DialogTrigger asChild>
-            <Button>
-              <Plus className="w-4 h-4 mr-2" />
-              Add Vehicle
-            </Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Add New Vehicle</DialogTitle>
-            </DialogHeader>
-            <Form {...form}>
-              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-                <FormField
-                  control={form.control}
-                  name="vehicleNumber"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Vehicle Number</FormLabel>
-                      <FormControl>
-                        <Input placeholder="KA01AB1234" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="company"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Company</FormLabel>
-                      <Select onValueChange={field.onChange} value={field.value}>
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select Company" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          <SelectItem value="PMV">PMV</SelectItem>
-                          <SelectItem value="Letzryd">Letzryd</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <div className="flex justify-end space-x-2">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => setIsAddModalOpen(false)}
-                  >
-                    Cancel
-                  </Button>
-                  <Button type="submit" disabled={createVehicleMutation.isPending}>
-                    {createVehicleMutation.isPending ? "Adding..." : "Add Vehicle"}
-                  </Button>
-                </div>
-              </form>
-            </Form>
-          </DialogContent>
-        </Dialog>
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {vehicles?.map((vehicle: Vehicle) => (
-          <Card key={vehicle.id} className="hover:shadow-lg transition-shadow">
-            <CardHeader className="pb-3">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-3">
-                  <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
-                    <Car className="w-5 h-5 text-blue-600" />
+    <div className="flex h-screen bg-gray-50">
+      <Sidebar />
+      <main className="flex-1 p-6 overflow-auto">
+        <div className="max-w-6xl mx-auto space-y-6">
+          <div className="flex items-center justify-between">
+            <h1 className="text-2xl font-bold text-gray-900">Vehicle Management</h1>
+            
+            <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
+              <DialogTrigger asChild>
+                <Button>
+                  <Plus className="w-4 h-4 mr-2" />
+                  Add Vehicle
+                </Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Add New Vehicle</DialogTitle>
+                </DialogHeader>
+                <div className="space-y-4">
+                  <div>
+                    <Label htmlFor="vehicleNumber">Vehicle Number</Label>
+                    <Input
+                      id="vehicleNumber"
+                      value={formData.vehicleNumber}
+                      onChange={(e) => setFormData({ ...formData, vehicleNumber: e.target.value })}
+                      placeholder="e.g., KA-01-AB-1234"
+                    />
                   </div>
                   <div>
-                    <CardTitle className="text-lg">{vehicle.vehicleNumber}</CardTitle>
-                    <Badge variant={vehicle.company === "PMV" ? "default" : "secondary"}>
-                      {vehicle.company}
-                    </Badge>
+                    <Label htmlFor="company">Company</Label>
+                    <Select value={formData.company} onValueChange={(value: "PMV" | "Letzryd") => setFormData({ ...formData, company: value })}>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="PMV">PMV</SelectItem>
+                        <SelectItem value="Letzryd">Letzryd</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </div>
-                </div>
-                <div className="flex space-x-1">
-                  <Button variant="ghost" size="sm">
-                    <Edit2 className="w-4 h-4" />
-                  </Button>
-                  <Button variant="ghost" size="sm">
-                    <Trash2 className="w-4 h-4" />
+                  <Button onClick={handleCreate} disabled={createMutation.isPending} className="w-full">
+                    {createMutation.isPending ? "Creating..." : "Create Vehicle"}
                   </Button>
                 </div>
-              </div>
+              </DialogContent>
+            </Dialog>
+          </div>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>All Vehicles</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-sm text-gray-600">
-                <p>Added: {new Date(vehicle.createdAt).toLocaleDateString()}</p>
-                <p>Last Updated: {new Date(vehicle.updatedAt).toLocaleDateString()}</p>
-              </div>
+              {isLoading ? (
+                <div>Loading vehicles...</div>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Vehicle Number</TableHead>
+                      <TableHead>Company</TableHead>
+                      <TableHead>Created</TableHead>
+                      <TableHead>Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {vehicles?.map((vehicle) => (
+                      <TableRow key={vehicle.id}>
+                        <TableCell className="font-medium">{vehicle.vehicleNumber}</TableCell>
+                        <TableCell>{vehicle.company}</TableCell>
+                        <TableCell>{new Date(vehicle.createdAt).toLocaleDateString()}</TableCell>
+                        <TableCell>
+                          <div className="flex space-x-2">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleEdit(vehicle)}
+                            >
+                              <Edit className="w-4 h-4" />
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleDelete(vehicle.id)}
+                              disabled={deleteMutation.isPending}
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              )}
             </CardContent>
           </Card>
-        ))}
-      </div>
 
-      {vehicles?.length === 0 && (
-        <div className="text-center py-12">
-          <Car className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-          <h3 className="text-lg font-medium text-gray-900 mb-2">No vehicles yet</h3>
-          <p className="text-gray-600 mb-4">Add your first vehicle to get started</p>
-          <Button onClick={() => setIsAddModalOpen(true)}>
-            <Plus className="w-4 h-4 mr-2" />
-            Add Vehicle
-          </Button>
+          {/* Edit Dialog */}
+          <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Edit Vehicle</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-4">
+                <div>
+                  <Label htmlFor="editVehicleNumber">Vehicle Number</Label>
+                  <Input
+                    id="editVehicleNumber"
+                    value={formData.vehicleNumber}
+                    onChange={(e) => setFormData({ ...formData, vehicleNumber: e.target.value })}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="editCompany">Company</Label>
+                  <Select value={formData.company} onValueChange={(value: "PMV" | "Letzryd") => setFormData({ ...formData, company: value })}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="PMV">PMV</SelectItem>
+                      <SelectItem value="Letzryd">Letzryd</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <Button onClick={handleUpdate} disabled={updateMutation.isPending} className="w-full">
+                  {updateMutation.isPending ? "Updating..." : "Update Vehicle"}
+                </Button>
+              </div>
+            </DialogContent>
+          </Dialog>
         </div>
-      )}
+      </main>
     </div>
   );
 }

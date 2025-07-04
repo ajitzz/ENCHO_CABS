@@ -44,6 +44,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.put("/api/vehicles/:id", async (req, res) => {
+    try {
+      const { id } = vehicleIdSchema.parse(req.params);
+      const vehicleData = insertVehicleSchema.parse(req.body);
+      const vehicle = await storage.updateVehicle(id, vehicleData);
+      res.json(vehicle);
+    } catch (error) {
+      res.status(400).json({ message: "Failed to update vehicle", error: error.message });
+    }
+  });
+
+  app.delete("/api/vehicles/:id", async (req, res) => {
+    try {
+      const { id } = vehicleIdSchema.parse(req.params);
+      await storage.deleteVehicle(id);
+      res.json({ message: "Vehicle deleted successfully" });
+    } catch (error) {
+      res.status(400).json({ message: "Failed to delete vehicle", error: error.message });
+    }
+  });
+
   app.get("/api/vehicles/:id", async (req, res) => {
     try {
       const { id } = vehicleIdSchema.parse(req.params);
@@ -74,6 +95,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(201).json(driver);
     } catch (error) {
       res.status(400).json({ message: "Invalid driver data", error: error.message });
+    }
+  });
+
+  app.put("/api/drivers/:id", async (req, res) => {
+    try {
+      const { id } = vehicleIdSchema.parse(req.params);
+      const driverData = insertDriverSchema.parse(req.body);
+      const driver = await storage.updateDriver(id, driverData);
+      res.json(driver);
+    } catch (error) {
+      res.status(400).json({ message: "Failed to update driver", error: error.message });
+    }
+  });
+
+  app.delete("/api/drivers/:id", async (req, res) => {
+    try {
+      const { id } = vehicleIdSchema.parse(req.params);
+      await storage.deleteDriver(id);
+      res.json({ message: "Driver deleted successfully" });
+    } catch (error) {
+      res.status(400).json({ message: "Failed to delete driver", error: error.message });
     }
   });
 

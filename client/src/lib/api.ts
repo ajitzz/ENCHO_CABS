@@ -111,6 +111,33 @@ export const api = {
     return response.json();
   },
 
+  createVehicle: async (vehicle: { vehicleNumber: string; company: "PMV" | "Letzryd" }): Promise<Vehicle> => {
+    const response = await fetch("/api/vehicles", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(vehicle),
+    });
+    if (!response.ok) throw new Error("Failed to create vehicle");
+    return response.json();
+  },
+
+  updateVehicle: async (id: number, vehicle: { vehicleNumber?: string; company?: "PMV" | "Letzryd" }): Promise<Vehicle> => {
+    const response = await fetch(`/api/vehicles/${id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(vehicle),
+    });
+    if (!response.ok) throw new Error("Failed to update vehicle");
+    return response.json();
+  },
+
+  deleteVehicle: async (id: number): Promise<void> => {
+    const response = await fetch(`/api/vehicles/${id}`, {
+      method: "DELETE",
+    });
+    if (!response.ok) throw new Error("Failed to delete vehicle");
+  },
+
   getVehicleSummary: async (id: number, weekStart?: string): Promise<VehicleSummary> => {
     const url = weekStart ? `/api/vehicles/${id}/weekly-summary?weekStart=${weekStart}` : `/api/vehicles/${id}/weekly-summary`;
     const response = await fetch(url);
@@ -122,19 +149,6 @@ export const api = {
   getDrivers: async (): Promise<Driver[]> => {
     const response = await fetch("/api/drivers");
     if (!response.ok) throw new Error("Failed to fetch drivers");
-    return response.json();
-  },
-
-  createVehicle: async (vehicleData: {
-    vehicleNumber: string;
-    company: "PMV" | "Letzryd";
-  }): Promise<Vehicle> => {
-    const response = await fetch("/api/vehicles", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(vehicleData),
-    });
-    if (!response.ok) throw new Error("Failed to create vehicle");
     return response.json();
   },
 
@@ -150,6 +164,23 @@ export const api = {
     });
     if (!response.ok) throw new Error("Failed to create driver");
     return response.json();
+  },
+
+  updateDriver: async (id: number, driver: { name?: string; phone?: string; hasAccommodation?: boolean }): Promise<Driver> => {
+    const response = await fetch(`/api/drivers/${id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(driver),
+    });
+    if (!response.ok) throw new Error("Failed to update driver");
+    return response.json();
+  },
+
+  deleteDriver: async (id: number): Promise<void> => {
+    const response = await fetch(`/api/drivers/${id}`, {
+      method: "DELETE",
+    });
+    if (!response.ok) throw new Error("Failed to delete driver");
   },
 
   // Trip APIs
