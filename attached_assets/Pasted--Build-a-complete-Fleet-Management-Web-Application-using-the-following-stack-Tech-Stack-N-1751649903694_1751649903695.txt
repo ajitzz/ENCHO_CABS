@@ -1,0 +1,173 @@
+🛠️ Build a complete Fleet Management Web Application using the following stack:
+
+🔧 Tech Stack:
+- Next.js (App Router) with TypeScript
+- MongoDB with Mongoose
+- Tailwind CSS for styling
+- shadcn/ui or custom Tailwind UI
+- Zod for all form validation
+- Recharts for weekly vehicle profit/loss chart
+
+---
+
+🚘 Business Context:
+I lease vehicles from two companies (PMV and Letzryd), assign 2 drivers per vehicle (morning/evening), and sublease to Uber drivers. I collect rent daily from drivers and pay the vehicle provider weekly based on trip slabs. I need to track daily trips, rent collected from drivers, rent payable to company (based on trip slabs), and calculate profit per vehicle every week.
+
+---
+
+📦 MongoDB Collections & Models:
+
+1. `Vehicle`  
+Fields:  
+```ts
+{
+  vehicleNumber: string,
+  company: "PMV" | "Letzryd",
+  assignedDrivers: [ObjectId, ObjectId]
+}
+Driver
+Fields:
+{
+  name: string,
+  phone: string,
+  hasAccommodation: boolean // true = ₹600/day, false = ₹500/day
+}
+Trip
+Fields:
+{
+  driverId: ObjectId,
+  vehicleId: ObjectId,
+  tripDate: Date,
+  shift: "morning" | "evening",
+  tripCount: number
+}
+DriverRentLog
+Fields:
+{
+  driverId: ObjectId,
+  date: Date,
+  rent: number,
+  paid: boolean
+}
+SubstituteDriver (optional)
+{
+  name: string,
+  vehicleId: ObjectId,
+  date: Date,
+  shiftHours: 6 | 8 | 12,
+  charge: number // ₹250, ₹350, ₹500
+}
+WeeklySettlement
+{
+  vehicleId: ObjectId,
+  weekStart: Date,
+  weekEnd: Date,
+  totalTrips: number,
+  rentalRate: number,
+  totalRentToCompany: number,
+  driver1: { id: ObjectId, rent: number },
+  driver2: { id: ObjectId, rent: number },
+  totalDriverRent: number,
+  profit: number,
+  paid: boolean
+}
+📊 Rental Slab Logic (Vehicle Rent You Pay):
+✅ Letzryd Weekly Slabs:
+≥140 trips → ₹260/day
+125–139 → ₹380/day
+110–124 → ₹470/day
+80–109 → ₹600/day
+65–79 → ₹710/day
+<65 → ₹950/day
+✅ PMV Weekly Slabs:
+≥140 trips → ₹150/day
+135–139 → ₹249/day
+120–134 → ₹444/day
+80–119 → ₹640/day
+65–79 → ₹750/day
+<65 → ₹949/day
+➡️ Weekly Rent to Company = rentalRate × 7
+➡️ Slab calculation should return both rate and trips needed to reach the next lower slab
+💸 Driver Rent (Your Income):
+₹600/day if hasAccommodation is true
+₹500/day if false
+Tracked daily via DriverRentLog
+Include a toggle button to mark as "Paid" or "Pending"
+When clicked, the rent status should update and move the driver from “Pending” to “Paid” section
+A separate section should show unpaid rents of all time (not just current week)
+📈 Profit Calculation (Weekly per Vehicle):
+totalTrips = morningDriverTrips + eveningDriverTrips
+rentalRate = based on trip slab
+rentToCompany = rentalRate × 7
+rentFromDrivers = (500/600) × 7 × 2
+profit = rentFromDrivers – rentToCompany
+Saved to WeeklySettlement collection
+📊 Weekly Dashboard Requirements:
+✅ Vehicle Selector Dropdown
+✅ Show weekly stats when a vehicle is selected:
+Total Trips This Week
+Current Rental Slab
+How many trips needed for next cheaper slab
+Rent payable to PMV/Letzryd
+Driver 1 & 2 trip counts
+Rent Pending per Driver
+Button: Mark as Paid
+Weekly Profit (color coded: green = profit, red = loss)
+✅ Global Rent Panel:
+Section showing all unpaid rents across all drivers and vehicles
+Sorted by date or driver
+Helps admin follow up on outstanding dues
+📈 Recharts Bar Graph:
+Compare weekly profit/loss per vehicle
+x-axis: vehicleNumber
+y-axis: profit in ₹
+Color-coded bars (green: positive, red: loss)
+Optional month/week selector
+🔌 Backend API Endpoints:
+GET /api/vehicle/:id/weekly-summary
+→ Get trip totals, rental rate, drivers, rent data
+POST /api/driver/:id/rent-status
+→ Toggle paid/pending for a driver rent log
+GET /api/driver/unpaid-rents
+→ List of all-time unpaid driver rents
+POST /api/settlements
+→ Trigger weekly profit calculation per vehicle
+GET /api/dashboard/profit-graph
+→ Vehicle-wise profit/loss data for chart
+📂 File Structure:
+/app/api/
+/components/
+   VehicleSelector.tsx
+   VehicleSummaryCard.tsx
+   DriverRentCard.tsx
+   ProfitGraph.tsx
+   UnpaidRentsPanel.tsx
+   SettlementTrigger.tsx
+/models/
+   Vehicle.ts
+   Driver.ts
+   Trip.ts
+   DriverRentLog.ts
+   WeeklySettlement.ts
+/lib/
+   rentalUtils.ts (getRentalRate, getNextSlab)
+✅ Zod Validations:
+Validate all forms for required fields, number ranges
+Rent log form should validate date and amount
+Trip count must be ≥ 0
+Models include timestamps (createdAt, updatedAt)
+📈 Bonus Features (Optional):
+Export weekly data to Excel or PDF
+Admin login with NextAuth.js
+SMS reminders for unpaid drivers
+Substitute driver UI
+🎯 Final Goal:
+A full-featured admin dashboard for managing a sub-fleet business:
+Tracks Uber trips
+Calculates rental slabs dynamically
+Collects rent from drivers
+Pays rent to PMV/Letzryd based on weekly trip slabs
+Shows driver-level rent status
+Shows vehicle-level profit
+Tracks all-time unpaid rents
+Offers weekly performance graphs

@@ -1,0 +1,161 @@
+Build a full-stack web application to manage my fleet rental and driver performance tracking business. Use the following tech stack:
+
+🧰 Tech Stack:
+- Next.js 14 (App Router) + TypeScript
+- MongoDB with Mongoose
+- Tailwind CSS + shadcn/ui
+- Zod for validation
+- Recharts for graph
+- Optional: NextAuth for login
+
+---
+
+🚘 Business Case:
+I lease cars from two companies: PMV and Letzryd.  
+Each vehicle has two drivers (morning and evening shift).  
+Drivers take Uber trips daily and pay me fixed rent.  
+I pay the vehicle company (PMV or Letzryd) rent based on **trip-based weekly slabs**.  
+I want the system to track:
+- Daily Uber trips per driver
+- Rent paid by each driver (pending/paid)
+- Rent payable to company (PMV or Letzryd) based on slab
+- Weekly profit/loss per vehicle
+- All unpaid rents across all time
+- Graph to compare profits between vehicles
+
+---
+
+📦 MongoDB Collections:
+
+1. Vehicle:
+```ts
+{
+  vehicleNumber: string,
+  company: "PMV" | "Letzryd",
+  assignedDrivers: [ObjectId, ObjectId]
+}
+Driver:
+{
+  name: string,
+  phone: string,
+  hasAccommodation: boolean // true = ₹600/day, false = ₹500/day
+}
+Trip:
+{
+  vehicleId: ObjectId,
+  driverId: ObjectId,
+  shift: "morning" | "evening",
+  tripCount: number,
+  tripDate: Date
+}
+DriverRentLog:
+{
+  driverId: ObjectId,
+  date: Date,
+  rent: number,  // 500 or 600
+  paid: boolean
+}
+WeeklySettlement:
+{
+  vehicleId: ObjectId,
+  weekStart: Date,
+  weekEnd: Date,
+  totalTrips: number,
+  rentalRate: number,
+  totalRentToCompany: number,
+  driver1: { id: ObjectId, rent: number },
+  driver2: { id: ObjectId, rent: number },
+  totalDriverRent: number,
+  profit: number,
+  paid: boolean
+}
+📊 Rental Slab Logic:
+Letzryd:
+140+ trips → ₹260/day
+125–139 → ₹380/day
+110–124 → ₹470/day
+80–109 → ₹600/day
+65–79 → ₹710/day
+<65 → ₹950/day
+PMV:
+140+ trips → ₹150/day
+135–139 → ₹249/day
+120–134 → ₹444/day
+80–119 → ₹640/day
+65–79 → ₹750/day
+<65 → ₹949/day
+💸 Driver Rent Logic:
+₹600/day if accommodation is given
+₹500/day if not
+Rent logged daily and marked as “paid” or “pending”
+All-time unpaid driver rents should be visible in dashboard
+📈 Weekly Profit Formula:
+Total trips = trips of both drivers combined
+Rental Rate = based on company & total trips (slab)
+Rent to company = rate × 7 days
+Driver rent = ₹600 or ₹500 × 7 days × 2 drivers
+Profit = Driver Rent Collected – Company Rent Paid
+🧠 Dashboard Features:
+✅ When a vehicle is selected:
+Total trips this week
+Current slab rental rate
+Tip: “X more trips needed for cheaper rental slab”
+Total rent payable to Letzryd/PMV
+✅ Driver Info:
+Driver name
+Trips done this week
+Daily rent × days = due
+Toggle rent from pending to paid
+All-time unpaid rents section
+✅ Weekly Profit Section:
+Shows Income – Expense = Profit
+Color code: green = profit, red = loss
+✅ Graph Section:
+Bar chart showing profit/loss for each vehicle
+x-axis: vehicle number
+y-axis: ₹ profit
+Use Recharts for this
+🔌 APIs to Build:
+GET /api/vehicle/:id/weekly-summary
+POST /api/driver/:id/rent-status
+GET /api/driver/unpaid-rents
+GET /api/dashboard/profit-graph
+POST /api/settlements
+📂 Components to Build:
+VehicleSelector – choose a vehicle
+VehicleSummaryCard – trip total, slab details, rent tip
+DriverRentCard – show rent & toggle status
+UnpaidDriversPanel – global pending list
+ProfitGraph – bar chart with Recharts
+SettlementRunner – trigger weekly settlement
+✅ Must-Have Functions:
+getRentalRate(company: "PMV" | "Letzryd", tripCount: number): number
+getNextRentalTarget(company, tripCount): { nextRate: number, neededTrips: number }
+🧪 Use Zod to validate:
+Trip logs
+Rent logs
+Settlement creation
+Driver assignments
+🎯 Final Goal:
+A working fleet management system that:
+Tracks trip count daily
+Calculates dynamic rental rate weekly
+Collects and tracks driver rent
+Tracks rent payable to companies (Letzryd/PMV)
+Calculates and visualizes weekly profit
+Keeps full history of unpaid rents
+Compares profit per vehicle visually via dashboard
+
+---
+
+### ✅ How to Use:
+1. Open **Replit** and go to the “Ask AI” or “Ghostwriter” panel  
+2. **Paste the full prompt above**  
+3. Let it generate the full project (or build one module at a time)
+
+Let me know if you'd like:
+- The **folder structure**
+- The `getRentalRate()` helper function
+- A starting schema or dashboard layout
+
+We can now build from this foundation 🔧

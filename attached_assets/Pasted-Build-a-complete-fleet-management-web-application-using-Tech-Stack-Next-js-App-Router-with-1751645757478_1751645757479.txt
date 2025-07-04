@@ -1,0 +1,113 @@
+Build a complete fleet management web application using:
+
+🔧 Tech Stack:
+- Next.js (App Router) with TypeScript
+- MongoDB (with Mongoose)
+- Tailwind CSS for styling
+- Zod for form validation
+- Recharts for weekly profit visualization
+- Admin-style layout using shadcn/ui or Tailwind components
+
+🧠 Business Context:
+I run a fleet business where I lease vehicles from two companies — PMV and Letzryd — and sub-lease them to Uber drivers. Each vehicle is operated by 2 drivers per day (morning and evening shift). Drivers log their Uber trips daily, and I settle rentals with PMV or Letzryd every week, based on total weekly trips. I also collect fixed daily rent from drivers and calculate weekly profit vehicle-wise.
+
+💡 Core System Features:
+
+1. ✅ Vehicle Management
+   - Fields: vehicleNumber, company (PMV or Letzryd), assignedDrivers [morningId, eveningId]
+
+2. ✅ Driver Management
+   - Fields: name, phone, hasAccommodation (true/false)
+   - Driver rent:
+     - ₹600/day if accommodation
+     - ₹500/day if not
+
+3. ✅ Trip Logging
+   - Fields: driverId, vehicleId, tripDate, tripCount, shift (morning/evening)
+   - Logged daily via form
+   - Automatically updates weekly trip totals
+
+4. ✅ Rental Slab Logic (Vehicle Rent You Pay)
+   - Every week, calculate total trips per vehicle (sum of both drivers)
+   - Rental rate is applied based on company and trip count:
+
+📦 Letzryd Slabs:
+- 140+ trips → ₹260/day
+- 125–139 → ₹380/day
+- 110–124 → ₹470/day
+- 80–109 → ₹600/day
+- 65–79 → ₹710/day
+- <65 → ₹950/day
+
+📦 PMV Slabs:
+- 140+ trips → ₹150/day
+- 135–139 → ₹249/day
+- 120–134 → ₹444/day
+- 80–119 → ₹640/day
+- 65–79 → ₹750/day
+- <65 → ₹949/day
+
+   - Weekly Rent to Company = rentalRate × 7
+   - Saved in `WeeklySettlement` collection
+
+5. ✅ Driver Rent Tracking (Income You Receive)
+   - Drivers are charged daily based on accommodation
+   - You log whether rent is paid or pending
+   - Substitute drivers (if needed) also logged with:
+     - 6 hrs → ₹250, 8 hrs → ₹350, 12 hrs → ₹500
+
+6. ✅ Profit Calculation (Vehicle-wise)
+   - Total income = driver1Rent + driver2Rent
+   - Total expense = rentalRate × 7
+   - Profit = income – expense
+   - Saved weekly with settlement
+
+7. ✅ Dashboard
+   - Vehicle selector dropdown
+   - Show weekly data:
+     - Total trips
+     - Rental rate
+     - Amount payable to PMV/Letzryd
+     - Driver names
+     - Trip count each
+     - Rent pending per driver
+     - ✅ Weekly Profit
+
+8. 📊 Weekly Profit Visualization (Recharts)
+   - Display profit per vehicle in bar chart
+   - Color code high-profit vs low-profit
+   - Optional: add month selector and filter
+
+📂 MongoDB Collections:
+- `Vehicle`: vehicleNumber, company, assignedDrivers
+- `Driver`: name, phone, hasAccommodation
+- `Trip`: driverId, vehicleId, tripDate, shift, tripCount
+- `DriverRentLog`: driverId, date, rent, paid
+- `SubstituteDriver`: name, vehicleId, date, shiftHours, charge
+- `WeeklySettlement`: vehicleId, weekStart, weekEnd, totalTrips, rentalRate, totalRentToCompany, driver1: {id, rent}, driver2: {id, rent}, totalDriverRent, profit, paid
+
+✅ Development Order:
+1. Create models and connect to MongoDB
+2. Build trip entry and rent logging form
+3. Add API logic to calculate weekly vehicle settlement with slabs
+4. Save profit data to WeeklySettlement
+5. Build dashboard with:
+   - Vehicle selector
+   - Weekly summary cards
+   - Profit graph using Recharts
+6. Add status toggles (paid/unpaid), export to Excel (optional)
+
+⛳ Validation & Best Practices:
+- Use Zod in all forms
+- Validate number ranges and required fields
+- Use `createdAt`, `updatedAt` timestamps
+- Build mobile-responsive admin layout
+- Prioritize performance and clean UX
+
+Start by scaffolding the folders:
+- `app/api/`
+- `lib/` (rental calculator logic)
+- `models/` (Mongoose schemas)
+- `components/` (dashboard widgets)
+
+Let me know if you'd like login/auth included.

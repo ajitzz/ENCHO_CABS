@@ -1,0 +1,99 @@
+Build a complete fleet management web application using:
+
+🔧 Tech Stack:
+- Next.js (App Router) with TypeScript
+- MongoDB (using Mongoose)
+- Tailwind CSS for styling
+- Zod for form validation
+- Recharts for analytics (optional)
+- Use shadcn/ui or plain Tailwind components for admin dashboard layout
+
+📦 Overview:
+I run a fleet business by taking vehicles from companies like **PMV** and **Letzryd**. I assign 2 drivers to each vehicle — one for the **morning shift**, and one for the **evening shift**. Each driver logs **Uber trips daily**, and I need to track:
+
+1. 🚗 Total vehicle trips per week
+2. 💰 Rental I owe to the company (PMV or Letzryd) based on trips
+3. 💸 Rental the drivers owe me daily (₹600 or ₹500)
+4. 👥 Substitute drivers when a regular driver is on leave
+
+🧠 Business Logic in Detail:
+
+🔹 VEHICLE RENTAL SETTLEMENT (WEEKLY)
+- At the end of each week (Sunday), calculate total trips per vehicle by combining morning and evening shifts.
+- Based on total weekly trips and vehicle’s company, apply these **rental slabs**:
+
+Letzryd Rental Slabs:
+- 140+ trips → ₹260/day
+- 125-139 → ₹380/day
+- 110-124 → ₹470/day
+- 80-109 → ₹600/day
+- 65-79 → ₹710/day
+- Below 65 → ₹950/day
+
+PMV Rental Slabs:
+- 140+ trips → ₹150/day
+- 135-139 → ₹249/day
+- 120-134 → ₹444/day
+- 80-119 → ₹640/day
+- 65-79 → ₹750/day
+- Below 65 → ₹949/day
+
+The system should calculate:
+- Weekly total trips per vehicle
+- Rental rate applied
+- Weekly rent = rate × 7
+- Save into `WeeklySettlement` collection
+
+🔹 DRIVER RENTAL (DAILY)
+- Drivers pay rent daily based on:
+  - ₹600/day if accommodation is provided
+  - ₹500/day if not
+- Each day:
+  - Log whether driver paid or not
+  - Track pending rent
+
+🔹 SUBSTITUTE DRIVER SUPPORT
+- When a driver is on leave:
+  - Substitute is added with name, shift hours, and charge
+  - Charge slabs:
+    - 6 hrs → ₹250
+    - 8 hrs → ₹350
+    - 12 hrs → ₹500
+
+🔹 TRIP TRACKING
+- Each driver logs:
+  - Vehicle ID
+  - Shift (morning/evening)
+  - Trip date
+  - Trip count
+- These trip logs update weekly calculations automatically
+
+🔹 DASHBOARD FEATURES
+- Vehicle selector (dropdown)
+- On selecting a vehicle, show:
+  - Weekly trip total
+  - Rental rate and amount owed to company
+  - Both drivers assigned (morning/evening)
+  - Their individual trip totals
+  - Pending driver rent
+
+📂 DATABASE COLLECTIONS TO CREATE:
+- `Vehicle`: vehicleNumber, company (PMV or Letzryd), assignedDrivers [morningId, eveningId]
+- `Driver`: name, phone, hasAccommodation (boolean)
+- `Trip`: driverId, vehicleId, tripDate, shift, tripCount
+- `DriverRentLog`: driverId, date, rent, paid (boolean)
+- `WeeklySettlement`: vehicleId, weekStart, weekEnd, totalTrips, rentalRate, totalRent, paid (boolean)
+- `SubstituteDriver`: name, date, vehicleId, shiftHours, amount
+
+✅ START BY BUILDING:
+1. Trip entry form (driverId, vehicleId, date, shift, tripCount)
+2. Daily rent log form (driverId, paid: true/false)
+3. Logic to calculate weekly settlement (trip aggregation + rental slab logic)
+4. Vehicle dashboard UI with dropdown + weekly summary (trip count, rent, drivers)
+
+✅ Extra Notes:
+- Use Zod for validating all forms
+- Use timestamps in models (`createdAt`, `updatedAt`)
+- Use App Router structure (`app/` folder) for all API and frontend pages
+- Use MongoDB Atlas or local DB for storage
+- Keep layout desktop-first (admin use)
