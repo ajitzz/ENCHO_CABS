@@ -1,0 +1,198 @@
+🚀 Build a full-stack Fleet Management Web Application using:
+
+🔧 Tech Stack:
+- Next.js (App Router) with TypeScript
+- MongoDB (Mongoose)
+- Tailwind CSS for styling
+- shadcn/ui or custom Tailwind components for layout
+- Zod for form validation
+- Recharts for weekly profit visualization
+
+---
+
+🧠 Business Context:
+I run a fleet business by leasing vehicles from PMV and Letzryd. Each vehicle is operated by 2 Uber drivers per day (morning and evening shifts). Drivers log trips daily.  
+I collect daily rent from drivers, pay rent weekly to the company based on the number of trips taken per vehicle, and calculate profit per vehicle weekly.  
+If a driver takes leave, a **Substitute Driver** is provided on an hourly rental basis (6, 8, or 12 hours). I want to manage all of this via a responsive web dashboard.
+
+---
+
+## ✅ Core Features
+
+### 1. Vehicle Management
+- Fields: `vehicleNumber`, `company` ("PMV" or "Letzryd"), `assignedDrivers` [morningId, eveningId]
+
+### 2. Driver Management
+- Fields: `name`, `phone`, `hasAccommodation` (true/false)
+- Daily driver rent:
+  - ₹600/day (with accommodation)
+  - ₹500/day (without accommodation)
+
+### 3. Daily Trip Logging
+- Fields: `driverId`, `vehicleId`, `tripDate`, `tripCount`, `shift` ("morning" or "evening")
+- Logged daily via a form
+- Automatically updates vehicle’s weekly trip totals
+
+### 4. Driver Rent Tracking
+- Logged daily in `DriverRentLog`
+- Paid/pending toggle
+- Driver rent cards in dashboard
+- Unpaid drivers tracked across **all time**, not just weekly
+
+---
+
+## 📦 Rental Slab Logic
+
+### Letzryd Weekly Trip Slabs:
+- 140+ trips → ₹260/day  
+- 125–139 → ₹380/day  
+- 110–124 → ₹470/day  
+- 80–109 → ₹600/day  
+- 65–79 → ₹710/day  
+- <65 → ₹950/day  
+
+### PMV Weekly Trip Slabs:
+- 140+ trips → ₹150/day  
+- 135–139 → ₹249/day  
+- 120–134 → ₹444/day  
+- 80–119 → ₹640/day  
+- 65–79 → ₹750/day  
+- <65 → ₹949/day  
+
+➡️ Rent to company = slabRate × 7
+
+---
+
+## ✅ 5. Substitute Driver Management (NEW ✅)
+> Used when regular driver takes urgent leave
+
+### Charges:
+- 6 hours → ₹250  
+- 8 hours → ₹350  
+- 12 hours → ₹500
+
+### Fields:
+- `name`, `vehicleId`, `date`, `shift` ("morning" or "evening"), `shiftHours` (6, 8, or 12), `charge`
+
+### Validation:
+- shiftHours must be 6, 8, or 12
+- charge must exactly match allowed hourly pricing
+- Prevent multiple substitutes in same shift/day/vehicle
+
+---
+
+## ✅ 6. Weekly Settlement & Profit Calculation
+
+### Formula:
+```ts
+driverRentTotal = driver1Rent + driver2Rent
+substituteCharges = sum of all substitute driver charges this week
+totalIncome = driverRentTotal + substituteCharges
+rentToCompany = rentalSlab × 7
+weeklyProfit = totalIncome - rentToCompany
+➡️ Data saved to WeeklySettlement collection
+🧾 MongoDB Collections
+Vehicle
+{ vehicleNumber, company, assignedDrivers }
+Driver
+{ name, phone, hasAccommodation }
+Trip
+{ driverId, vehicleId, tripDate, shift, tripCount }
+DriverRentLog
+{ driverId, date, rent, paid }
+SubstituteDriver ✅
+{
+  name: string,
+  vehicleId: ObjectId,
+  date: Date,
+  shift: "morning" | "evening",
+  shiftHours: 6 | 8 | 12,
+  charge: 250 | 350 | 500
+}
+WeeklySettlement
+{
+  vehicleId,
+  weekStart,
+  weekEnd,
+  totalTrips,
+  rentalRate,
+  totalRentToCompany,
+  driver1: { id, rent },
+  driver2: { id, rent },
+  substituteDriverCharges,
+  totalDriverRent,
+  profit,
+  paid
+}
+🧱 Folder Structure
+/app/api/
+/models/
+  Vehicle.ts
+  Driver.ts
+  Trip.ts
+  DriverRentLog.ts
+  WeeklySettlement.ts
+  SubstituteDriver.ts ✅
+/lib/
+  rentalUtils.ts (getRentalRate, getNextSlabTier)
+/components/
+  VehicleSelector.tsx
+  VehicleSummaryCard.tsx
+  DriverRentCard.tsx
+  SubstituteDriverForm.tsx ✅
+  SubstituteList.tsx ✅
+  ProfitGraph.tsx
+  UnpaidRentsPanel.tsx
+🔌 Required API Routes
+POST /api/trips/log
+POST /api/driver/:id/rent-status (toggle paid/pending)
+POST /api/substitute-drivers ✅
+GET /api/substitute-drivers?week=... ✅
+POST /api/settlements/run (calculate and save profit)
+GET /api/vehicle/:id/weekly-summary
+GET /api/driver/unpaid-rents
+GET /api/dashboard/profit-graph
+📊 Dashboard Components
+Vehicle Summary (Dropdown View)
+Total trips
+Rental rate (based on trip slab)
+“X more trips needed to get to better rate”
+Rent payable to PMV/Letzryd
+Substitute driver cost this week ✅
+Rent collected from both drivers
+Total profit/loss this week
+Driver Rent Cards
+Driver name, trip count
+Rent pending → toggle to “Paid”
+Paid drivers move to history
+Unpaid driver rents shown across lifetime ✅
+Substitute Driver Section ✅
+Name, date, shift, hours, charge
+List shown per vehicle/week
+Added into income automatically
+Recharts Graph (Weekly Profit)
+Bar chart: vehicle vs profit ₹
+Filter by week/month
+Color-coded for profit/loss
+✅ Form Validation (Zod)
+All forms (trip log, driver rent, substitutes) validated using Zod
+Validate numeric inputs, shift values, allowed ranges
+createdAt and updatedAt timestamps in all schemas
+⛳ Development Steps
+Scaffold backend models in models/
+Build trip entry + driver rent log forms
+Add substitute driver entry form ✅
+Write logic to calculate weekly rent slabs
+Run profit calculation & store weekly summaries
+Build dashboard with all summaries and toggles
+Integrate Recharts profit graph
+Add filter/search by week/month
+Optional: Export data to Excel
+🎯 Final Goal:
+Build a clean, mobile-friendly web app that:
+Tracks daily Uber trips and rent
+Calculates vehicle-wise rent slab based on trips
+Logs substitute driver shifts on demand
+Shows weekly rent, income, and profit
+Displays long-term unpaid rent cases
+Graphs performance across all vehicles
