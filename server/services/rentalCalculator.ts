@@ -11,6 +11,7 @@ export interface RentalInfo {
     tripsNeeded: number;
   } | null;
   weeklyCost: number;
+  optimizationTip: string;
 }
 
 const LETZRYD_SLABS: RentalSlab[] = [
@@ -63,10 +64,19 @@ export function getRentalInfo(company: "PMV" | "Letzryd", tripCount: number): Re
     }
   }
   
+  // Generate optimization tip
+  let optimizationTip = "";
+  if (nextBetterSlab) {
+    optimizationTip = `${nextBetterSlab.tripsNeeded} more trips needed to reach ₹${nextBetterSlab.rate}/day slab. Current: ${tripCount} trips, Target: ${nextBetterSlab.tripsNeeded + tripCount} trips.`;
+  } else {
+    optimizationTip = "You've reached the best slab! 🎉";
+  }
+
   return {
     currentRate,
     nextBetterSlab,
     weeklyCost,
+    optimizationTip,
   };
 }
 

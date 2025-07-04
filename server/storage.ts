@@ -37,6 +37,7 @@ export interface IStorage {
   getTripsByVehicleAndDateRange(vehicleId: number, startDate: Date, endDate: Date): Promise<Trip[]>;
   getTripsByDriverAndDateRange(driverId: number, startDate: Date, endDate: Date): Promise<Trip[]>;
   getRecentTrips(limit: number): Promise<Array<Trip & { driverName: string; vehicleNumber: string }>>;
+  deleteTrip(id: number): Promise<void>;
 
   // Driver rent log operations
   createDriverRentLog(rentLog: InsertDriverRentLog): Promise<DriverRentLog>;
@@ -189,6 +190,10 @@ export class DatabaseStorage implements IStorage {
       .limit(limit);
     
     return result;
+  }
+
+  async deleteTrip(id: number): Promise<void> {
+    await db.delete(trips).where(eq(trips.id, id));
   }
 
   // Driver rent log operations

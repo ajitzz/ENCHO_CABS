@@ -69,6 +69,7 @@ export interface VehicleSummary {
       tripsNeeded: number;
     } | null;
     weeklyCost: number;
+    optimizationTip: string;
   };
   morningDriver: Driver | null;
   eveningDriver: Driver | null;
@@ -208,6 +209,13 @@ export const api = {
     const response = await fetch(`/api/trips/recent/${limit}`);
     if (!response.ok) throw new Error("Failed to fetch recent trips");
     return response.json();
+  },
+
+  deleteTrip: async (id: number): Promise<void> => {
+    const response = await fetch(`/api/trips/${id}`, {
+      method: "DELETE",
+    });
+    if (!response.ok) throw new Error("Failed to delete trip");
   },
 
   // Driver rent log APIs

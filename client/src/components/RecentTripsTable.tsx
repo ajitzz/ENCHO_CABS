@@ -1,15 +1,40 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { format } from "date-fns";
+import { Trash2 } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 
 export default function RecentTripsTable() {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
   const { data: recentTrips, isLoading } = useQuery({
     queryKey: ["/api/trips/recent/10"],
     queryFn: () => api.getRecentTrips(10),
   });
+
+  const deleteTripMutation = useMutation({
+    mutationFn: (tripId: number) => api.deleteTrip(tripId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/trips/recent/10"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/trips/recent/50"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/dashboard/profit-graph"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/settlements"] });
+      toast({ title: "Trip deleted successfully", variant: "default" });
+    },
+    onError: (error) => {
+      toast({ title: "Failed to delete trip", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const handleDeleteTrip = (tripId: number, driverName: string, vehicleNumber: string) => {
+    if (window.confirm(`Are you sure you want to delete the trip for ${driverName} (${vehicleNumber})?`)) {
+      deleteTripMutation.mutate(tripId);
+    }
+  };
 
   if (isLoading) {
     return <div className="animate-pulse h-80 bg-gray-200 rounded-xl"></div>;
@@ -36,6 +61,7 @@ export default function RecentTripsTable() {
                   <th className="text-left py-2 text-gray-500 font-medium">Vehicle</th>
                   <th className="text-center py-2 text-gray-500 font-medium">Trips</th>
                   <th className="text-center py-2 text-gray-500 font-medium">Shift</th>
+                  <th className="text-center py-2 text-gray-500 font-medium">Action</th>
                 </tr>
               </thead>
               <tbody>
@@ -54,6 +80,17 @@ export default function RecentTripsTable() {
                       >
                         {trip.shift === "morning" ? "Morning" : "Evening"}
                       </Badge>
+                    </td>
+                    <td className="py-3 text-center">
+                      <Button 
+                        variant="ghost" 
+                        size="sm" 
+                        onClick={() => handleDeleteTrip(trip.id, trip.driverName, trip.vehicleNumber)}
+                        disabled={deleteTripMutation.isPending}
+                        className="h-8 w-8 p-0 hover:bg-red-50 hover:text-red-600"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
                     </td>
                   </tr>
                 ))}

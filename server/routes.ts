@@ -159,6 +159,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.delete("/api/trips/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ message: "Invalid trip ID" });
+      }
+      await storage.deleteTrip(id);
+      res.json({ message: "Trip deleted successfully" });
+    } catch (error) {
+      res.status(400).json({ message: "Failed to delete trip", error: error.message });
+    }
+  });
+
   app.get("/api/trips/recent/:limit", async (req, res) => {
     try {
       const limit = parseInt(req.params.limit) || 10;

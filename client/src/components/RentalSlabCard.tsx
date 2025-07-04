@@ -89,6 +89,19 @@ export default function RentalSlabCard({ vehicleId }: RentalSlabCardProps) {
           </div>
         )}
 
+        {/* Optimization Tip */}
+        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+          <div className="flex items-start space-x-2">
+            <div className="w-5 h-5 bg-yellow-100 rounded-full flex items-center justify-center mt-0.5">
+              <span className="text-yellow-600 text-xs">💡</span>
+            </div>
+            <div className="flex-1">
+              <h4 className="text-sm font-medium text-yellow-900 mb-1">Optimization Tip</h4>
+              <p className="text-sm text-yellow-800">{vehicleSummary.rentalInfo.optimizationTip}</p>
+            </div>
+          </div>
+        </div>
+
         {/* All Slabs Reference */}
         <div className="border-t pt-4">
           <h4 className="text-sm font-medium text-gray-900 mb-3">

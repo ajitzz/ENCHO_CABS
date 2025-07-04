@@ -2,10 +2,18 @@ import { useQuery } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { User, Check, Clock, X, Minus } from "lucide-react";
 
 interface DriverPerformanceCardProps {
   vehicleId: number;
+}
+
+// Helper function to determine driver performance status
+function getDriverPerformanceStatus(tripCount: number) {
+  if (tripCount < 10) return { label: "Low", color: "bg-red-100 text-red-800", emoji: "🔴" };
+  if (tripCount === 10) return { label: "Good", color: "bg-yellow-100 text-yellow-800", emoji: "🟡" };
+  return { label: "Excellent", color: "bg-green-100 text-green-800", emoji: "🟢" };
 }
 
 export default function DriverPerformanceCard({ vehicleId }: DriverPerformanceCardProps) {
@@ -79,7 +87,12 @@ export default function DriverPerformanceCard({ vehicleId }: DriverPerformanceCa
                 </div>
               </div>
               <div className="text-right">
-                <p className="text-lg font-bold text-gray-900">-- trips</p>
+                <div className="flex items-center justify-end space-x-2 mb-1">
+                  <Badge className={getDriverPerformanceStatus(vehicleSummary.totalTrips).color}>
+                    {getDriverPerformanceStatus(vehicleSummary.totalTrips).emoji} {getDriverPerformanceStatus(vehicleSummary.totalTrips).label}
+                  </Badge>
+                </div>
+                <p className="text-lg font-bold text-gray-900">{vehicleSummary.totalTrips} trips</p>
                 <p className="text-sm text-gray-500">This Week</p>
               </div>
             </div>
@@ -123,7 +136,12 @@ export default function DriverPerformanceCard({ vehicleId }: DriverPerformanceCa
                 </div>
               </div>
               <div className="text-right">
-                <p className="text-lg font-bold text-gray-900">-- trips</p>
+                <div className="flex items-center justify-end space-x-2 mb-1">
+                  <Badge className={getDriverPerformanceStatus(vehicleSummary.totalTrips).color}>
+                    {getDriverPerformanceStatus(vehicleSummary.totalTrips).emoji} {getDriverPerformanceStatus(vehicleSummary.totalTrips).label}
+                  </Badge>
+                </div>
+                <p className="text-lg font-bold text-gray-900">{vehicleSummary.totalTrips} trips</p>
                 <p className="text-sm text-gray-500">This Week</p>
               </div>
             </div>
