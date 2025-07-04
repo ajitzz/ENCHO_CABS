@@ -8,7 +8,7 @@ import {
   type InsertSubstituteDriver
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, and, gte, lte, desc, asc } from "drizzle-orm";
+import { eq, and, or, gte, lte, desc, asc } from "drizzle-orm";
 
 export interface IStorage {
   // Vehicle operations
@@ -221,7 +221,8 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getUnpaidDriverRents(): Promise<Array<DriverRentLog & { driverName: string; vehicleNumber: string }>> {
-    const result = await db.select({
+    // Get unpaid rent logs with driver names
+    const rentLogs = await db.select({
       id: driverRentLogs.id,
       driverId: driverRentLogs.driverId,
       date: driverRentLogs.date,
@@ -230,13 +231,33 @@ export class DatabaseStorage implements IStorage {
       createdAt: driverRentLogs.createdAt,
       updatedAt: driverRentLogs.updatedAt,
       driverName: drivers.name,
-      vehicleNumber: vehicles.vehicleNumber,
     }).from(driverRentLogs)
       .innerJoin(drivers, eq(driverRentLogs.driverId, drivers.id))
-      .innerJoin(trips, eq(trips.driverId, drivers.id))
-      .innerJoin(vehicles, eq(trips.vehicleId, vehicles.id))
       .where(eq(driverRentLogs.paid, false))
       .orderBy(desc(driverRentLogs.date));
+
+    // Add vehicle information for each rent log
+    const result: Array<DriverRentLog & { driverName: string; vehicleNumber: string }> = [];
+    for (const rentLog of rentLogs) {
+      // Find vehicle assignment for this driver
+      const assignment = await db.select({
+        vehicleId: vehicleDriverAssignments.vehicleId,
+        vehicleNumber: vehicles.vehicleNumber,
+      }).from(vehicleDriverAssignments)
+        .innerJoin(vehicles, eq(vehicleDriverAssignments.vehicleId, vehicles.id))
+        .where(or(
+          eq(vehicleDriverAssignments.morningDriverId, rentLog.driverId),
+          eq(vehicleDriverAssignments.eveningDriverId, rentLog.driverId)
+        ))
+        .limit(1);
+
+      const vehicleNumber = assignment[0]?.vehicleNumber || "Unassigned";
+      
+      result.push({
+        ...rentLog,
+        vehicleNumber: vehicleNumber as string,
+      });
+    }
     
     return result;
   }
