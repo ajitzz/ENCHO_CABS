@@ -187,14 +187,18 @@ export const api = {
   createTrip: async (tripData: {
     driverId: number;
     vehicleId: number;
-    tripDate: string;
+    tripDate: Date | string;
     shift: "morning" | "evening";
     tripCount: number;
   }): Promise<Trip> => {
+    const serializedData = {
+      ...tripData,
+      tripDate: tripData.tripDate instanceof Date ? tripData.tripDate.toISOString() : tripData.tripDate,
+    };
     const response = await fetch("/api/trips", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(tripData),
+      body: JSON.stringify(serializedData),
     });
     if (!response.ok) throw new Error("Failed to create trip");
     return response.json();

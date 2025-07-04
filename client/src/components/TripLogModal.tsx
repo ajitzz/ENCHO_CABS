@@ -78,7 +78,7 @@ export default function TripLogModal({ open, onOpenChange }: TripLogModalProps) 
       const parsedData = {
         vehicleId: parseInt(data.vehicleId),
         driverId: parseInt(data.driverId),
-        tripDate: data.tripDate,
+        tripDate: new Date(data.tripDate),
         shift: data.shift as "morning" | "evening",
         tripCount: parseInt(data.tripCount),
       };

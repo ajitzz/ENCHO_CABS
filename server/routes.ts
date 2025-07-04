@@ -146,7 +146,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Trip routes
   app.post("/api/trips", async (req, res) => {
     try {
-      const tripData = insertTripSchema.parse(req.body);
+      // Convert tripDate string to Date object before validation
+      const body = {
+        ...req.body,
+        tripDate: new Date(req.body.tripDate)
+      };
+      const tripData = insertTripSchema.parse(body);
       const trip = await storage.createTrip(tripData);
       res.status(201).json(trip);
     } catch (error) {
