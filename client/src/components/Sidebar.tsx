@@ -1,6 +1,9 @@
 import { Truck, BarChart3, Car, Users, Route, Calculator, Banknote } from "lucide-react";
+import { Link, useLocation } from "wouter";
 
 export default function Sidebar() {
+  const [location] = useLocation();
+  
   const currentWeek = new Date().toLocaleDateString('en-US', {
     month: 'short',
     day: 'numeric',
@@ -8,12 +11,12 @@ export default function Sidebar() {
   });
 
   const menuItems = [
-    { icon: BarChart3, label: "Dashboard", href: "#dashboard", active: true },
-    { icon: Car, label: "Vehicles", href: "#vehicles" },
-    { icon: Users, label: "Drivers", href: "#drivers" },
-    { icon: Route, label: "Trip Logs", href: "#trips" },
-    { icon: Calculator, label: "Settlements", href: "#settlements" },
-    { icon: Banknote, label: "Rent Tracking", href: "#rentals" },
+    { icon: BarChart3, label: "Dashboard", href: "/", active: location === "/" },
+    { icon: Car, label: "Vehicles", href: "/vehicles", active: location === "/vehicles" },
+    { icon: Users, label: "Drivers", href: "/drivers", active: location === "/drivers" },
+    { icon: Route, label: "Trip Logs", href: "/trips", active: location === "/trips" },
+    { icon: Calculator, label: "Settlements", href: "/settlements", active: location === "/settlements" },
+    { icon: Banknote, label: "Rent Tracking", href: "/rent-tracking", active: location === "/rent-tracking" },
   ];
 
   return (
@@ -34,7 +37,7 @@ export default function Sidebar() {
         {menuItems.map((item) => {
           const Icon = item.icon;
           return (
-            <a
+            <Link
               key={item.label}
               href={item.href}
               className={`flex items-center space-x-3 px-3 py-2 rounded-lg font-medium transition-colors ${
@@ -45,7 +48,7 @@ export default function Sidebar() {
             >
               <Icon className="w-5 h-5" />
               <span>{item.label}</span>
-            </a>
+            </Link>
           );
         })}
       </nav>

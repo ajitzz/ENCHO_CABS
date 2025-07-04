@@ -121,6 +121,23 @@ export const api = {
     return response.json();
   },
 
+  createVehicle: async (vehicleData: {
+    vehicleNumber: string;
+    company: "PMV" | "Letzryd";
+  }): Promise<Vehicle> => {
+    const response = await apiRequest("POST", "/api/vehicles", vehicleData);
+    return response.json();
+  },
+
+  createDriver: async (driverData: {
+    name: string;
+    phone: string;
+    hasAccommodation: boolean;
+  }): Promise<Driver> => {
+    const response = await apiRequest("POST", "/api/drivers", driverData);
+    return response.json();
+  },
+
   // Trip APIs
   createTrip: async (tripData: {
     driverId: number;

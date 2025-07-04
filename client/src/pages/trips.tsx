@@ -1,0 +1,171 @@
+import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { Plus, Calendar, Users, Car, Clock } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { api, type RecentTrip } from "@/lib/api";
+import TripLogModal from "@/components/TripLogModal";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { format } from "date-fns";
+
+export default function Trips() {
+  const [isTripLogModalOpen, setIsTripLogModalOpen] = useState(false);
+
+  const { data: trips, isLoading } = useQuery({
+    queryKey: ["/api/trips/recent/50"],
+    queryFn: () => api.getRecentTrips(50),
+  });
+
+  if (isLoading) {
+    return (
+      <div className="flex-1 p-8">
+        <div className="animate-pulse">
+          <div className="h-8 bg-gray-200 rounded w-48 mb-6"></div>
+          <div className="h-96 bg-gray-200 rounded-lg"></div>
+        </div>
+      </div>
+    );
+  }
+
+  const totalTrips = trips?.reduce((sum, trip) => sum + trip.tripCount, 0) || 0;
+  const todayTrips = trips?.filter(trip => 
+    format(new Date(trip.tripDate), 'yyyy-MM-dd') === format(new Date(), 'yyyy-MM-dd')
+  ) || [];
+  const todayTripCount = todayTrips.reduce((sum, trip) => sum + trip.tripCount, 0);
+
+  return (
+    <div className="flex-1 p-8">
+      <div className="flex justify-between items-center mb-8">
+        <div>
+          <h1 className="text-3xl font-bold text-gray-900">Trip Logs</h1>
+          <p className="text-gray-600 mt-1">Track daily trip counts and performance</p>
+        </div>
+        <Button onClick={() => setIsTripLogModalOpen(true)}>
+          <Plus className="w-4 h-4 mr-2" />
+          Add Trip Log
+        </Button>
+      </div>
+
+      {/* Summary Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-medium text-gray-500">Total Trips</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-gray-900">{totalTrips}</div>
+            <div className="text-sm text-gray-600">All time</div>
+          </CardContent>
+        </Card>
+        
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-medium text-gray-500">Today's Trips</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-blue-600">{todayTripCount}</div>
+            <div className="text-sm text-gray-600">{todayTrips.length} entries</div>
+          </CardContent>
+        </Card>
+        
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-medium text-gray-500">Recent Entries</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-green-600">{trips?.length || 0}</div>
+            <div className="text-sm text-gray-600">Last 50 records</div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Trips Table */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Recent Trip Logs</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Date</TableHead>
+                <TableHead>Vehicle</TableHead>
+                <TableHead>Driver</TableHead>
+                <TableHead>Shift</TableHead>
+                <TableHead>Trip Count</TableHead>
+                <TableHead>Status</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {trips?.map((trip: RecentTrip) => (
+                <TableRow key={trip.id}>
+                  <TableCell>
+                    <div className="flex items-center space-x-2">
+                      <Calendar className="w-4 h-4 text-gray-400" />
+                      <span>{format(new Date(trip.tripDate), 'MMM dd, yyyy')}</span>
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex items-center space-x-2">
+                      <Car className="w-4 h-4 text-gray-400" />
+                      <span>{trip.vehicleNumber}</span>
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex items-center space-x-2">
+                      <Users className="w-4 h-4 text-gray-400" />
+                      <span>{trip.driverName}</span>
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex items-center space-x-2">
+                      <Clock className="w-4 h-4 text-gray-400" />
+                      <Badge variant={trip.shift === "morning" ? "default" : "secondary"}>
+                        {trip.shift}
+                      </Badge>
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    <div className="font-semibold text-lg">
+                      {trip.tripCount}
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    <Badge variant={trip.tripCount >= 12 ? "default" : "destructive"}>
+                      {trip.tripCount >= 12 ? "Good" : "Low"}
+                    </Badge>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+          
+          {trips?.length === 0 && (
+            <div className="text-center py-12">
+              <Calendar className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+              <h3 className="text-lg font-medium text-gray-900 mb-2">No trip logs yet</h3>
+              <p className="text-gray-600 mb-4">Add your first trip log to get started</p>
+              <Button onClick={() => setIsTripLogModalOpen(true)}>
+                <Plus className="w-4 h-4 mr-2" />
+                Add Trip Log
+              </Button>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      <TripLogModal
+        open={isTripLogModalOpen}
+        onOpenChange={setIsTripLogModalOpen}
+      />
+    </div>
+  );
+}
