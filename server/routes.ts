@@ -1,0 +1,277 @@
+import type { Express } from "express";
+import { createServer, type Server } from "http";
+import { storage } from "./storage";
+import { z } from "zod";
+import { 
+  insertVehicleSchema, insertDriverSchema, insertVehicleDriverAssignmentSchema,
+  insertTripSchema, insertDriverRentLogSchema, insertSubstituteDriverSchema 
+} from "@shared/schema";
+import { getRentalInfo, getAllSlabs } from "./services/rentalCalculator";
+import { calculateWeeklySettlement, processWeeklySettlement, processAllVehicleSettlements } from "./services/settlementProcessor";
+
+// Validation schemas
+const vehicleIdSchema = z.object({
+  id: z.string().transform(Number),
+});
+
+const rentLogStatusSchema = z.object({
+  paid: z.boolean(),
+});
+
+const weeklySettlementSchema = z.object({
+  vehicleId: z.number(),
+  weekStartDate: z.string().transform(str => new Date(str)),
+});
+
+export async function registerRoutes(app: Express): Promise<Server> {
+  // Vehicle routes
+  app.get("/api/vehicles", async (req, res) => {
+    try {
+      const vehicles = await storage.getAllVehicles();
+      res.json(vehicles);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch vehicles", error: error.message });
+    }
+  });
+
+  app.post("/api/vehicles", async (req, res) => {
+    try {
+      const vehicleData = insertVehicleSchema.parse(req.body);
+      const vehicle = await storage.createVehicle(vehicleData);
+      res.status(201).json(vehicle);
+    } catch (error) {
+      res.status(400).json({ message: "Invalid vehicle data", error: error.message });
+    }
+  });
+
+  app.get("/api/vehicles/:id", async (req, res) => {
+    try {
+      const { id } = vehicleIdSchema.parse(req.params);
+      const vehicle = await storage.getVehicle(id);
+      if (!vehicle) {
+        return res.status(404).json({ message: "Vehicle not found" });
+      }
+      res.json(vehicle);
+    } catch (error) {
+      res.status(400).json({ message: "Invalid vehicle ID", error: error.message });
+    }
+  });
+
+  // Driver routes
+  app.get("/api/drivers", async (req, res) => {
+    try {
+      const drivers = await storage.getAllDrivers();
+      res.json(drivers);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch drivers", error: error.message });
+    }
+  });
+
+  app.post("/api/drivers", async (req, res) => {
+    try {
+      const driverData = insertDriverSchema.parse(req.body);
+      const driver = await storage.createDriver(driverData);
+      res.status(201).json(driver);
+    } catch (error) {
+      res.status(400).json({ message: "Invalid driver data", error: error.message });
+    }
+  });
+
+  // Vehicle-Driver assignment routes
+  app.post("/api/vehicle-assignments", async (req, res) => {
+    try {
+      const assignmentData = insertVehicleDriverAssignmentSchema.parse(req.body);
+      const assignment = await storage.createVehicleDriverAssignment(assignmentData);
+      res.status(201).json(assignment);
+    } catch (error) {
+      res.status(400).json({ message: "Invalid assignment data", error: error.message });
+    }
+  });
+
+  app.get("/api/vehicles/:id/assignment", async (req, res) => {
+    try {
+      const { id } = vehicleIdSchema.parse(req.params);
+      const assignment = await storage.getVehicleDriverAssignment(id);
+      if (!assignment) {
+        return res.status(404).json({ message: "Assignment not found" });
+      }
+      res.json(assignment);
+    } catch (error) {
+      res.status(400).json({ message: "Invalid vehicle ID", error: error.message });
+    }
+  });
+
+  // Trip routes
+  app.post("/api/trips", async (req, res) => {
+    try {
+      const tripData = insertTripSchema.parse(req.body);
+      const trip = await storage.createTrip(tripData);
+      res.status(201).json(trip);
+    } catch (error) {
+      res.status(400).json({ message: "Invalid trip data", error: error.message });
+    }
+  });
+
+  app.get("/api/trips/recent/:limit", async (req, res) => {
+    try {
+      const limit = parseInt(req.params.limit) || 10;
+      const trips = await storage.getRecentTrips(limit);
+      res.json(trips);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch recent trips", error: error.message });
+    }
+  });
+
+  // Driver rent log routes
+  app.post("/api/driver-rent-logs", async (req, res) => {
+    try {
+      const rentLogData = insertDriverRentLogSchema.parse(req.body);
+      const rentLog = await storage.createDriverRentLog(rentLogData);
+      res.status(201).json(rentLog);
+    } catch (error) {
+      res.status(400).json({ message: "Invalid rent log data", error: error.message });
+    }
+  });
+
+  app.patch("/api/driver-rent-logs/:id/status", async (req, res) => {
+    try {
+      const { id } = vehicleIdSchema.parse(req.params);
+      const { paid } = rentLogStatusSchema.parse(req.body);
+      const updatedRentLog = await storage.updateDriverRentLogPaymentStatus(id, paid);
+      res.json(updatedRentLog);
+    } catch (error) {
+      res.status(400).json({ message: "Failed to update rent log status", error: error.message });
+    }
+  });
+
+  app.get("/api/driver-rent-logs/unpaid", async (req, res) => {
+    try {
+      const unpaidRents = await storage.getUnpaidDriverRents();
+      res.json(unpaidRents);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch unpaid rents", error: error.message });
+    }
+  });
+
+  // Vehicle weekly summary route
+  app.get("/api/vehicles/:id/weekly-summary", async (req, res) => {
+    try {
+      const { id } = vehicleIdSchema.parse(req.params);
+      const weekStartDate = req.query.weekStart ? new Date(req.query.weekStart as string) : new Date();
+      
+      const vehicle = await storage.getVehicle(id);
+      if (!vehicle) {
+        return res.status(404).json({ message: "Vehicle not found" });
+      }
+
+      const settlementData = await calculateWeeklySettlement(id, weekStartDate);
+      if (!settlementData) {
+        return res.status(404).json({ message: "No settlement data available" });
+      }
+
+      const rentalInfo = getRentalInfo(vehicle.company as "PMV" | "Letzryd", settlementData.totalTrips);
+      const assignment = await storage.getVehicleDriverAssignment(id);
+      
+      let morningDriver = null;
+      let eveningDriver = null;
+      
+      if (assignment?.morningDriverId) {
+        morningDriver = await storage.getDriver(assignment.morningDriverId);
+      }
+      
+      if (assignment?.eveningDriverId) {
+        eveningDriver = await storage.getDriver(assignment.eveningDriverId);
+      }
+
+      const summary = {
+        vehicle,
+        ...settlementData,
+        rentalInfo,
+        morningDriver,
+        eveningDriver,
+      };
+
+      res.json(summary);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch vehicle summary", error: error.message });
+    }
+  });
+
+  // Rental slab information route
+  app.get("/api/rental-slabs/:company", async (req, res) => {
+    try {
+      const company = req.params.company as "PMV" | "Letzryd";
+      if (company !== "PMV" && company !== "Letzryd") {
+        return res.status(400).json({ message: "Invalid company. Must be PMV or Letzryd" });
+      }
+      
+      const slabs = getAllSlabs(company);
+      res.json(slabs);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch rental slabs", error: error.message });
+    }
+  });
+
+  // Weekly settlement routes
+  app.post("/api/settlements", async (req, res) => {
+    try {
+      const { vehicleId, weekStartDate } = weeklySettlementSchema.parse(req.body);
+      await processWeeklySettlement(vehicleId, weekStartDate);
+      res.status(201).json({ message: "Settlement processed successfully" });
+    } catch (error) {
+      res.status(400).json({ message: "Failed to process settlement", error: error.message });
+    }
+  });
+
+  app.post("/api/settlements/process-all", async (req, res) => {
+    try {
+      const weekStartDate = req.body.weekStartDate ? new Date(req.body.weekStartDate) : new Date();
+      await processAllVehicleSettlements(weekStartDate);
+      res.status(201).json({ message: "All settlements processed successfully" });
+    } catch (error) {
+      res.status(500).json({ message: "Failed to process all settlements", error: error.message });
+    }
+  });
+
+  app.get("/api/settlements", async (req, res) => {
+    try {
+      const settlements = await storage.getAllWeeklySettlements();
+      res.json(settlements);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch settlements", error: error.message });
+    }
+  });
+
+  // Dashboard profit graph data
+  app.get("/api/dashboard/profit-graph", async (req, res) => {
+    try {
+      const settlements = await storage.getAllWeeklySettlements();
+      
+      const profitData = settlements.map(settlement => ({
+        vehicleNumber: settlement.vehicleNumber,
+        profit: settlement.profit,
+        totalTrips: settlement.totalTrips,
+        weekStart: settlement.weekStart,
+        weekEnd: settlement.weekEnd,
+      }));
+
+      res.json(profitData);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch profit graph data", error: error.message });
+    }
+  });
+
+  // Substitute driver routes
+  app.post("/api/substitute-drivers", async (req, res) => {
+    try {
+      const substituteData = insertSubstituteDriverSchema.parse(req.body);
+      const substitute = await storage.createSubstituteDriver(substituteData);
+      res.status(201).json(substitute);
+    } catch (error) {
+      res.status(400).json({ message: "Invalid substitute driver data", error: error.message });
+    }
+  });
+
+  const httpServer = createServer(app);
+  return httpServer;
+}
