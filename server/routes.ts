@@ -159,6 +159,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.put("/api/trips/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ message: "Invalid trip ID" });
+      }
+      // Convert tripDate string to Date object before validation
+      const body = {
+        ...req.body,
+        tripDate: new Date(req.body.tripDate)
+      };
+      const tripData = insertTripSchema.parse(body);
+      const trip = await storage.updateTrip(id, tripData);
+      res.json(trip);
+    } catch (error) {
+      res.status(400).json({ message: "Failed to update trip", error: error.message });
+    }
+  });
+
   app.delete("/api/trips/:id", async (req, res) => {
     try {
       const id = parseInt(req.params.id);

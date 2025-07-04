@@ -211,6 +211,26 @@ export const api = {
     return response.json();
   },
 
+  updateTrip: async (id: number, tripData: {
+    driverId: number;
+    vehicleId: number;
+    tripDate: Date | string;
+    shift: "morning" | "evening";
+    tripCount: number;
+  }): Promise<Trip> => {
+    const serializedData = {
+      ...tripData,
+      tripDate: tripData.tripDate instanceof Date ? tripData.tripDate.toISOString() : tripData.tripDate,
+    };
+    const response = await fetch(`/api/trips/${id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(serializedData),
+    });
+    if (!response.ok) throw new Error("Failed to update trip");
+    return response.json();
+  },
+
   deleteTrip: async (id: number): Promise<void> => {
     const response = await fetch(`/api/trips/${id}`, {
       method: "DELETE",

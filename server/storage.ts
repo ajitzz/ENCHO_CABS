@@ -37,6 +37,7 @@ export interface IStorage {
   getTripsByVehicleAndDateRange(vehicleId: number, startDate: Date, endDate: Date): Promise<Trip[]>;
   getTripsByDriverAndDateRange(driverId: number, startDate: Date, endDate: Date): Promise<Trip[]>;
   getRecentTrips(limit: number): Promise<Array<Trip & { driverName: string; vehicleNumber: string }>>;
+  updateTrip(id: number, trip: Partial<InsertTrip>): Promise<Trip>;
   deleteTrip(id: number): Promise<void>;
 
   // Driver rent log operations
@@ -189,6 +190,14 @@ export class DatabaseStorage implements IStorage {
       .orderBy(desc(trips.tripDate))
       .limit(limit);
     
+    return result;
+  }
+
+  async updateTrip(id: number, trip: Partial<InsertTrip>): Promise<Trip> {
+    const [result] = await db.update(trips)
+      .set({ ...trip, updatedAt: new Date() })
+      .where(eq(trips.id, id))
+      .returning();
     return result;
   }
 

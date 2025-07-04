@@ -103,12 +103,13 @@ The application uses the following core entities:
 ```
 Changelog:
 - July 04, 2025. Initial setup and migration from Replit Agent
-- July 04, 2025. Enhanced fleet management system with three major features:
+- July 04, 2025. Enhanced fleet management system with four major features:
   • Delete Trip Log Feature: Added DELETE endpoint and frontend delete buttons with confirmation
+  • Edit Trip Log Feature: Added PUT endpoint and edit modal for modifying existing trip entries
   • Driver Performance Status: Added Low/Good/Excellent badges based on trip counts (🔴<10, 🟡=10, 🟢>10)
   • Optimization Tips: Added slab-based recommendations showing trips needed for better rates
   • Updated rental calculator to include optimization tips in API responses
-  • Enhanced UI with performance badges and optimization guidance
+  • Enhanced UI with performance badges, optimization guidance, and edit/delete actions
 ```
 
 ## User Preferences
