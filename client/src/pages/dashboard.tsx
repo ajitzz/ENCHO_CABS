@@ -18,9 +18,10 @@ import { useQuery } from "@tanstack/react-query";
 export default function Dashboard() {
   const [selectedVehicleId, setSelectedVehicleId] = useState<number | null>(null);
   const [showTripLogModal, setShowTripLogModal] = useState(false);
+  const [showSubstituteModal, setShowSubstituteModal] = useState(false);
 
   // Fetch vehicles for substitute driver form
-  const { data: vehicles } = useQuery({
+  const { data: vehicles } = useQuery<Array<{ id: number; vehicleNumber: string; company: string }>>({
     queryKey: ["/api/vehicles"],
   });
 
@@ -85,18 +86,15 @@ export default function Dashboard() {
               <UnpaidRentsPanel />
 
               {/* Quick Actions */}
-              <QuickActions onAddTripLog={() => setShowTripLogModal(true)} />
+              <QuickActions 
+                onAddTripLog={() => setShowTripLogModal(true)}
+                onAddSubstitute={() => setShowSubstituteModal(true)}
+              />
 
               {/* Substitute Driver Section */}
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
                   <h3 className="text-lg font-semibold text-gray-900">Substitute Drivers</h3>
-                  {vehicles && vehicles.length > 0 && (
-                    <SubstituteDriverForm
-                      vehicleId={selectedVehicleId}
-                      vehicles={vehicles}
-                    />
-                  )}
                 </div>
                 <SubstituteDriverList vehicleId={selectedVehicleId} />
               </div>
@@ -116,6 +114,16 @@ export default function Dashboard() {
         open={showTripLogModal}
         onOpenChange={setShowTripLogModal}
       />
+
+      {/* Substitute Driver Modal */}
+      {vehicles && vehicles.length > 0 && (
+        <SubstituteDriverForm
+          vehicleId={selectedVehicleId}
+          vehicles={vehicles}
+          open={showSubstituteModal}
+          onOpenChange={setShowSubstituteModal}
+        />
+      )}
     </div>
   );
 }

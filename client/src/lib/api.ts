@@ -100,24 +100,28 @@ export interface SettlementWithVehicle extends WeeklySettlement {
 export const api = {
   // Vehicle APIs
   getVehicles: async (): Promise<Vehicle[]> => {
-    const response = await apiRequest("GET", "/api/vehicles");
+    const response = await fetch("/api/vehicles");
+    if (!response.ok) throw new Error("Failed to fetch vehicles");
     return response.json();
   },
 
   getVehicle: async (id: number): Promise<Vehicle> => {
-    const response = await apiRequest("GET", `/api/vehicles/${id}`);
+    const response = await fetch(`/api/vehicles/${id}`);
+    if (!response.ok) throw new Error("Failed to fetch vehicle");
     return response.json();
   },
 
   getVehicleSummary: async (id: number, weekStart?: string): Promise<VehicleSummary> => {
     const url = weekStart ? `/api/vehicles/${id}/weekly-summary?weekStart=${weekStart}` : `/api/vehicles/${id}/weekly-summary`;
-    const response = await apiRequest("GET", url);
+    const response = await fetch(url);
+    if (!response.ok) throw new Error("Failed to fetch vehicle summary");
     return response.json();
   },
 
   // Driver APIs
   getDrivers: async (): Promise<Driver[]> => {
-    const response = await apiRequest("GET", "/api/drivers");
+    const response = await fetch("/api/drivers");
+    if (!response.ok) throw new Error("Failed to fetch drivers");
     return response.json();
   },
 
@@ -125,7 +129,12 @@ export const api = {
     vehicleNumber: string;
     company: "PMV" | "Letzryd";
   }): Promise<Vehicle> => {
-    const response = await apiRequest("POST", "/api/vehicles", vehicleData);
+    const response = await fetch("/api/vehicles", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(vehicleData),
+    });
+    if (!response.ok) throw new Error("Failed to create vehicle");
     return response.json();
   },
 
@@ -134,7 +143,12 @@ export const api = {
     phone: string;
     hasAccommodation: boolean;
   }): Promise<Driver> => {
-    const response = await apiRequest("POST", "/api/drivers", driverData);
+    const response = await fetch("/api/drivers", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(driverData),
+    });
+    if (!response.ok) throw new Error("Failed to create driver");
     return response.json();
   },
 
@@ -146,49 +160,84 @@ export const api = {
     shift: "morning" | "evening";
     tripCount: number;
   }): Promise<Trip> => {
-    const response = await apiRequest("POST", "/api/trips", tripData);
+    const response = await fetch("/api/trips", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(tripData),
+    });
+    if (!response.ok) throw new Error("Failed to create trip");
     return response.json();
   },
 
   getRecentTrips: async (limit: number = 10): Promise<RecentTrip[]> => {
-    const response = await apiRequest("GET", `/api/trips/recent/${limit}`);
+    const response = await fetch(`/api/trips/recent/${limit}`);
+    if (!response.ok) throw new Error("Failed to fetch recent trips");
     return response.json();
   },
 
   // Driver rent log APIs
   updateRentStatus: async (id: number, paid: boolean): Promise<DriverRentLog> => {
-    const response = await apiRequest("PATCH", `/api/driver-rent-logs/${id}/status`, { paid });
+    const response = await fetch(`/api/driver-rent-logs/${id}/status`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ paid }),
+    });
+    if (!response.ok) throw new Error("Failed to update rent status");
     return response.json();
   },
 
   getUnpaidRents: async (): Promise<UnpaidRent[]> => {
-    const response = await apiRequest("GET", "/api/driver-rent-logs/unpaid");
+    const response = await fetch("/api/driver-rent-logs/unpaid");
+    if (!response.ok) throw new Error("Failed to fetch unpaid rents");
     return response.json();
   },
 
   // Settlement APIs
   processSettlement: async (vehicleId: number, weekStartDate: string): Promise<void> => {
-    await apiRequest("POST", "/api/settlements", { vehicleId, weekStartDate });
+    const response = await fetch("/api/settlements", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ vehicleId, weekStartDate }),
+    });
+    if (!response.ok) throw new Error("Failed to process settlement");
   },
 
   processAllSettlements: async (weekStartDate?: string): Promise<void> => {
-    await apiRequest("POST", "/api/settlements/process-all", { weekStartDate });
+    const response = await fetch("/api/settlements/process-all", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ weekStartDate: weekStartDate || new Date().toISOString() }),
+    });
+    if (!response.ok) throw new Error("Failed to process all settlements");
   },
 
   getSettlements: async (): Promise<SettlementWithVehicle[]> => {
-    const response = await apiRequest("GET", "/api/settlements");
+    const response = await fetch("/api/settlements");
+    if (!response.ok) throw new Error("Failed to fetch settlements");
     return response.json();
   },
 
   // Dashboard APIs
   getProfitGraphData: async (): Promise<ProfitData[]> => {
-    const response = await apiRequest("GET", "/api/dashboard/profit-graph");
+    const response = await fetch("/api/dashboard/profit-graph");
+    if (!response.ok) throw new Error("Failed to fetch profit graph data");
     return response.json();
   },
 
   // Rental slab APIs
   getRentalSlabs: async (company: "PMV" | "Letzryd"): Promise<any[]> => {
-    const response = await apiRequest("GET", `/api/rental-slabs/${company}`);
+    const response = await fetch(`/api/rental-slabs/${company}`);
+    if (!response.ok) throw new Error("Failed to fetch rental slabs");
     return response.json();
+  },
+
+  // Export APIs
+  exportData: async (type: "settlements" | "trips" | "drivers" | "vehicles"): Promise<Blob> => {
+    const response = await fetch(`/api/export/${type}`, {
+      method: "GET",
+      headers: { "Accept": "application/json" },
+    });
+    if (!response.ok) throw new Error(`Failed to export ${type}`);
+    return response.blob();
   },
 };

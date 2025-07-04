@@ -297,6 +297,42 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Export routes
+  app.get("/api/export/:type", async (req, res) => {
+    try {
+      const { type } = req.params;
+      let data: any[] = [];
+      let filename = "";
+
+      switch (type) {
+        case "settlements":
+          data = await storage.getAllWeeklySettlements();
+          filename = "settlements_export.json";
+          break;
+        case "trips":
+          data = await storage.getRecentTrips(1000); // Get last 1000 trips
+          filename = "trips_export.json";
+          break;
+        case "drivers":
+          data = await storage.getAllDrivers();
+          filename = "drivers_export.json";
+          break;
+        case "vehicles":
+          data = await storage.getAllVehicles();
+          filename = "vehicles_export.json";
+          break;
+        default:
+          return res.status(400).json({ message: "Invalid export type" });
+      }
+
+      res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+      res.setHeader('Content-Type', 'application/json');
+      res.json(data);
+    } catch (error: any) {
+      res.status(500).json({ message: "Failed to export data", error: error.message });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }

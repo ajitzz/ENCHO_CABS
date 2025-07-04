@@ -35,10 +35,14 @@ type SubstituteDriverFormData = z.infer<typeof substituteDriverSchema>;
 interface SubstituteDriverFormProps {
   vehicleId?: number | null;
   vehicles: Array<{ id: number; vehicleNumber: string; company: string }>;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
 }
 
-export default function SubstituteDriverForm({ vehicleId, vehicles }: SubstituteDriverFormProps) {
-  const [open, setOpen] = useState(false);
+export default function SubstituteDriverForm({ vehicleId, vehicles, open: externalOpen, onOpenChange }: SubstituteDriverFormProps) {
+  const [internalOpen, setInternalOpen] = useState(false);
+  const open = externalOpen !== undefined ? externalOpen : internalOpen;
+  const setOpen = onOpenChange || setInternalOpen;
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -129,12 +133,14 @@ export default function SubstituteDriverForm({ vehicleId, vehicles }: Substitute
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <Button variant="outline" size="sm">
-          <UserPlus className="w-4 h-4 mr-2" />
-          Add Substitute Driver
-        </Button>
-      </DialogTrigger>
+      {externalOpen === undefined && (
+        <DialogTrigger asChild>
+          <Button variant="outline" size="sm">
+            <UserPlus className="w-4 h-4 mr-2" />
+            Add Substitute Driver
+          </Button>
+        </DialogTrigger>
+      )}
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Add Substitute Driver</DialogTitle>
