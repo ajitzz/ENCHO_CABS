@@ -14,17 +14,25 @@ import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 
-const tripLogSchema = z.object({
-  vehicleId: z.string().min(1, "Vehicle is required").transform(Number),
-  driverId: z.string().min(1, "Driver is required").transform(Number),
+const tripLogFormSchema = z.object({
+  vehicleId: z.string().min(1, "Vehicle is required"),
+  driverId: z.string().min(1, "Driver is required"),
   tripDate: z.string().min(1, "Date is required"),
-  tripCount: z.string().min(1, "Trip count is required").transform(Number),
+  tripCount: z.string().min(1, "Trip count is required"),
   shift: z.enum(["morning", "evening"], {
     required_error: "Shift is required",
   }),
 });
 
-type TripLogFormData = z.infer<typeof tripLogSchema>;
+const tripLogSchema = tripLogFormSchema.transform((data) => ({
+  vehicleId: Number(data.vehicleId),
+  driverId: Number(data.driverId),
+  tripDate: data.tripDate,
+  tripCount: Number(data.tripCount),
+  shift: data.shift,
+}));
+
+type TripLogFormData = z.infer<typeof tripLogFormSchema>;
 
 interface TripLogModalProps {
   open: boolean;
@@ -36,12 +44,12 @@ export default function TripLogModal({ open, onOpenChange }: TripLogModalProps) 
   const queryClient = useQueryClient();
   const [selectedVehicleId, setSelectedVehicleId] = useState<number | null>(null);
 
-  const { data: vehicles } = useQuery({
+  const { data: vehicles } = useQuery<any[]>({
     queryKey: ["/api/vehicles"],
     enabled: open,
   });
 
-  const { data: drivers } = useQuery({
+  const { data: drivers } = useQuery<any[]>({
     queryKey: ["/api/drivers"],
     enabled: open,
   });
@@ -53,20 +61,23 @@ export default function TripLogModal({ open, onOpenChange }: TripLogModalProps) 
   });
 
   const form = useForm<TripLogFormData>({
-    resolver: zodResolver(tripLogSchema),
+    resolver: zodResolver(tripLogFormSchema),
     defaultValues: {
       tripDate: format(new Date(), "yyyy-MM-dd"),
     },
   });
 
   const createTripMutation = useMutation({
-    mutationFn: (data: TripLogFormData) => api.createTrip({
-      vehicleId: data.vehicleId,
-      driverId: data.driverId,
-      tripDate: data.tripDate,
-      shift: data.shift,
-      tripCount: data.tripCount,
-    }),
+    mutationFn: (data: TripLogFormData) => {
+      const parsedData = {
+        vehicleId: parseInt(data.vehicleId),
+        driverId: parseInt(data.driverId),
+        tripDate: data.tripDate,
+        shift: data.shift as "morning" | "evening",
+        tripCount: parseInt(data.tripCount),
+      };
+      return api.createTrip(parsedData);
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/trips"] });
       queryClient.invalidateQueries({ queryKey: ["/api/vehicles"] });
@@ -98,14 +109,17 @@ export default function TripLogModal({ open, onOpenChange }: TripLogModalProps) 
   };
 
   const getAvailableDrivers = () => {
-    if (!vehicleAssignment || !drivers) return [];
+    if (!drivers || !Array.isArray(drivers)) return [];
+    
+    // If no vehicle assignment exists, show all drivers
+    if (!vehicleAssignment) return drivers;
     
     const availableDriverIds = [
       vehicleAssignment.morningDriverId,
       vehicleAssignment.eveningDriverId
     ].filter(Boolean);
     
-    return drivers.filter(driver => availableDrivers.includes(driver.id));
+    return drivers.filter((driver: any) => availableDriverIds.includes(driver.id));
   };
 
   return (
