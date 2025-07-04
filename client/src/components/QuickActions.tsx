@@ -85,9 +85,7 @@ export default function QuickActions({ onAddTripLog, onAddSubstitute }: QuickAct
       bgColor: "fleet-gradient-purple",
       textColor: "text-purple-900",
       iconColor: "text-purple-600",
-      onClick: onAddSubstitute || (() => {
-        console.log("Add Substitute clicked but no handler provided");
-      }),
+      onClick: onAddSubstitute || (() => {}),
       disabled: false,
     },
     {
