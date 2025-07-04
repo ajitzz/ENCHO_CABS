@@ -56,7 +56,13 @@ export default function TripLogModal({ open, onOpenChange }: TripLogModalProps) 
 
   const { data: vehicleAssignment } = useQuery({
     queryKey: ["/api/vehicles", selectedVehicleId, "assignment"],
-    queryFn: () => selectedVehicleId ? fetch(`/api/vehicles/${selectedVehicleId}/assignment`).then(res => res.json()) : null,
+    queryFn: async () => {
+      if (!selectedVehicleId) return null;
+      const res = await fetch(`/api/vehicles/${selectedVehicleId}/assignment`);
+      if (res.status === 404) return null; // No assignment found
+      if (!res.ok) throw new Error('Failed to fetch assignment');
+      return res.json();
+    },
     enabled: !!selectedVehicleId,
   });
 
@@ -111,13 +117,16 @@ export default function TripLogModal({ open, onOpenChange }: TripLogModalProps) 
   const getAvailableDrivers = () => {
     if (!drivers || !Array.isArray(drivers)) return [];
     
-    // If no vehicle assignment exists, show all drivers
-    if (!vehicleAssignment) return drivers;
+    // If no vehicle is selected or no assignment exists, show all drivers
+    if (!selectedVehicleId || !vehicleAssignment) return drivers;
     
     const availableDriverIds = [
       vehicleAssignment.morningDriverId,
       vehicleAssignment.eveningDriverId
     ].filter(Boolean);
+    
+    // If no drivers are assigned, show all drivers
+    if (availableDriverIds.length === 0) return drivers;
     
     return drivers.filter((driver: any) => availableDriverIds.includes(driver.id));
   };
