@@ -88,7 +88,10 @@ export default function Dashboard() {
               {/* Quick Actions */}
               <QuickActions 
                 onAddTripLog={() => setShowTripLogModal(true)}
-                onAddSubstitute={() => setShowSubstituteModal(true)}
+                onAddSubstitute={() => {
+                  console.log("Add Substitute clicked, opening modal");
+                  setShowSubstituteModal(true);
+                }}
               />
 
               {/* Substitute Driver Section */}

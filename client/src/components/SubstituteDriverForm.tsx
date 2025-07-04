@@ -43,6 +43,8 @@ export default function SubstituteDriverForm({ vehicleId, vehicles, open: extern
   const [internalOpen, setInternalOpen] = useState(false);
   const open = externalOpen !== undefined ? externalOpen : internalOpen;
   const setOpen = onOpenChange || setInternalOpen;
+  
+  console.log("SubstituteDriverForm render:", { externalOpen, open, vehicles: vehicles?.length });
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
