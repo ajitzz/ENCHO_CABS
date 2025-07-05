@@ -14,7 +14,7 @@ export default function Sidebar() {
     { icon: BarChart3, label: "Dashboard", href: "/", active: location === "/" },
     { icon: Car, label: "Vehicles", href: "/vehicles", active: location === "/vehicles" },
     { icon: Users, label: "Drivers", href: "/drivers", active: location === "/drivers" },
-    { icon: Route, label: "Trip Logs", href: "/trips", active: location === "/trips" },
+    { icon: Route, label: "Trip Logs", href: "/trip-logs", active: location === "/trip-logs" },
     { icon: Calculator, label: "Settlements", href: "/settlements", active: location === "/settlements" },
     { icon: Banknote, label: "Rent Tracking", href: "/rent-tracking", active: location === "/rent-tracking" },
   ];

@@ -7,6 +7,7 @@ import Dashboard from "@/pages/dashboard";
 import Vehicles from "@/pages/vehicles";
 import Drivers from "@/pages/drivers";
 import Trips from "@/pages/trips";
+import TripLogs from "@/pages/TripLogs";
 import Settlements from "@/pages/settlements";
 import RentTracking from "@/pages/rent-tracking";
 import NotFound from "@/pages/not-found";
@@ -19,6 +20,7 @@ function Router() {
       <Route path="/vehicles" component={Vehicles} />
       <Route path="/drivers" component={Drivers} />
       <Route path="/trips" component={Trips} />
+      <Route path="/trip-logs" component={TripLogs} />
       <Route path="/settlements" component={Settlements} />
       <Route path="/rent-tracking" component={RentTracking} />
       <Route component={NotFound} />

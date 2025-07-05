@@ -446,8 +446,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const substituteData = insertSubstituteDriverSchema.parse(req.body);
       const substitute = await storage.createSubstituteDriver(substituteData);
+      
       res.status(201).json(substitute);
-    } catch (error) {
+    } catch (error: any) {
       res.status(400).json({ message: "Invalid substitute driver data", error: error.message });
     }
   });

@@ -183,6 +183,8 @@ export const insertSubstituteDriverSchema = createInsertSchema(substituteDrivers
   id: true,
   createdAt: true,
   updatedAt: true,
+}).extend({
+  date: z.coerce.date(),
 });
 
 // Types

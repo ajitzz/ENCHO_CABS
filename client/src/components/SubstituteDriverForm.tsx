@@ -83,6 +83,7 @@ export default function SubstituteDriverForm({ vehicleId, vehicles, open: extern
         },
         body: JSON.stringify({
           ...data,
+          date: data.date.toISOString(),
           shiftHours,
           charge,
         }),

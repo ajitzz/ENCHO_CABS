@@ -325,4 +325,27 @@ export const api = {
     if (!response.ok) throw new Error(`Failed to export ${type}`);
     return response.blob();
   },
+
+  // Substitute driver APIs
+  getSubstituteDrivers: async (): Promise<any[]> => {
+    const response = await fetch("/api/substitute-drivers");
+    if (!response.ok) throw new Error("Failed to fetch substitute drivers");
+    return response.json();
+  },
+
+  // Rent payment APIs
+  getUnpaidDriverRents: async (): Promise<UnpaidRent[]> => {
+    const response = await fetch("/api/driver-rent-logs/unpaid");
+    if (!response.ok) throw new Error("Failed to fetch unpaid driver rents");
+    return response.json();
+  },
+
+  payDriverRent: async (rentLogId: number): Promise<void> => {
+    const response = await fetch(`/api/driver-rent-logs/${rentLogId}/status`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ paid: true }),
+    });
+    if (!response.ok) throw new Error("Failed to mark rent as paid");
+  },
 };
