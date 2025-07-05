@@ -1,11 +1,13 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { Plus, Calendar, Users, Car, Clock } from "lucide-react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { Plus, Calendar, Users, Car, Clock, Edit, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { api, type RecentTrip } from "@/lib/api";
 import TripLogModal from "@/components/TripLogModal";
+import EditTripModal from "@/components/EditTripModal";
+import { useToast } from "@/hooks/use-toast";
 import {
   Table,
   TableBody,
@@ -18,11 +20,40 @@ import { format } from "date-fns";
 
 export default function Trips() {
   const [isTripLogModalOpen, setIsTripLogModalOpen] = useState(false);
+  const [editTrip, setEditTrip] = useState<any>(null);
+  const [editModalOpen, setEditModalOpen] = useState(false);
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
 
   const { data: trips, isLoading } = useQuery({
     queryKey: ["/api/trips/recent/50"],
     queryFn: () => api.getRecentTrips(50),
   });
+
+  const deleteTripMutation = useMutation({
+    mutationFn: (tripId: number) => api.deleteTrip(tripId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/trips/recent/50"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/trips/recent/10"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/dashboard/profit-graph"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/settlements"] });
+      toast({ title: "Trip deleted successfully", variant: "default" });
+    },
+    onError: (error) => {
+      toast({ title: "Failed to delete trip", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const handleDeleteTrip = (tripId: number, driverName: string, vehicleNumber: string) => {
+    if (window.confirm(`Are you sure you want to delete the trip for ${driverName} (${vehicleNumber})?`)) {
+      deleteTripMutation.mutate(tripId);
+    }
+  };
+
+  const handleEditTrip = (trip: any) => {
+    setEditTrip(trip);
+    setEditModalOpen(true);
+  };
 
   if (isLoading) {
     return (
@@ -102,6 +133,7 @@ export default function Trips() {
                 <TableHead>Shift</TableHead>
                 <TableHead>Trip Count</TableHead>
                 <TableHead>Status</TableHead>
+                <TableHead>Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -143,6 +175,27 @@ export default function Trips() {
                       {trip.tripCount >= 12 ? "Good" : "Low"}
                     </Badge>
                   </TableCell>
+                  <TableCell>
+                    <div className="flex items-center space-x-2">
+                      <Button 
+                        variant="ghost" 
+                        size="sm" 
+                        onClick={() => handleEditTrip(trip)}
+                        className="h-8 w-8 p-0 hover:bg-blue-50 hover:text-blue-600"
+                      >
+                        <Edit className="h-4 w-4" />
+                      </Button>
+                      <Button 
+                        variant="ghost" 
+                        size="sm" 
+                        onClick={() => handleDeleteTrip(trip.id, trip.driverName, trip.vehicleNumber)}
+                        disabled={deleteTripMutation.isPending}
+                        className="h-8 w-8 p-0 hover:bg-red-50 hover:text-red-600"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </TableCell>
                 </TableRow>
               ))}
             </TableBody>
@@ -165,6 +218,13 @@ export default function Trips() {
       <TripLogModal
         open={isTripLogModalOpen}
         onOpenChange={setIsTripLogModalOpen}
+      />
+      
+      {/* Edit Trip Modal */}
+      <EditTripModal 
+        trip={editTrip}
+        open={editModalOpen}
+        onOpenChange={setEditModalOpen}
       />
     </div>
   );
