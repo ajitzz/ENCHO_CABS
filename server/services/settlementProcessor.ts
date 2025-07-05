@@ -9,9 +9,10 @@ export interface WeeklySettlementData {
   totalTrips: number;
   rentalRate: number;
   totalRentToCompany: number;
-  driver1Data: { id: number; rent: number } | null;
-  driver2Data: { id: number; rent: number } | null;
+  drivers: Array<{ id: number; name: string; rent: number; daysWorked: number }>;
+  substitutes: Array<{ id: number; name: string; charge: number }>;
   totalDriverRent: number;
+  totalSubstituteCharges: number;
   profit: number;
 }
 
@@ -56,37 +57,33 @@ export async function calculateWeeklySettlement(vehicleId: number, weekStartDate
 
   // Calculate income from regular drivers based on actual days worked
   let totalRegularDriverRent = 0;
-  const driverDataArray = Array.from(driverRentMap.entries()).map(([driverId, data]) => {
+  const drivers = Array.from(driverRentMap.entries()).map(([driverId, data]) => {
     const dailyRent = getDriverRent(data.driver.hasAccommodation);
     const actualRent = dailyRent * data.daysWorked.size; // Pay only for actual days worked
     totalRegularDriverRent += actualRent;
     return {
-      driver: data.driver,
-      rent: actualRent
+      id: data.driver.id,
+      name: data.driver.name,
+      rent: actualRent,
+      daysWorked: data.daysWorked.size
     };
   });
 
   // Calculate income from substitute drivers for this vehicle and week
   const substituteDrivers = await storage.getSubstituteDriversByVehicleAndDateRange(vehicleId, weekStart, weekEnd);
-  let totalSubstituteRent = 0;
-  for (const substitute of substituteDrivers) {
-    totalSubstituteRent += substitute.charge;
-  }
+  let totalSubstituteCharges = 0;
+  const substitutes = substituteDrivers.map(sub => {
+    totalSubstituteCharges += sub.charge;
+    return {
+      id: sub.id,
+      name: sub.name,
+      charge: sub.charge
+    };
+  });
 
   // Total income = regular drivers + substitutes
-  const totalIncome = totalRegularDriverRent + totalSubstituteRent;
-
-  // Convert to the expected format for backward compatibility
-  let driver1Data = null;
-  let driver2Data = null;
-
-  if (driverDataArray.length > 0) {
-    driver1Data = { id: driverDataArray[0].driver.id, rent: driverDataArray[0].rent };
-  }
-
-  if (driverDataArray.length > 1) {
-    driver2Data = { id: driverDataArray[1].driver.id, rent: driverDataArray[1].rent };
-  }
+  const totalDriverRent = totalRegularDriverRent;
+  const totalIncome = totalRegularDriverRent + totalSubstituteCharges;
 
   // Calculate profit: Total Income - Company Rent
   const profit = totalIncome - totalRentToCompany;
@@ -98,9 +95,10 @@ export async function calculateWeeklySettlement(vehicleId: number, weekStartDate
     totalTrips,
     rentalRate,
     totalRentToCompany,
-    driver1Data,
-    driver2Data,
-    totalDriverRent: totalIncome, // Use total income instead of just regular drivers
+    drivers,
+    substitutes,
+    totalDriverRent,
+    totalSubstituteCharges,
     profit,
   };
 }
@@ -119,14 +117,20 @@ export async function processWeeklySettlement(vehicleId: number, weekStartDate: 
     settlementData.weekEnd
   );
 
+  // Create backward compatibility fields
+  const driver1Data = settlementData.drivers.length > 0 ? 
+    { id: settlementData.drivers[0].id, rent: settlementData.drivers[0].rent } : null;
+  const driver2Data = settlementData.drivers.length > 1 ? 
+    { id: settlementData.drivers[1].id, rent: settlementData.drivers[1].rent } : null;
+
   if (existingSettlement) {
     // Update existing settlement with recalculated values
     await storage.updateWeeklySettlement(existingSettlement.id, {
       totalTrips: settlementData.totalTrips,
       rentalRate: settlementData.rentalRate,
       totalRentToCompany: settlementData.totalRentToCompany,
-      driver1Data: settlementData.driver1Data,
-      driver2Data: settlementData.driver2Data,
+      driver1Data,
+      driver2Data,
       totalDriverRent: settlementData.totalDriverRent,
       profit: settlementData.profit,
     });
@@ -139,8 +143,8 @@ export async function processWeeklySettlement(vehicleId: number, weekStartDate: 
       totalTrips: settlementData.totalTrips,
       rentalRate: settlementData.rentalRate,
       totalRentToCompany: settlementData.totalRentToCompany,
-      driver1Data: settlementData.driver1Data,
-      driver2Data: settlementData.driver2Data,
+      driver1Data,
+      driver2Data,
       totalDriverRent: settlementData.totalDriverRent,
       profit: settlementData.profit,
       paid: false,

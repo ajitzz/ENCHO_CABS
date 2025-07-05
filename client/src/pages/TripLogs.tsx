@@ -45,7 +45,7 @@ export default function TripLogs() {
   const [dateFilter, setDateFilter] = useState("");
   const [vehicleFilter, setVehicleFilter] = useState("");
   const [driverFilter, setDriverFilter] = useState("");
-  const [rentFilter, setRentFilter] = useState("");
+  const [rentFilter, setRentFilter] = useState("all");
   const [showFilters, setShowFilters] = useState(false);
 
   // Fetch data
@@ -130,7 +130,7 @@ export default function TripLogs() {
       
       // Fix rent filter logic
       const rentStatus = getRentStatus(log);
-      const matchesRent = !rentFilter || 
+      const matchesRent = !rentFilter || rentFilter === "all" || 
         (rentFilter === "paid" && rentStatus.status === "paid") || 
         (rentFilter === "unpaid" && rentStatus.status === "unpaid");
       
@@ -195,7 +195,7 @@ export default function TripLogs() {
     setDateFilter("");
     setVehicleFilter("");
     setDriverFilter("");
-    setRentFilter("");
+    setRentFilter("all");
   };
 
   if (tripsLoading || substitutesLoading || allRentLogsLoading) {
@@ -296,7 +296,7 @@ export default function TripLogs() {
                     <SelectValue placeholder="All" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">All</SelectItem>
+                    <SelectItem value="all">All</SelectItem>
                     <SelectItem value="paid">Paid</SelectItem>
                     <SelectItem value="unpaid">Unpaid</SelectItem>
                   </SelectContent>

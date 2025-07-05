@@ -87,10 +87,10 @@ export interface RecentTrip extends Trip {
 
 export interface ProfitBreakdown {
   revenue: {
-    driver1Rent: number;
-    driver2Rent: number;
-    substituteRent: number;
+    drivers: Array<{ id: number; name: string; rent: number; daysWorked: number }>;
+    substitutes: Array<{ id: number; name: string; charge: number }>;
     totalDriverRent: number;
+    totalSubstituteCharges: number;
   };
   expenses: {
     slabRentPerDay: number;

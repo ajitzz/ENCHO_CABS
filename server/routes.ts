@@ -230,13 +230,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
           );
           
           if (existingSettlement) {
+            // Create backward compatibility fields
+            const driver1Data = settlementData.drivers.length > 0 ? 
+              { id: settlementData.drivers[0].id, rent: settlementData.drivers[0].rent } : null;
+            const driver2Data = settlementData.drivers.length > 1 ? 
+              { id: settlementData.drivers[1].id, rent: settlementData.drivers[1].rent } : null;
+
             // Update existing settlement
             await storage.updateWeeklySettlement(existingSettlement.id, {
               totalTrips: settlementData.totalTrips,
               rentalRate: settlementData.rentalRate,
               totalRentToCompany: settlementData.totalRentToCompany,
-              driver1Data: settlementData.driver1Data,
-              driver2Data: settlementData.driver2Data,
+              driver1Data,
+              driver2Data,
               totalDriverRent: settlementData.totalDriverRent,
               profit: settlementData.profit,
             });
@@ -401,13 +407,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // Get vehicle details for company info
         const vehicle = await storage.getVehicle(settlement.vehicleId);
         
-        // Get substitute drivers for this week
-        const substituteDrivers = await storage.getSubstituteDriversByVehicleAndDateRange(
-          settlement.vehicleId, 
-          settlement.weekStart, 
-          settlement.weekEnd
-        );
-        const substituteRent = substituteDrivers.reduce((sum, sub) => sum + sub.charge, 0);
+        // Recalculate settlement data to get the new driver structure
+        const settlementData = await calculateWeeklySettlement(settlement.vehicleId, settlement.weekStart);
+        
+        if (!settlementData) {
+          return null;
+        }
         
         // Calculate breakdown components
         const slabRentPerDay = settlement.rentalRate;
@@ -421,13 +426,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
           totalTrips: settlement.totalTrips,
           weekStart: settlement.weekStart,
           weekEnd: settlement.weekEnd,
-          // Breakdown components
+          // Breakdown components with actual driver names
           breakdown: {
             revenue: {
-              driver1Rent: (settlement.driver1Data as any)?.rent || 0,
-              driver2Rent: (settlement.driver2Data as any)?.rent || 0,
-              substituteRent: substituteRent,
-              totalDriverRent: totalDriverRent
+              drivers: settlementData.drivers,
+              substitutes: settlementData.substitutes,
+              totalDriverRent: settlementData.totalDriverRent,
+              totalSubstituteCharges: settlementData.totalSubstituteCharges
             },
             expenses: {
               slabRentPerDay: slabRentPerDay,
@@ -436,7 +441,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               company: vehicle?.company || 'Unknown'
             },
             calculation: {
-              totalRevenue: totalDriverRent,
+              totalRevenue: settlementData.totalDriverRent + settlementData.totalSubstituteCharges,
               totalExpenses: totalCompanyRent,
               netProfit: settlement.profit
             }
@@ -444,7 +449,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         };
       }));
 
-      res.json(profitData);
+      // Filter out null results and send response
+      const validProfitData = profitData.filter(data => data !== null);
+      res.json(validProfitData);
     } catch (error) {
       res.status(500).json({ message: "Failed to fetch profit graph data", error: error.message });
     }

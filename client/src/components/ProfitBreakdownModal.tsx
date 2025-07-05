@@ -87,39 +87,33 @@ export default function ProfitBreakdownModal({ data, open, onOpenChange }: Profi
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              {breakdown.revenue.driver1Rent > 0 && (
-                <div className="flex justify-between items-center p-3 bg-emerald-50 rounded-lg">
+              {breakdown.revenue.drivers.map((driver, index) => (
+                <div key={driver.id} className="flex justify-between items-center p-3 bg-emerald-50 rounded-lg">
                   <div>
-                    <p className="font-medium text-emerald-800">Driver 1 Weekly Rent</p>
-                    <p className="text-sm text-emerald-600">7 days @ rate based on accommodation</p>
+                    <p className="font-medium text-emerald-800">{driver.name}</p>
+                    <p className="text-sm text-emerald-600">{driver.daysWorked} days @ rate based on accommodation</p>
                   </div>
                   <div className="text-lg font-bold text-emerald-700">
-                    ₹{breakdown.revenue.driver1Rent.toLocaleString()}
+                    ₹{driver.rent.toLocaleString()}
                   </div>
                 </div>
-              )}
+              ))}
 
-              {breakdown.revenue.driver2Rent > 0 && (
-                <div className="flex justify-between items-center p-3 bg-emerald-50 rounded-lg">
+              {breakdown.revenue.substitutes.map((substitute, index) => (
+                <div key={substitute.id} className="flex justify-between items-center p-3 bg-blue-50 rounded-lg">
                   <div>
-                    <p className="font-medium text-emerald-800">Driver 2 Weekly Rent</p>
-                    <p className="text-sm text-emerald-600">7 days @ rate based on accommodation</p>
-                  </div>
-                  <div className="text-lg font-bold text-emerald-700">
-                    ₹{breakdown.revenue.driver2Rent.toLocaleString()}
-                  </div>
-                </div>
-              )}
-
-              {breakdown.revenue.substituteRent > 0 && (
-                <div className="flex justify-between items-center p-3 bg-blue-50 rounded-lg">
-                  <div>
-                    <p className="font-medium text-blue-800">Substitute Driver Charges</p>
+                    <p className="font-medium text-blue-800">{substitute.name} (Substitute)</p>
                     <p className="text-sm text-blue-600">Variable charges based on shift hours</p>
                   </div>
                   <div className="text-lg font-bold text-blue-700">
-                    ₹{breakdown.revenue.substituteRent.toLocaleString()}
+                    ₹{substitute.charge.toLocaleString()}
                   </div>
+                </div>
+              ))}
+
+              {breakdown.revenue.drivers.length === 0 && breakdown.revenue.substitutes.length === 0 && (
+                <div className="text-center text-gray-500 py-4">
+                  No driver revenue data available
                 </div>
               )}
 
