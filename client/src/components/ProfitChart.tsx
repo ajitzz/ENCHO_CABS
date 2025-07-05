@@ -1,15 +1,29 @@
 import { useQuery } from "@tanstack/react-query";
-import { api } from "@/lib/api";
+import { api, ProfitData } from "@/lib/api";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Button } from "@/components/ui/button";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
-import { BarChart3 } from "lucide-react";
+import { BarChart3, Calculator } from "lucide-react";
+import { useState } from "react";
+import ProfitBreakdownModal from "./ProfitBreakdownModal";
 
 export default function ProfitChart() {
+  const [selectedData, setSelectedData] = useState<ProfitData | null>(null);
+  const [breakdownModalOpen, setBreakdownModalOpen] = useState(false);
+
   const { data: profitData, isLoading } = useQuery({
     queryKey: ["/api/dashboard/profit-graph"],
     queryFn: () => api.getProfitGraphData(),
   });
+
+  const handleViewBreakdown = (vehicleNumber: string) => {
+    const data = profitData?.find(item => item.vehicleNumber === vehicleNumber);
+    if (data) {
+      setSelectedData(data);
+      setBreakdownModalOpen(true);
+    }
+  };
 
   if (isLoading) {
     return <div className="animate-pulse h-80 bg-gray-200 rounded-xl"></div>;
@@ -25,12 +39,24 @@ export default function ProfitChart() {
     if (active && payload && payload.length) {
       const data = payload[0].payload;
       return (
-        <div className="bg-white p-3 border border-gray-200 rounded-lg shadow-lg">
-          <p className="font-semibold">{label}</p>
+        <div className="bg-white p-3 border border-gray-200 rounded-lg shadow-lg min-w-[200px]">
+          <p className="font-semibold mb-2">{label}</p>
           <p className="text-sm text-gray-600">Trips: {data.totalTrips}</p>
-          <p className={`text-sm font-medium ${data.profit >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
+          <p className={`text-sm font-medium mb-3 ${data.profit >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
             {data.profit >= 0 ? 'Profit' : 'Loss'}: ₹{Math.abs(data.profit).toLocaleString()}
           </p>
+          <Button 
+            size="sm" 
+            variant="outline" 
+            className="w-full"
+            onClick={(e) => {
+              e.stopPropagation();
+              handleViewBreakdown(label);
+            }}
+          >
+            <Calculator className="w-3 h-3 mr-1" />
+            View Breakdown
+          </Button>
         </div>
       );
     }
@@ -55,6 +81,9 @@ export default function ProfitChart() {
             </Select>
           </div>
         </div>
+        <p className="text-sm text-gray-600 mt-1">
+          Hover over bars and click "View Breakdown" for detailed profit/loss calculations
+        </p>
       </CardHeader>
       <CardContent>
         {chartData.length > 0 ? (
@@ -97,6 +126,27 @@ export default function ProfitChart() {
                 <span className="text-sm text-gray-600">Loss</span>
               </div>
             </div>
+
+            {/* Quick Access Breakdown Buttons */}
+            {chartData.length > 0 && (
+              <div className="mt-6 p-4 bg-gray-50 rounded-lg">
+                <h4 className="text-sm font-medium text-gray-900 mb-3">Quick Breakdown Access:</h4>
+                <div className="flex flex-wrap gap-2">
+                  {chartData.map((vehicle, index) => (
+                    <Button
+                      key={index}
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleViewBreakdown(vehicle.vehicleNumber)}
+                      className="text-xs"
+                    >
+                      <Calculator className="w-3 h-3 mr-1" />
+                      {vehicle.vehicleNumber}
+                    </Button>
+                  ))}
+                </div>
+              </div>
+            )}
           </>
         ) : (
           <div className="h-64 flex items-center justify-center text-center">
@@ -108,6 +158,13 @@ export default function ProfitChart() {
           </div>
         )}
       </CardContent>
+
+      {/* Profit Breakdown Modal */}
+      <ProfitBreakdownModal
+        data={selectedData}
+        open={breakdownModalOpen}
+        onOpenChange={setBreakdownModalOpen}
+      />
     </Card>
   );
 }

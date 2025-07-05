@@ -388,12 +388,51 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const settlements = await storage.getAllWeeklySettlements();
       
-      const profitData = settlements.map(settlement => ({
-        vehicleNumber: settlement.vehicleNumber,
-        profit: settlement.profit,
-        totalTrips: settlement.totalTrips,
-        weekStart: settlement.weekStart,
-        weekEnd: settlement.weekEnd,
+      const profitData = await Promise.all(settlements.map(async (settlement) => {
+        // Get vehicle details for company info
+        const vehicle = await storage.getVehicle(settlement.vehicleId);
+        
+        // Get substitute drivers for this week
+        const substituteDrivers = await storage.getSubstituteDriversByVehicleAndDateRange(
+          settlement.vehicleId, 
+          settlement.weekStart, 
+          settlement.weekEnd
+        );
+        const substituteRent = substituteDrivers.reduce((sum, sub) => sum + sub.charge, 0);
+        
+        // Calculate breakdown components
+        const slabRentPerDay = settlement.rentalRate;
+        const totalCompanyRent = settlement.totalRentToCompany;
+        const totalDriverRent = settlement.totalDriverRent;
+        
+        return {
+          vehicleNumber: settlement.vehicleNumber,
+          vehicleId: settlement.vehicleId,
+          profit: settlement.profit,
+          totalTrips: settlement.totalTrips,
+          weekStart: settlement.weekStart,
+          weekEnd: settlement.weekEnd,
+          // Breakdown components
+          breakdown: {
+            revenue: {
+              driver1Rent: (settlement.driver1Data as any)?.rent || 0,
+              driver2Rent: (settlement.driver2Data as any)?.rent || 0,
+              substituteRent: substituteRent,
+              totalDriverRent: totalDriverRent
+            },
+            expenses: {
+              slabRentPerDay: slabRentPerDay,
+              totalDays: 7,
+              totalCompanyRent: totalCompanyRent,
+              company: vehicle?.company || 'Unknown'
+            },
+            calculation: {
+              totalRevenue: totalDriverRent,
+              totalExpenses: totalCompanyRent,
+              netProfit: settlement.profit
+            }
+          }
+        };
       }));
 
       res.json(profitData);

@@ -85,12 +85,34 @@ export interface RecentTrip extends Trip {
   vehicleNumber: string;
 }
 
+export interface ProfitBreakdown {
+  revenue: {
+    driver1Rent: number;
+    driver2Rent: number;
+    substituteRent: number;
+    totalDriverRent: number;
+  };
+  expenses: {
+    slabRentPerDay: number;
+    totalDays: number;
+    totalCompanyRent: number;
+    company: string;
+  };
+  calculation: {
+    totalRevenue: number;
+    totalExpenses: number;
+    netProfit: number;
+  };
+}
+
 export interface ProfitData {
   vehicleNumber: string;
+  vehicleId: number;
   profit: number;
   totalTrips: number;
   weekStart: string;
   weekEnd: string;
+  breakdown: ProfitBreakdown;
 }
 
 export interface SettlementWithVehicle extends WeeklySettlement {
