@@ -131,12 +131,26 @@ export async function generateDailyRentLogs(driverId: number, date: Date): Promi
     throw new Error(`Driver with ID ${driverId} not found`);
   }
 
-  const dailyRent = getDriverRent(driver.hasAccommodation);
-  
-  await storage.createDriverRentLog({
-    driverId,
-    date,
-    rent: dailyRent,
-    paid: false,
-  });
+  // Normalize the date to start of day
+  const normalizedDate = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  const nextDay = new Date(date.getFullYear(), date.getMonth(), date.getDate() + 1);
+
+  // Check if rent log already exists for this driver on this date
+  const existingRentLogs = await storage.getDriverRentLogsByDateRange(
+    driverId, 
+    normalizedDate, 
+    nextDay
+  );
+
+  // Only create rent log if one doesn't already exist for this date
+  if (existingRentLogs.length === 0) {
+    const dailyRent = getDriverRent(driver.hasAccommodation);
+    
+    await storage.createDriverRentLog({
+      driverId,
+      date: normalizedDate,
+      rent: dailyRent,
+      paid: false,
+    });
+  }
 }

@@ -6,8 +6,8 @@ import {
   insertVehicleSchema, insertDriverSchema, insertVehicleDriverAssignmentSchema,
   insertTripSchema, insertDriverRentLogSchema, insertSubstituteDriverSchema 
 } from "@shared/schema";
-import { getRentalInfo, getAllSlabs } from "./services/rentalCalculator";
-import { calculateWeeklySettlement, processWeeklySettlement, processAllVehicleSettlements } from "./services/settlementProcessor";
+import { getRentalInfo, getAllSlabs, getDriverRent } from "./services/rentalCalculator";
+import { calculateWeeklySettlement, processWeeklySettlement, processAllVehicleSettlements, generateDailyRentLogs } from "./services/settlementProcessor";
 
 // Validation schemas
 const vehicleIdSchema = z.object({
@@ -153,6 +153,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       };
       const tripData = insertTripSchema.parse(body);
       const trip = await storage.createTrip(tripData);
+      
+      // Automatically generate unpaid rent log for the driver
+      await generateDailyRentLogs(tripData.driverId, tripData.tripDate);
+      
       res.status(201).json(trip);
     } catch (error) {
       res.status(400).json({ message: "Invalid trip data", error: error.message });

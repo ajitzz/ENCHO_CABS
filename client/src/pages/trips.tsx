@@ -30,6 +30,11 @@ export default function Trips() {
     queryFn: () => api.getRecentTrips(50),
   });
 
+  const { data: unpaidRents } = useQuery({
+    queryKey: ["/api/driver-rent-logs/unpaid"],
+    queryFn: () => api.getUnpaidRents(),
+  });
+
   const deleteTripMutation = useMutation({
     mutationFn: (tripId: number) => api.deleteTrip(tripId),
     onSuccess: () => {
@@ -53,6 +58,32 @@ export default function Trips() {
   const handleEditTrip = (trip: any) => {
     setEditTrip(trip);
     setEditModalOpen(true);
+  };
+
+  const markAsPaidMutation = useMutation({
+    mutationFn: (id: number) => api.updateRentStatus(id, true),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/driver-rent-logs/unpaid"] });
+      toast({
+        title: "Success",
+        description: "Rent marked as paid successfully",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to update rent status",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Helper function to find if a trip has unpaid rent
+  const getTripRentStatus = (trip: any) => {
+    return unpaidRents?.find(rent => 
+      rent.driverId === trip.driverId && 
+      rent.date === trip.tripDate
+    );
   };
 
   if (isLoading) {
@@ -132,7 +163,7 @@ export default function Trips() {
                 <TableHead>Driver</TableHead>
                 <TableHead>Shift</TableHead>
                 <TableHead>Trip Count</TableHead>
-                <TableHead>Status</TableHead>
+                <TableHead>Rent</TableHead>
                 <TableHead>Actions</TableHead>
               </TableRow>
             </TableHeader>
@@ -171,9 +202,24 @@ export default function Trips() {
                     </div>
                   </TableCell>
                   <TableCell>
-                    <Badge variant={trip.tripCount >= 12 ? "default" : "destructive"}>
-                      {trip.tripCount >= 12 ? "Good" : "Low"}
-                    </Badge>
+                    {(() => {
+                      const rentLog = getTripRentStatus(trip);
+                      return rentLog ? (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="text-xs bg-red-50 text-red-600 hover:bg-red-100 hover:text-red-700 border-red-200"
+                          onClick={() => markAsPaidMutation.mutate(rentLog.id)}
+                          disabled={markAsPaidMutation.isPending}
+                        >
+                          Unpaid (₹{rentLog.rent})
+                        </Button>
+                      ) : (
+                        <Badge variant="secondary" className="bg-green-50 text-green-700">
+                          Paid
+                        </Badge>
+                      );
+                    })()}
                   </TableCell>
                   <TableCell>
                     <div className="flex items-center space-x-2">
