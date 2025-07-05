@@ -34,34 +34,72 @@ export async function calculateWeeklySettlement(vehicleId: number, weekStartDate
   const rentalRate = getRentalRate(vehicle.company as "PMV" | "Letzryd", totalTrips);
   const totalRentToCompany = rentalRate * 7;
 
-  // Get vehicle driver assignments
-  const assignment = await storage.getVehicleDriverAssignment(vehicleId);
+  // Calculate total expected rent from all drivers who actually drove the vehicle
+  const driverRentMap = new Map<number, { driver: any, daysWorked: Set<string> }>();
   
+  // Group trips by driver and track unique days worked
+  for (const trip of trips) {
+    const driver = await storage.getDriver(trip.driverId);
+    if (driver) {
+      const tripDateKey = trip.tripDate.toISOString().split('T')[0]; // Get date as YYYY-MM-DD
+      const currentData = driverRentMap.get(driver.id);
+      if (currentData) {
+        currentData.daysWorked.add(tripDateKey);
+      } else {
+        driverRentMap.set(driver.id, {
+          driver,
+          daysWorked: new Set([tripDateKey])
+        });
+      }
+    }
+  }
+
+  // Calculate weekly rent for each driver based on days worked
+  const driverDataArray = Array.from(driverRentMap.entries()).map(([driverId, data]) => {
+    const dailyRent = getDriverRent(data.driver.hasAccommodation);
+    const weeklyRent = dailyRent * 7; // Always calculate full week rent
+    return {
+      driver: data.driver,
+      rent: weeklyRent
+    };
+  });
+
+  // Also include substitute drivers for this vehicle and week
+  const substituteDrivers = await storage.getSubstituteDriversByVehicleAndDateRange(vehicleId, weekStart, weekEnd);
+  let substituteRent = 0;
+  for (const substitute of substituteDrivers) {
+    substituteRent += substitute.charge;
+  }
+
+  // If there are substitute drivers, add them as a separate entry
+  if (substituteRent > 0) {
+    driverDataArray.push({
+      driver: { id: -1, name: "Substitute Drivers" },
+      rent: substituteRent
+    });
+  }
+
+  // Convert to the expected format
   let driver1Data = null;
   let driver2Data = null;
   let totalDriverRent = 0;
 
-  if (assignment?.morningDriverId) {
-    const driver = await storage.getDriver(assignment.morningDriverId);
-    if (driver) {
-      const dailyRent = getDriverRent(driver.hasAccommodation);
-      const weeklyRent = dailyRent * 7;
-      driver1Data = { id: driver.id, rent: weeklyRent };
-      totalDriverRent += weeklyRent;
-    }
+  if (driverDataArray.length > 0) {
+    driver1Data = { id: driverDataArray[0].driver.id, rent: driverDataArray[0].rent };
+    totalDriverRent += driverDataArray[0].rent;
   }
 
-  if (assignment?.eveningDriverId) {
-    const driver = await storage.getDriver(assignment.eveningDriverId);
-    if (driver) {
-      const dailyRent = getDriverRent(driver.hasAccommodation);
-      const weeklyRent = dailyRent * 7;
-      driver2Data = { id: driver.id, rent: weeklyRent };
-      totalDriverRent += weeklyRent;
-    }
+  if (driverDataArray.length > 1) {
+    driver2Data = { id: driverDataArray[1].driver.id, rent: driverDataArray[1].rent };
+    totalDriverRent += driverDataArray[1].rent;
   }
 
-  // Calculate profit (driver rent collected - company rent paid)
+  // Add any remaining drivers' rent to the total
+  for (let i = 2; i < driverDataArray.length; i++) {
+    totalDriverRent += driverDataArray[i].rent;
+  }
+
+  // Calculate profit: (Total Driver Rent + Substitute Rent) - (Slab Rent × 7 days)
   const profit = totalDriverRent - totalRentToCompany;
 
   return {
@@ -93,23 +131,32 @@ export async function processWeeklySettlement(vehicleId: number, weekStartDate: 
   );
 
   if (existingSettlement) {
-    throw new Error(`Settlement already exists for vehicle ${vehicleId} for week starting ${settlementData.weekStart.toISOString()}`);
+    // Update existing settlement with recalculated values
+    await storage.updateWeeklySettlement(existingSettlement.id, {
+      totalTrips: settlementData.totalTrips,
+      rentalRate: settlementData.rentalRate,
+      totalRentToCompany: settlementData.totalRentToCompany,
+      driver1Data: settlementData.driver1Data,
+      driver2Data: settlementData.driver2Data,
+      totalDriverRent: settlementData.totalDriverRent,
+      profit: settlementData.profit,
+    });
+  } else {
+    // Create new settlement
+    await storage.createWeeklySettlement({
+      vehicleId: settlementData.vehicleId,
+      weekStart: settlementData.weekStart,
+      weekEnd: settlementData.weekEnd,
+      totalTrips: settlementData.totalTrips,
+      rentalRate: settlementData.rentalRate,
+      totalRentToCompany: settlementData.totalRentToCompany,
+      driver1Data: settlementData.driver1Data,
+      driver2Data: settlementData.driver2Data,
+      totalDriverRent: settlementData.totalDriverRent,
+      profit: settlementData.profit,
+      paid: false,
+    });
   }
-
-  // Create the settlement
-  await storage.createWeeklySettlement({
-    vehicleId: settlementData.vehicleId,
-    weekStart: settlementData.weekStart,
-    weekEnd: settlementData.weekEnd,
-    totalTrips: settlementData.totalTrips,
-    rentalRate: settlementData.rentalRate,
-    totalRentToCompany: settlementData.totalRentToCompany,
-    driver1Data: settlementData.driver1Data,
-    driver2Data: settlementData.driver2Data,
-    totalDriverRent: settlementData.totalDriverRent,
-    profit: settlementData.profit,
-    paid: false,
-  });
 }
 
 export async function processAllVehicleSettlements(weekStartDate: Date): Promise<void> {
