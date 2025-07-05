@@ -17,10 +17,18 @@ export default function UnpaidRentsPanel() {
   const markAsPaidMutation = useMutation({
     mutationFn: (id: number) => api.updateRentStatus(id, true),
     onSuccess: () => {
+      // Invalidate all related queries for complete responsiveness
       queryClient.invalidateQueries({ queryKey: ["/api/driver-rent-logs/unpaid"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/dashboard/profit-graph"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/settlements"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/vehicles"] });
+      // Invalidate all vehicle summaries for precise profit calculations
+      queryClient.invalidateQueries({ 
+        predicate: (query) => query.queryKey[0] === "/api/vehicles" && query.queryKey[2] === "weekly-summary"
+      });
       toast({
         title: "Success",
-        description: "Rent marked as paid successfully",
+        description: "Rent marked as paid - calculations updated",
       });
     },
     onError: (error: any) => {

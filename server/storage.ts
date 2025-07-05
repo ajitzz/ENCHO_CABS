@@ -45,12 +45,14 @@ export interface IStorage {
   getDriverRentLog(id: number): Promise<DriverRentLog | undefined>;
   getDriverRentLogsByDateRange(driverId: number, startDate: Date, endDate: Date): Promise<DriverRentLog[]>;
   updateDriverRentLogPaymentStatus(id: number, paid: boolean): Promise<DriverRentLog>;
+  deleteDriverRentLog(id: number): Promise<void>;
   getUnpaidDriverRents(): Promise<Array<DriverRentLog & { driverName: string; vehicleNumber: string }>>;
 
   // Weekly settlement operations
   createWeeklySettlement(settlement: InsertWeeklySettlement): Promise<WeeklySettlement>;
   getWeeklySettlement(id: number): Promise<WeeklySettlement | undefined>;
   getWeeklySettlementByVehicleAndWeek(vehicleId: number, weekStart: Date, weekEnd: Date): Promise<WeeklySettlement | undefined>;
+  updateWeeklySettlement(id: number, settlement: Partial<InsertWeeklySettlement>): Promise<WeeklySettlement>;
   getAllWeeklySettlements(): Promise<Array<WeeklySettlement & { vehicleNumber: string }>>;
 
   // Substitute driver operations
@@ -234,6 +236,10 @@ export class DatabaseStorage implements IStorage {
     return result;
   }
 
+  async deleteDriverRentLog(id: number): Promise<void> {
+    await db.delete(driverRentLogs).where(eq(driverRentLogs.id, id));
+  }
+
   async getUnpaidDriverRents(): Promise<Array<DriverRentLog & { driverName: string; vehicleNumber: string }>> {
     // Get unpaid rent logs with driver names
     const rentLogs = await db.select({
@@ -295,6 +301,14 @@ export class DatabaseStorage implements IStorage {
         eq(weeklySettlements.weekEnd, weekEnd)
       ));
     return result || undefined;
+  }
+
+  async updateWeeklySettlement(id: number, settlement: Partial<InsertWeeklySettlement>): Promise<WeeklySettlement> {
+    const [result] = await db.update(weeklySettlements)
+      .set({ ...settlement, updatedAt: new Date() })
+      .where(eq(weeklySettlements.id, id))
+      .returning();
+    return result;
   }
 
   async getAllWeeklySettlements(): Promise<Array<WeeklySettlement & { vehicleNumber: string }>> {

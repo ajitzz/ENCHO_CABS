@@ -23,6 +23,14 @@ const weeklySettlementSchema = z.object({
   weekStartDate: z.string().transform(str => new Date(str)),
 });
 
+// Utility function to get week start (Monday)
+function getWeekStart(date: Date): Date {
+  const d = new Date(date);
+  const day = d.getDay();
+  const diff = d.getDate() - day + (day === 0 ? -6 : 1); // adjust when day is Sunday
+  return new Date(d.setDate(diff));
+}
+
 export async function registerRoutes(app: Express): Promise<Server> {
   // Vehicle routes
   app.get("/api/vehicles", async (req, res) => {
@@ -188,7 +196,57 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (isNaN(id)) {
         return res.status(400).json({ message: "Invalid trip ID" });
       }
+
+      // Get trip details before deletion for cascading cleanup
+      const trip = await storage.getTrip(id);
+      if (!trip) {
+        return res.status(404).json({ message: "Trip not found" });
+      }
+
+      // Delete associated rent log for the same driver and date
+      const tripDate = new Date(trip.tripDate);
+      const startOfDay = new Date(tripDate.getFullYear(), tripDate.getMonth(), tripDate.getDate());
+      const endOfDay = new Date(tripDate.getFullYear(), tripDate.getMonth(), tripDate.getDate() + 1);
+      
+      const rentLogs = await storage.getDriverRentLogsByDateRange(trip.driverId, startOfDay, endOfDay);
+      for (const rentLog of rentLogs) {
+        await storage.deleteDriverRentLog(rentLog.id);
+      }
+
+      // Delete the trip
       await storage.deleteTrip(id);
+
+      // Recalculate weekly settlement for the affected vehicle
+      const weekStart = getWeekStart(tripDate);
+      try {
+        // Calculate new settlement data
+        const settlementData = await calculateWeeklySettlement(trip.vehicleId, weekStart);
+        if (settlementData) {
+          // Check if settlement already exists and update it
+          const existingSettlement = await storage.getWeeklySettlementByVehicleAndWeek(
+            trip.vehicleId, 
+            weekStart, 
+            new Date(weekStart.getTime() + 6 * 24 * 60 * 60 * 1000)
+          );
+          
+          if (existingSettlement) {
+            // Update existing settlement
+            await storage.updateWeeklySettlement(existingSettlement.id, {
+              totalTrips: settlementData.totalTrips,
+              rentalRate: settlementData.rentalRate,
+              totalRentToCompany: settlementData.totalRentToCompany,
+              driver1Data: settlementData.driver1Data,
+              driver2Data: settlementData.driver2Data,
+              totalDriverRent: settlementData.totalDriverRent,
+              profit: settlementData.profit,
+            });
+          }
+        }
+      } catch (settlementError) {
+        console.error("Failed to recalculate settlement after trip deletion:", settlementError);
+        // Don't fail the deletion if settlement calculation fails
+      }
+
       res.json({ message: "Trip deleted successfully" });
     } catch (error) {
       res.status(400).json({ message: "Failed to delete trip", error: error.message });

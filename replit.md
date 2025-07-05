@@ -110,6 +110,13 @@ Changelog:
   • Optimization Tips: Added slab-based recommendations showing trips needed for better rates
   • Updated rental calculator to include optimization tips in API responses
   • Enhanced UI with performance badges, optimization guidance, and edit/delete actions
+- July 05, 2025. Comprehensive system improvements and cascading deletion:
+  • Automatic Rent Log Creation: Trip logs now automatically create unpaid rent logs
+  • Cascading Deletion: Deleting trips removes associated rent logs and recalculates settlements
+  • Trip Logs Page Enhancement: Added "Rent" column with unpaid buttons for payment tracking
+  • Responsive Cache Management: All mutations invalidate related queries for real-time updates
+  • Precise Profit Calculations: Settlement recalculation ensures accurate profit/loss data
+  • Complete Data Integrity: No stale data across dashboard, trip logs, and rent tracking
 ```
 
 ## User Preferences

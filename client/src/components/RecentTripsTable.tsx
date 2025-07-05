@@ -23,11 +23,18 @@ export default function RecentTripsTable() {
   const deleteTripMutation = useMutation({
     mutationFn: (tripId: number) => api.deleteTrip(tripId),
     onSuccess: () => {
+      // Invalidate all related queries for complete responsiveness
       queryClient.invalidateQueries({ queryKey: ["/api/trips/recent/10"] });
       queryClient.invalidateQueries({ queryKey: ["/api/trips/recent/50"] });
       queryClient.invalidateQueries({ queryKey: ["/api/dashboard/profit-graph"] });
       queryClient.invalidateQueries({ queryKey: ["/api/settlements"] });
-      toast({ title: "Trip deleted successfully", variant: "default" });
+      queryClient.invalidateQueries({ queryKey: ["/api/driver-rent-logs/unpaid"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/vehicles"] });
+      // Invalidate all vehicle summaries
+      queryClient.invalidateQueries({ 
+        predicate: (query) => query.queryKey[0] === "/api/vehicles" && query.queryKey[2] === "weekly-summary"
+      });
+      toast({ title: "Trip deleted successfully - rent logs updated", variant: "default" });
     },
     onError: (error) => {
       toast({ title: "Failed to delete trip", description: error.message, variant: "destructive" });
