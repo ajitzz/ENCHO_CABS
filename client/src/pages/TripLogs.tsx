@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -59,10 +59,39 @@ export default function TripLogs() {
     queryFn: () => api.getSubstituteDrivers(),
   });
 
-  const { data: rentLogs = [], isLoading: rentLogsLoading } = useQuery({
+  const { data: unpaidRentLogs = [], isLoading: unpaidRentLogsLoading } = useQuery({
     queryKey: ["/api/driver-rent-logs/unpaid"],
     queryFn: () => api.getUnpaidDriverRents(),
   });
+
+  // Fetch all rent logs to show amounts even after payment
+  const { data: allRentLogs = [], isLoading: allRentLogsLoading } = useQuery({
+    queryKey: ["/api/driver-rent-logs/all"],
+    queryFn: async () => {
+      const response = await fetch("/api/driver-rent-logs");
+      if (!response.ok) throw new Error("Failed to fetch all rent logs");
+      return response.json();
+    },
+  });
+
+  // Helper function to get rent status  
+  const getRentStatus = useCallback((log: TripLog) => {
+    if (log.isSubstitute) {
+      return { status: "unpaid", amount: log.charge || 0 };
+    }
+    
+    // Check all rent logs to find the rent amount, paid or unpaid
+    const rentLog = allRentLogs.find((rent: any) => 
+      rent.driverId === log.driverId && 
+      rent.date.startsWith(log.tripDate.split('T')[0])
+    );
+    
+    if (rentLog) {
+      return { status: rentLog.paid ? "paid" : "unpaid", amount: rentLog.rent };
+    }
+    
+    return { status: "unknown", amount: 0 };
+  }, [allRentLogs]);
 
   // Combine trips and substitute drivers
   const allLogs = useMemo(() => {
@@ -91,15 +120,23 @@ export default function TripLogs() {
 
   // Filter logs
   const filteredLogs = useMemo(() => {
+    if (allRentLogsLoading) return allLogs; // Return unfiltered if still loading
+    
     return allLogs.filter(log => {
-      const matchesDate = !dateFilter || log.tripDate.includes(dateFilter);
+      const logDate = log.tripDate.split('T')[0]; // Get YYYY-MM-DD format
+      const matchesDate = !dateFilter || logDate === dateFilter;
       const matchesVehicle = !vehicleFilter || log.vehicleNumber.toLowerCase().includes(vehicleFilter.toLowerCase());
       const matchesDriver = !driverFilter || log.driverName.toLowerCase().includes(driverFilter.toLowerCase());
-      const matchesRent = !rentFilter || (rentFilter === "paid" && log.isSubstitute) || (rentFilter === "unpaid" && !log.isSubstitute);
+      
+      // Fix rent filter logic
+      const rentStatus = getRentStatus(log);
+      const matchesRent = !rentFilter || 
+        (rentFilter === "paid" && rentStatus.status === "paid") || 
+        (rentFilter === "unpaid" && rentStatus.status === "unpaid");
       
       return matchesDate && matchesVehicle && matchesDriver && matchesRent;
     });
-  }, [allLogs, dateFilter, vehicleFilter, driverFilter, rentFilter]);
+  }, [allLogs, dateFilter, vehicleFilter, driverFilter, rentFilter, getRentStatus, allRentLogsLoading]);
 
   // Calculate totals for filtered data
   const totals = useMemo(() => {
@@ -131,6 +168,7 @@ export default function TripLogs() {
     mutationFn: (rentLogId: number) => api.payDriverRent(rentLogId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/driver-rent-logs/unpaid"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/driver-rent-logs/all"] });
       toast({ title: "Rent marked as paid", variant: "default" });
     },
     onError: (error) => {
@@ -160,24 +198,7 @@ export default function TripLogs() {
     setRentFilter("");
   };
 
-  const getRentStatus = (log: TripLog) => {
-    if (log.isSubstitute) {
-      return { status: "unpaid", amount: log.charge || 0 };
-    }
-    
-    const rentLog = rentLogs.find(rent => 
-      rent.driverId === log.driverId && 
-      rent.date.startsWith(log.tripDate.split('T')[0])
-    );
-    
-    if (rentLog) {
-      return { status: rentLog.paid ? "paid" : "unpaid", amount: rentLog.rent };
-    }
-    
-    return { status: "unknown", amount: 0 };
-  };
-
-  if (tripsLoading || substitutesLoading || rentLogsLoading) {
+  if (tripsLoading || substitutesLoading || allRentLogsLoading) {
     return (
       <div className="container mx-auto p-4">
         <div className="text-center">Loading trip logs...</div>
@@ -287,67 +308,72 @@ export default function TripLogs() {
       )}
 
       {/* Trip Logs Table */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Trip Logs ({filteredLogs.length} records)</CardTitle>
+      <Card className="shadow-sm">
+        <CardHeader className="bg-gradient-to-r from-blue-50 to-indigo-50 border-b">
+          <CardTitle className="text-lg font-semibold text-gray-800">
+            Trip Logs ({filteredLogs.length} records)
+          </CardTitle>
         </CardHeader>
-        <CardContent>
+        <CardContent className="p-0">
           <div className="overflow-x-auto">
             <table className="w-full border-collapse">
               <thead>
-                <tr className="border-b">
-                  <th className="text-left p-2">Date</th>
-                  <th className="text-left p-2">Vehicle</th>
-                  <th className="text-left p-2">Driver</th>
-                  <th className="text-left p-2">Shift</th>
-                  <th className="text-left p-2">Trips</th>
-                  <th className="text-left p-2">Type</th>
-                  <th className="text-left p-2">Rent</th>
-                  <th className="text-left p-2">Actions</th>
+                <tr className="bg-gray-50 border-b-2 border-gray-200">
+                  <th className="text-left p-4 font-semibold text-gray-700">Date</th>
+                  <th className="text-left p-4 font-semibold text-gray-700">Vehicle</th>
+                  <th className="text-left p-4 font-semibold text-gray-700">Driver</th>
+                  <th className="text-left p-4 font-semibold text-gray-700">Shift</th>
+                  <th className="text-left p-4 font-semibold text-gray-700">Trips</th>
+                  <th className="text-left p-4 font-semibold text-gray-700">Type</th>
+                  <th className="text-left p-4 font-semibold text-gray-700">Rent</th>
+                  <th className="text-left p-4 font-semibold text-gray-700">Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {filteredLogs.map((log) => {
                   const rentStatus = getRentStatus(log);
                   return (
-                    <tr key={`${log.isSubstitute ? 'sub' : 'trip'}-${log.id}`} className="border-b hover:bg-gray-50">
-                      <td className="p-2">
+                    <tr key={`${log.isSubstitute ? 'sub' : 'trip'}-${log.id}`} className="border-b border-gray-100 hover:bg-blue-50 transition-colors">
+                      <td className="p-4 text-gray-700">
                         {format(new Date(log.tripDate), "MMM dd, yyyy")}
                       </td>
-                      <td className="p-2">{log.vehicleNumber}</td>
-                      <td className="p-2">{log.driverName}</td>
-                      <td className="p-2">
-                        <Badge variant={log.shift === "morning" ? "default" : "secondary"}>
-                          {log.shift}
+                      <td className="p-4 font-medium text-gray-800">{log.vehicleNumber}</td>
+                      <td className="p-4 text-gray-700">{log.driverName}</td>
+                      <td className="p-4">
+                        <Badge variant={log.shift === "morning" ? "default" : "secondary"} className="font-medium">
+                          {log.shift === "morning" ? "Morning" : "Evening"}
                         </Badge>
                       </td>
-                      <td className="p-2">{log.tripCount}</td>
-                      <td className="p-2">
-                        <Badge variant={log.isSubstitute ? "outline" : "default"}>
+                      <td className="p-4 font-semibold text-blue-600">{log.tripCount}</td>
+                      <td className="p-4">
+                        <Badge 
+                          variant={log.isSubstitute ? "outline" : "default"} 
+                          className={log.isSubstitute ? "border-orange-200 text-orange-700 bg-orange-50" : "bg-blue-100 text-blue-800 border-blue-200"}
+                        >
                           {log.isSubstitute ? "Substitute" : "Regular"}
                         </Badge>
                       </td>
-                      <td className="p-2">
-                        <div className="flex items-center gap-2">
-                          <span>₹{rentStatus.amount}</span>
+                      <td className="p-4">
+                        <div className="flex items-center gap-3">
+                          <span className="font-bold text-green-600">₹{rentStatus.amount}</span>
                           {rentStatus.status === "unpaid" && (
                             <Button
                               size="sm"
                               variant="outline"
                               onClick={() => handlePayRent(log.id)}
-                              className="text-xs"
+                              className="text-xs bg-red-50 border-red-200 text-red-700 hover:bg-red-100 font-medium"
                             >
                               Mark Paid
                             </Button>
                           )}
                           {rentStatus.status === "paid" && (
-                            <Badge variant="default" className="text-xs">
-                              Paid
+                            <Badge className="text-xs bg-green-100 text-green-800 border-green-200 font-medium">
+                              Paid ✓
                             </Badge>
                           )}
                         </div>
                       </td>
-                      <td className="p-2">
+                      <td className="p-4">
                         <div className="flex gap-2">
                           {!log.isSubstitute && (
                             <>
@@ -355,6 +381,7 @@ export default function TripLogs() {
                                 size="sm"
                                 variant="outline"
                                 onClick={() => handleEditTrip(log)}
+                                className="hover:bg-blue-50 border-blue-200 text-blue-600"
                               >
                                 <Edit className="h-4 w-4" />
                               </Button>
@@ -362,6 +389,7 @@ export default function TripLogs() {
                                 size="sm"
                                 variant="outline"
                                 onClick={() => handleDeleteTrip(log.id, log.driverName, log.vehicleNumber)}
+                                className="hover:bg-red-50 border-red-200 text-red-600"
                               >
                                 <Trash2 className="h-4 w-4" />
                               </Button>

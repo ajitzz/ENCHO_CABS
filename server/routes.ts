@@ -289,8 +289,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const unpaidRents = await storage.getUnpaidDriverRents();
       res.json(unpaidRents);
-    } catch (error) {
+    } catch (error: any) {
       res.status(500).json({ message: "Failed to fetch unpaid rents", error: error.message });
+    }
+  });
+
+  app.get("/api/driver-rent-logs", async (req, res) => {
+    try {
+      const allRentLogs = await storage.getAllDriverRentLogs();
+      res.json(allRentLogs);
+    } catch (error: any) {
+      res.status(500).json({ message: "Failed to fetch all driver rent logs", error: error.message });
     }
   });
 

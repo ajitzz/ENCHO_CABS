@@ -47,6 +47,7 @@ export interface IStorage {
   updateDriverRentLogPaymentStatus(id: number, paid: boolean): Promise<DriverRentLog>;
   deleteDriverRentLog(id: number): Promise<void>;
   getUnpaidDriverRents(): Promise<Array<DriverRentLog & { driverName: string; vehicleNumber: string }>>;
+  getAllDriverRentLogs(): Promise<Array<DriverRentLog & { driverName: string; vehicleNumber: string }>>;
 
   // Weekly settlement operations
   createWeeklySettlement(settlement: InsertWeeklySettlement): Promise<WeeklySettlement>;
@@ -279,6 +280,47 @@ export class DatabaseStorage implements IStorage {
       });
     }
     
+    return result;
+  }
+
+  async getAllDriverRentLogs(): Promise<Array<DriverRentLog & { driverName: string; vehicleNumber: string }>> {
+    // Get all rent logs with driver names
+    const rentLogs = await db.select({
+      id: driverRentLogs.id,
+      driverId: driverRentLogs.driverId,
+      date: driverRentLogs.date,
+      rent: driverRentLogs.rent,
+      paid: driverRentLogs.paid,
+      createdAt: driverRentLogs.createdAt,
+      updatedAt: driverRentLogs.updatedAt,
+      driverName: drivers.name,
+    }).from(driverRentLogs)
+      .innerJoin(drivers, eq(driverRentLogs.driverId, drivers.id))
+      .orderBy(desc(driverRentLogs.date));
+
+    // Add vehicle information for each rent log
+    const result: Array<DriverRentLog & { driverName: string; vehicleNumber: string }> = [];
+    for (const rentLog of rentLogs) {
+      // Find vehicle assignment for this driver
+      const assignment = await db.select({
+        vehicleId: vehicleDriverAssignments.vehicleId,
+        vehicleNumber: vehicles.vehicleNumber,
+      }).from(vehicleDriverAssignments)
+        .innerJoin(vehicles, eq(vehicleDriverAssignments.vehicleId, vehicles.id))
+        .where(or(
+          eq(vehicleDriverAssignments.morningDriverId, rentLog.driverId),
+          eq(vehicleDriverAssignments.eveningDriverId, rentLog.driverId)
+        ))
+        .limit(1);
+
+      const vehicleNumber = assignment[0]?.vehicleNumber || "Unassigned";
+      
+      result.push({
+        ...rentLog,
+        vehicleNumber: vehicleNumber as string,
+      });
+    }
+
     return result;
   }
 

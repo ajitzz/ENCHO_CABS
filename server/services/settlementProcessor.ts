@@ -54,53 +54,42 @@ export async function calculateWeeklySettlement(vehicleId: number, weekStartDate
     }
   }
 
-  // Calculate weekly rent for each driver based on days worked
+  // Calculate income from regular drivers based on actual days worked
+  let totalRegularDriverRent = 0;
   const driverDataArray = Array.from(driverRentMap.entries()).map(([driverId, data]) => {
     const dailyRent = getDriverRent(data.driver.hasAccommodation);
-    const weeklyRent = dailyRent * 7; // Always calculate full week rent
+    const actualRent = dailyRent * data.daysWorked.size; // Pay only for actual days worked
+    totalRegularDriverRent += actualRent;
     return {
       driver: data.driver,
-      rent: weeklyRent
+      rent: actualRent
     };
   });
 
-  // Also include substitute drivers for this vehicle and week
+  // Calculate income from substitute drivers for this vehicle and week
   const substituteDrivers = await storage.getSubstituteDriversByVehicleAndDateRange(vehicleId, weekStart, weekEnd);
-  let substituteRent = 0;
+  let totalSubstituteRent = 0;
   for (const substitute of substituteDrivers) {
-    substituteRent += substitute.charge;
+    totalSubstituteRent += substitute.charge;
   }
 
-  // If there are substitute drivers, add them as a separate entry
-  if (substituteRent > 0) {
-    driverDataArray.push({
-      driver: { id: -1, name: "Substitute Drivers" },
-      rent: substituteRent
-    });
-  }
+  // Total income = regular drivers + substitutes
+  const totalIncome = totalRegularDriverRent + totalSubstituteRent;
 
-  // Convert to the expected format
+  // Convert to the expected format for backward compatibility
   let driver1Data = null;
   let driver2Data = null;
-  let totalDriverRent = 0;
 
   if (driverDataArray.length > 0) {
     driver1Data = { id: driverDataArray[0].driver.id, rent: driverDataArray[0].rent };
-    totalDriverRent += driverDataArray[0].rent;
   }
 
   if (driverDataArray.length > 1) {
     driver2Data = { id: driverDataArray[1].driver.id, rent: driverDataArray[1].rent };
-    totalDriverRent += driverDataArray[1].rent;
   }
 
-  // Add any remaining drivers' rent to the total
-  for (let i = 2; i < driverDataArray.length; i++) {
-    totalDriverRent += driverDataArray[i].rent;
-  }
-
-  // Calculate profit: (Total Driver Rent + Substitute Rent) - (Slab Rent × 7 days)
-  const profit = totalDriverRent - totalRentToCompany;
+  // Calculate profit: Total Income - Company Rent
+  const profit = totalIncome - totalRentToCompany;
 
   return {
     vehicleId,
@@ -111,7 +100,7 @@ export async function calculateWeeklySettlement(vehicleId: number, weekStartDate
     totalRentToCompany,
     driver1Data,
     driver2Data,
-    totalDriverRent,
+    totalDriverRent: totalIncome, // Use total income instead of just regular drivers
     profit,
   };
 }
