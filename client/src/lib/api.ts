@@ -348,4 +348,32 @@ export const api = {
     });
     if (!response.ok) throw new Error("Failed to mark rent as paid");
   },
+
+  createSubstituteDriver: async (substituteData: {
+    name: string;
+    vehicleId: number;
+    date: Date | string;
+    shift: "morning" | "evening";
+    shiftHours: 6 | 8 | 12;
+    charge: number;
+  }): Promise<any> => {
+    const serializedData = {
+      ...substituteData,
+      date: substituteData.date instanceof Date ? substituteData.date.toISOString() : substituteData.date,
+    };
+    const response = await fetch("/api/substitute-drivers", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(serializedData),
+    });
+    if (!response.ok) throw new Error("Failed to create substitute driver");
+    return response.json();
+  },
+
+  deleteSubstituteDriver: async (id: number): Promise<void> => {
+    const response = await fetch(`/api/substitute-drivers/${id}`, {
+      method: "DELETE",
+    });
+    if (!response.ok) throw new Error("Failed to delete substitute driver");
+  },
 };

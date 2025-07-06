@@ -63,6 +63,7 @@ export interface IStorage {
   getSubstituteDriversByVehicle(vehicleId: number): Promise<Array<SubstituteDriver & { vehicleNumber: string }>>;
   getSubstituteDriversByVehicleAndDateRange(vehicleId: number, startDate: Date, endDate: Date): Promise<Array<SubstituteDriver & { vehicleNumber: string }>>;
   getAllSubstituteDrivers(): Promise<Array<SubstituteDriver & { vehicleNumber: string }>>;
+  deleteSubstituteDriver(id: number): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -458,6 +459,10 @@ export class DatabaseStorage implements IStorage {
       .orderBy(desc(substituteDrivers.date));
     
     return result;
+  }
+
+  async deleteSubstituteDriver(id: number): Promise<void> {
+    await db.delete(substituteDrivers).where(eq(substituteDrivers.id, id));
   }
 }
 

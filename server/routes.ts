@@ -6,7 +6,7 @@ import {
   insertVehicleSchema, insertDriverSchema, insertVehicleDriverAssignmentSchema,
   insertTripSchema, insertDriverRentLogSchema, insertSubstituteDriverSchema 
 } from "@shared/schema";
-import { getRentalInfo, getAllSlabs, getDriverRent } from "./services/rentalCalculator";
+import { getRentalInfo, getAllSlabs, getDriverRent, getRentalRate } from "./services/rentalCalculator";
 import { calculateWeeklySettlement, processWeeklySettlement, processAllVehicleSettlements, generateDailyRentLogs } from "./services/settlementProcessor";
 
 // Validation schemas
@@ -313,19 +313,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/vehicles/:id/weekly-summary", async (req, res) => {
     try {
       const { id } = vehicleIdSchema.parse(req.params);
-      const weekStartDate = req.query.weekStart ? new Date(req.query.weekStart as string) : new Date();
       
       const vehicle = await storage.getVehicle(id);
       if (!vehicle) {
         return res.status(404).json({ message: "Vehicle not found" });
       }
 
+      // Get ALL trips for this vehicle to calculate total trips (matching Trip Logs page)
+      const allTrips = await storage.getTripsByVehicleAndDateRange(
+        id,
+        new Date('2020-01-01'), // Start from a very early date to get all trips
+        new Date('2030-12-31')  // End at a very late date to get all trips
+      );
+      
+      // Calculate total trips from all time (matching Trip Logs page calculation)
+      const totalTrips = allTrips.reduce((sum, trip) => sum + trip.tripCount, 0);
+      
+      // Get weekly settlement data for profit calculation (current week)
+      const weekStartDate = req.query.weekStart ? new Date(req.query.weekStart as string) : new Date();
       const settlementData = await calculateWeeklySettlement(id, weekStartDate);
-      if (!settlementData) {
-        return res.status(404).json({ message: "No settlement data available" });
-      }
-
-      const rentalInfo = getRentalInfo(vehicle.company as "PMV" | "Letzryd", settlementData.totalTrips);
+      
+      // Use total trips for rental info calculation
+      const rentalInfo = getRentalInfo(vehicle.company as "PMV" | "Letzryd", totalTrips);
       const assignment = await storage.getVehicleDriverAssignment(id);
       
       let morningDriver = null;
@@ -341,10 +350,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const summary = {
         vehicle,
-        ...settlementData,
+        totalTrips, // Use all-time total trips
+        rentalRate: settlementData?.rentalRate || getRentalRate(vehicle.company as "PMV" | "Letzryd", totalTrips),
+        totalRentToCompany: settlementData?.totalRentToCompany || 0,
+        totalDriverRent: settlementData?.totalDriverRent || 0,
+        profit: settlementData?.profit || 0,
         rentalInfo,
         morningDriver,
         eveningDriver,
+        weekStart: settlementData?.weekStart,
+        weekEnd: settlementData?.weekEnd,
       };
 
       res.json(summary);
@@ -491,6 +506,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(substitutes);
     } catch (error) {
       res.status(500).json({ message: "Failed to fetch substitute drivers", error: error.message });
+    }
+  });
+
+  // Delete substitute driver
+  app.delete("/api/substitute-drivers/:id", async (req, res) => {
+    try {
+      const { id } = vehicleIdSchema.parse(req.params);
+      const substitute = await storage.getSubstituteDriver(id);
+      
+      if (!substitute) {
+        return res.status(404).json({ message: "Substitute driver not found" });
+      }
+      
+      await storage.deleteSubstituteDriver(id);
+      res.json({ message: "Substitute driver deleted successfully" });
+    } catch (error) {
+      res.status(500).json({ message: "Failed to delete substitute driver", error: error.message });
     }
   });
 

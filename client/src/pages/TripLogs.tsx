@@ -7,9 +7,11 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { format } from "date-fns";
-import { Trash2, Edit, Filter, X, Search } from "lucide-react";
+import { Trash2, Edit, Filter, X, Search, Plus } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import EditTripModal from "@/components/EditTripModal";
+import TripLogModal from "@/components/TripLogModal";
+import SubstituteDriverForm from "@/components/SubstituteDriverForm";
 
 interface TripLog {
   id: number;
@@ -40,6 +42,8 @@ export default function TripLogs() {
   const { toast } = useToast();
   const [editTrip, setEditTrip] = useState<any>(null);
   const [editModalOpen, setEditModalOpen] = useState(false);
+  const [tripLogModalOpen, setTripLogModalOpen] = useState(false);
+  const [substituteModalOpen, setSubstituteModalOpen] = useState(false);
   
   // Filter states
   const [dateFilter, setDateFilter] = useState("");
@@ -62,6 +66,11 @@ export default function TripLogs() {
   const { data: unpaidRentLogs = [], isLoading: unpaidRentLogsLoading } = useQuery({
     queryKey: ["/api/driver-rent-logs/unpaid"],
     queryFn: () => api.getUnpaidDriverRents(),
+  });
+
+  const { data: vehicles = [] } = useQuery({
+    queryKey: ["/api/vehicles"],
+    queryFn: () => api.getVehicles(),
   });
 
   // Fetch all rent logs to show amounts even after payment
@@ -143,12 +152,31 @@ export default function TripLogs() {
     const today = new Date().toISOString().split('T')[0];
     const todayLogs = filteredLogs.filter(log => log.tripDate.startsWith(today));
     
+    // Calculate total rent collection from filtered logs
+    const totalRentCollection = filteredLogs.reduce((sum, log) => {
+      const rentStatus = getRentStatus(log);
+      if (rentStatus.status === "paid") {
+        return sum + rentStatus.amount;
+      }
+      return sum;
+    }, 0);
+
+    // Calculate today's rent paid
+    const todayRentPaid = todayLogs.reduce((sum, log) => {
+      const rentStatus = getRentStatus(log);
+      if (rentStatus.status === "paid") {
+        return sum + rentStatus.amount;
+      }
+      return sum;
+    }, 0);
+    
     return {
       totalTrips: filteredLogs.reduce((sum, log) => sum + log.tripCount, 0),
       todayTrips: todayLogs.reduce((sum, log) => sum + log.tripCount, 0),
-      todayRentPaid: todayLogs.filter(log => log.isSubstitute).reduce((sum, log) => sum + (log.charge || 0), 0)
+      todayRentPaid: todayRentPaid,
+      totalRentCollection: totalRentCollection
     };
-  }, [filteredLogs]);
+  }, [filteredLogs, getRentStatus]);
 
   const deleteTripMutation = useMutation({
     mutationFn: (tripId: number) => api.deleteTrip(tripId),
@@ -176,6 +204,18 @@ export default function TripLogs() {
     },
   });
 
+  const deleteSubstituteMutation = useMutation({
+    mutationFn: (substituteId: number) => api.deleteSubstituteDriver(substituteId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/substitute-drivers"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/trips/recent/500"] });
+      toast({ title: "Substitute driver deleted successfully", variant: "default" });
+    },
+    onError: (error) => {
+      toast({ title: "Failed to delete substitute driver", description: error.message, variant: "destructive" });
+    },
+  });
+
   const handleDeleteTrip = (tripId: number, driverName: string, vehicleNumber: string) => {
     if (window.confirm(`Are you sure you want to delete the trip for ${driverName} (${vehicleNumber})?`)) {
       deleteTripMutation.mutate(tripId);
@@ -189,6 +229,12 @@ export default function TripLogs() {
 
   const handlePayRent = (rentLogId: number) => {
     payRentMutation.mutate(rentLogId);
+  };
+
+  const handleDeleteSubstitute = (substituteId: number, substituteName: string) => {
+    if (window.confirm(`Are you sure you want to delete the substitute driver ${substituteName}?`)) {
+      deleteSubstituteMutation.mutate(substituteId);
+    }
   };
 
   const clearFilters = () => {
@@ -210,18 +256,35 @@ export default function TripLogs() {
     <div className="container mx-auto p-4 space-y-4">
       <div className="flex justify-between items-center">
         <h1 className="text-2xl font-bold">Trip Logs</h1>
-        <Button 
-          variant="outline" 
-          onClick={() => setShowFilters(!showFilters)}
-          className="flex items-center gap-2"
-        >
-          <Filter className="h-4 w-4" />
-          {showFilters ? "Hide Filters" : "Show Filters"}
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button 
+            onClick={() => setTripLogModalOpen(true)}
+            className="flex items-center gap-2"
+          >
+            <Plus className="h-4 w-4" />
+            Add Trip Log
+          </Button>
+          <Button 
+            variant="outline"
+            onClick={() => setSubstituteModalOpen(true)}
+            className="flex items-center gap-2"
+          >
+            <Plus className="h-4 w-4" />
+            Add Substitute
+          </Button>
+          <Button 
+            variant="outline" 
+            onClick={() => setShowFilters(!showFilters)}
+            className="flex items-center gap-2"
+          >
+            <Filter className="h-4 w-4" />
+            {showFilters ? "Hide Filters" : "Show Filters"}
+          </Button>
+        </div>
       </div>
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm">Total Trips</CardTitle>
@@ -246,6 +309,15 @@ export default function TripLogs() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">₹{totals.todayRentPaid}</div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm">Total Rent Collection</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">₹{totals.totalRentCollection}</div>
           </CardContent>
         </Card>
       </div>
@@ -395,6 +467,16 @@ export default function TripLogs() {
                               </Button>
                             </>
                           )}
+                          {log.isSubstitute && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => handleDeleteSubstitute(log.id, log.driverName)}
+                              className="hover:bg-red-50 border-red-200 text-red-600"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          )}
                         </div>
                       </td>
                     </tr>
@@ -410,6 +492,17 @@ export default function TripLogs() {
         trip={editTrip}
         open={editModalOpen}
         onOpenChange={setEditModalOpen}
+      />
+
+      <TripLogModal
+        open={tripLogModalOpen}
+        onOpenChange={setTripLogModalOpen}
+      />
+
+      <SubstituteDriverForm
+        open={substituteModalOpen}
+        onOpenChange={setSubstituteModalOpen}
+        vehicles={vehicles}
       />
     </div>
   );
