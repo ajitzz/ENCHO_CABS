@@ -33,7 +33,7 @@ export async function calculateWeeklySettlement(vehicleId: number, weekStartDate
   
   // Calculate total trips (regular trips + substitute driver trips)
   const regularTrips = trips.reduce((sum, trip) => sum + trip.tripCount, 0);
-  const substituteTrips = weeklySubstituteDrivers.length; // Each substitute driver record represents trips done
+  const substituteTrips = weeklySubstituteDrivers.reduce((sum, sub) => sum + (sub.tripCount || 1), 0); // Use actual trip count from substitutes
   const totalTrips = regularTrips + substituteTrips;
   
   // Get rental rate based on company and trip count

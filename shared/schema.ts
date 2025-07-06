@@ -74,6 +74,7 @@ export const substituteDrivers = pgTable("substitute_drivers", {
   date: timestamp("date").notNull(),
   shift: text("shift").notNull(), // "morning" or "evening"
   shiftHours: integer("shift_hours").notNull(), // 6, 8, or 12
+  tripCount: integer("trip_count").notNull().default(1),
   charge: integer("charge").notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),

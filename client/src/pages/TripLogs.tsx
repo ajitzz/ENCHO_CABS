@@ -115,7 +115,7 @@ export default function TripLogs() {
       vehicleId: sub.vehicleId,
       tripDate: sub.date,
       shift: sub.shift,
-      tripCount: sub.shiftHours, // Use shift hours as trip count for substitutes
+      tripCount: sub.tripCount || 1, // Use actual trip count for substitutes
       driverName: sub.name,
       vehicleNumber: sub.vehicleNumber,
       isSubstitute: true,

@@ -341,7 +341,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Calculate total trips from regular trips + substitute driver trips
       const regularTrips = allTrips.reduce((sum, trip) => sum + trip.tripCount, 0);
-      const substituteTrips = allSubstituteDrivers.length; // Each substitute driver record represents trips done
+      const substituteTrips = allSubstituteDrivers.reduce((sum, sub) => sum + (sub.tripCount || 1), 0); // Use actual trip count from substitutes
       const totalTrips = regularTrips + substituteTrips;
       
       // Get weekly settlement data for profit calculation (current week)

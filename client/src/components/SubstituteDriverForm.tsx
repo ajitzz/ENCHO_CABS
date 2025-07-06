@@ -28,6 +28,7 @@ const substituteDriverSchema = z.object({
   shiftHours: z.enum(["6", "8", "12"], {
     required_error: "Shift hours are required",
   }),
+  tripCount: z.number().min(1, "Trip count must be at least 1").max(50, "Trip count cannot exceed 50"),
 });
 
 type SubstituteDriverFormData = z.infer<typeof substituteDriverSchema>;
@@ -53,6 +54,7 @@ export default function SubstituteDriverForm({ vehicleId, vehicles, open: extern
       date: new Date(),
       shift: "morning",
       shiftHours: "8",
+      tripCount: 1,
     },
   });
 
@@ -86,6 +88,7 @@ export default function SubstituteDriverForm({ vehicleId, vehicles, open: extern
           date: data.date.toISOString(),
           shiftHours,
           charge,
+          tripCount: data.tripCount,
         }),
       });
 
@@ -277,6 +280,30 @@ export default function SubstituteDriverForm({ vehicleId, vehicles, open: extern
                       Charge: {getChargeForHours(field.value)}
                     </p>
                   )}
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="tripCount"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Trip Count</FormLabel>
+                  <FormControl>
+                    <Input 
+                      type="number" 
+                      min="1" 
+                      max="50" 
+                      placeholder="Enter number of trips"
+                      {...field}
+                      onChange={(e) => field.onChange(parseInt(e.target.value) || 1)}
+                    />
+                  </FormControl>
+                  <p className="text-sm text-muted-foreground">
+                    Number of trips completed by substitute driver
+                  </p>
                   <FormMessage />
                 </FormItem>
               )}
