@@ -28,8 +28,13 @@ export async function calculateWeeklySettlement(vehicleId: number, weekStartDate
   // Get all trips for this vehicle during the week
   const trips = await storage.getTripsByVehicleAndDateRange(vehicleId, weekStart, weekEnd);
   
-  // Calculate total trips
-  const totalTrips = trips.reduce((sum, trip) => sum + trip.tripCount, 0);
+  // Get substitute driver records for this vehicle during the week
+  const weeklySubstituteDrivers = await storage.getSubstituteDriversByVehicleAndDateRange(vehicleId, weekStart, weekEnd);
+  
+  // Calculate total trips (regular trips + substitute driver trips)
+  const regularTrips = trips.reduce((sum, trip) => sum + trip.tripCount, 0);
+  const substituteTrips = weeklySubstituteDrivers.length; // Each substitute driver record represents trips done
+  const totalTrips = regularTrips + substituteTrips;
   
   // Get rental rate based on company and trip count
   const rentalRate = getRentalRate(vehicle.company as "PMV" | "Letzryd", totalTrips);
@@ -69,10 +74,9 @@ export async function calculateWeeklySettlement(vehicleId: number, weekStartDate
     };
   });
 
-  // Calculate income from substitute drivers for this vehicle and week
-  const substituteDrivers = await storage.getSubstituteDriversByVehicleAndDateRange(vehicleId, weekStart, weekEnd);
+  // Calculate income from substitute drivers (already fetched above)
   let totalSubstituteCharges = 0;
-  const substitutes = substituteDrivers.map(sub => {
+  const substitutes = weeklySubstituteDrivers.map(sub => {
     totalSubstituteCharges += sub.charge;
     return {
       id: sub.id,

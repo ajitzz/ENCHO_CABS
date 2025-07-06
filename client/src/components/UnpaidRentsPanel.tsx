@@ -4,10 +4,12 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
+import { useLocation } from "wouter";
 
 export default function UnpaidRentsPanel() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const [, setLocation] = useLocation();
 
   const { data: unpaidRents, isLoading } = useQuery({
     queryKey: ["/api/driver-rent-logs/unpaid"],
@@ -112,7 +114,11 @@ export default function UnpaidRentsPanel() {
         </div>
 
         {unpaidRents && unpaidRents.length > 4 && (
-          <Button variant="outline" className="w-full mt-4 text-sm">
+          <Button 
+            variant="outline" 
+            className="w-full mt-4 text-sm"
+            onClick={() => setLocation("/rent-tracking")}
+          >
             View All Unpaid Rents ({unpaidRents.length})
           </Button>
         )}

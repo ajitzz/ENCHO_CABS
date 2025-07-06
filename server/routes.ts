@@ -309,6 +309,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Alternative endpoint path for all rent logs
+  app.get("/api/driver-rent-logs/all", async (req, res) => {
+    try {
+      const allRentLogs = await storage.getAllDriverRentLogs();
+      res.json(allRentLogs);
+    } catch (error: any) {
+      res.status(500).json({ message: "Failed to fetch all driver rent logs", error: error.message });
+    }
+  });
+
   // Vehicle weekly summary route
   app.get("/api/vehicles/:id/weekly-summary", async (req, res) => {
     try {
@@ -326,8 +336,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         new Date('2030-12-31')  // End at a very late date to get all trips
       );
       
-      // Calculate total trips from all time (matching Trip Logs page calculation)
-      const totalTrips = allTrips.reduce((sum, trip) => sum + trip.tripCount, 0);
+      // Get ALL substitute driver records for this vehicle
+      const allSubstituteDrivers = await storage.getSubstituteDriversByVehicle(id);
+      
+      // Calculate total trips from regular trips + substitute driver trips
+      const regularTrips = allTrips.reduce((sum, trip) => sum + trip.tripCount, 0);
+      const substituteTrips = allSubstituteDrivers.length; // Each substitute driver record represents trips done
+      const totalTrips = regularTrips + substituteTrips;
       
       // Get weekly settlement data for profit calculation (current week)
       const weekStartDate = req.query.weekStart ? new Date(req.query.weekStart as string) : new Date();

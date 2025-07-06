@@ -86,7 +86,7 @@ export default function TripLogs() {
   // Helper function to get rent status  
   const getRentStatus = useCallback((log: TripLog) => {
     if (log.isSubstitute) {
-      return { status: "unpaid", amount: log.charge || 0 };
+      return { status: "substitute", amount: log.charge || 0 };
     }
     
     // Check all rent logs to find the rent amount, paid or unpaid
@@ -152,19 +152,19 @@ export default function TripLogs() {
     const today = new Date().toISOString().split('T')[0];
     const todayLogs = filteredLogs.filter(log => log.tripDate.startsWith(today));
     
-    // Calculate total rent collection from filtered logs
+    // Calculate total rent collection from filtered logs (including substitute drivers)
     const totalRentCollection = filteredLogs.reduce((sum, log) => {
       const rentStatus = getRentStatus(log);
-      if (rentStatus.status === "paid") {
+      if (rentStatus.status === "paid" || rentStatus.status === "substitute") {
         return sum + rentStatus.amount;
       }
       return sum;
     }, 0);
 
-    // Calculate today's rent paid
+    // Calculate today's rent paid (including substitute drivers)
     const todayRentPaid = todayLogs.reduce((sum, log) => {
       const rentStatus = getRentStatus(log);
-      if (rentStatus.status === "paid") {
+      if (rentStatus.status === "paid" || rentStatus.status === "substitute") {
         return sum + rentStatus.amount;
       }
       return sum;

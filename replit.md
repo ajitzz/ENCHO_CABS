@@ -127,6 +127,14 @@ Changelog:
   • Enhanced filtering by Date, Vehicle, Driver, and Rent Status
   • Real-time calculation updates for Total Trips, Today's Trips, and Today's Rent Paid
   • Complete substitute driver workflow from creation to profit calculation integration
+- January 06, 2025. Critical fixes for substitute driver integration and calculation issues:
+  • Fixed substitute driver trips inclusion in vehicle total trip counts and profit calculations
+  • Updated settlement processor to include substitute driver trips in weekly totals
+  • Fixed Total Rent Collection card calculation to properly include substitute driver charges
+  • Added proper filtering support for substitute drivers in rent collection calculations
+  • Fixed "View All Unpaid Rents" button in dashboard to properly navigate to rent tracking page
+  • Enhanced vehicle weekly summary to include substitute driver data in all calculations
+  • Ensured consistent trip counting across dashboard and Trip Logs page
 ```
 
 ## User Preferences
