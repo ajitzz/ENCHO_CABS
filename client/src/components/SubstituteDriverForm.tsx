@@ -78,21 +78,18 @@ export default function SubstituteDriverForm({ vehicleId, vehicles, open: extern
           throw new Error("Invalid shift hours");
       }
 
-      const requestData = {
-        ...data,
-        date: data.date.toISOString(),
-        shiftHours,
-        charge,
-        tripCount: data.tripCount,
-      };
-      console.log("Sending substitute driver data:", requestData);
-      
       const response = await fetch("/api/substitute-drivers", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify(requestData),
+        body: JSON.stringify({
+          ...data,
+          date: data.date.toISOString(),
+          shiftHours,
+          charge,
+          tripCount: data.tripCount,
+        }),
       });
 
       if (!response.ok) {
@@ -109,7 +106,13 @@ export default function SubstituteDriverForm({ vehicleId, vehicles, open: extern
         title: "Success",
         description: "Substitute driver added successfully",
       });
-      form.reset();
+      form.reset({
+        vehicleId: vehicleId || undefined,
+        date: new Date(),
+        shift: "morning",
+        shiftHours: "8",
+        tripCount: 5,
+      });
       setOpen(false);
     },
     onError: (error: any) => {
@@ -122,7 +125,6 @@ export default function SubstituteDriverForm({ vehicleId, vehicles, open: extern
   });
 
   const onSubmit = (data: SubstituteDriverFormData) => {
-    console.log("Form submission data:", data);
     mutation.mutate(data);
   };
 
@@ -301,12 +303,14 @@ export default function SubstituteDriverForm({ vehicleId, vehicles, open: extern
                       min="1" 
                       max="50" 
                       placeholder="Enter number of trips"
-                      value={field.value || ""}
+                      value={field.value?.toString() || ""}
                       onChange={(e) => {
-                        const value = parseInt(e.target.value);
-                        console.log("Trip count input changed:", e.target.value, "parsed:", value);
-                        field.onChange(isNaN(value) ? 1 : value);
+                        const inputValue = e.target.value;
+                        const numericValue = inputValue === "" ? 1 : parseInt(inputValue);
+                        field.onChange(numericValue);
                       }}
+                      onBlur={field.onBlur}
+                      name={field.name}
                     />
                   </FormControl>
                   <p className="text-sm text-muted-foreground">
