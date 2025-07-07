@@ -78,18 +78,21 @@ export default function SubstituteDriverForm({ vehicleId, vehicles, open: extern
           throw new Error("Invalid shift hours");
       }
 
+      const requestData = {
+        ...data,
+        date: data.date.toISOString(),
+        shiftHours,
+        charge,
+        tripCount: data.tripCount,
+      };
+      console.log("Sending substitute driver data:", requestData);
+      
       const response = await fetch("/api/substitute-drivers", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({
-          ...data,
-          date: data.date.toISOString(),
-          shiftHours,
-          charge,
-          tripCount: data.tripCount,
-        }),
+        body: JSON.stringify(requestData),
       });
 
       if (!response.ok) {
