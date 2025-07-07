@@ -54,7 +54,7 @@ export default function SubstituteDriverForm({ vehicleId, vehicles, open: extern
       date: new Date(),
       shift: "morning",
       shiftHours: "8",
-      tripCount: 1,
+      tripCount: 5,
     },
   });
 
@@ -122,6 +122,7 @@ export default function SubstituteDriverForm({ vehicleId, vehicles, open: extern
   });
 
   const onSubmit = (data: SubstituteDriverFormData) => {
+    console.log("Form submission data:", data);
     mutation.mutate(data);
   };
 
@@ -300,8 +301,12 @@ export default function SubstituteDriverForm({ vehicleId, vehicles, open: extern
                       min="1" 
                       max="50" 
                       placeholder="Enter number of trips"
-                      {...field}
-                      onChange={(e) => field.onChange(parseInt(e.target.value) || 1)}
+                      value={field.value || ""}
+                      onChange={(e) => {
+                        const value = parseInt(e.target.value);
+                        console.log("Trip count input changed:", e.target.value, "parsed:", value);
+                        field.onChange(isNaN(value) ? 1 : value);
+                      }}
                     />
                   </FormControl>
                   <p className="text-sm text-muted-foreground">

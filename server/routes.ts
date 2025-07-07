@@ -548,14 +548,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Create substitute driver
   app.post("/api/substitute-drivers", async (req, res) => {
     try {
-      console.log("Raw request body:", req.body);
       const substituteData = insertSubstituteDriverSchema.parse(req.body);
-      console.log("Parsed substitute data:", substituteData);
       const substitute = await storage.createSubstituteDriver(substituteData);
-      console.log("Created substitute:", substitute);
       res.status(201).json(substitute);
     } catch (error) {
-      console.error("Error creating substitute driver:", error);
       res.status(400).json({ message: "Failed to create substitute driver", error: error.message });
     }
   });
