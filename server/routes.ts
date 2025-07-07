@@ -499,6 +499,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.post("/api/substitute-drivers", async (req, res) => {
+    try {
+      const { name, vehicleId, date, shift, shiftHours, charge, tripCount } = req.body;
+      
+      const substituteData = {
+        name,
+        vehicleId: parseInt(vehicleId),
+        date: new Date(date),
+        shift,
+        shiftHours: parseInt(shiftHours),
+        tripCount: tripCount || 1,
+        charge: parseInt(charge)
+      };
+      
+      const newSubstitute = await storage.createSubstituteDriver(substituteData);
+      res.status(201).json(newSubstitute);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to create substitute driver", error: error.message });
+    }
+  });
+
   app.get("/api/substitute-drivers", async (req, res) => {
     try {
       const { vehicleId, weekStart, weekEnd } = req.query;

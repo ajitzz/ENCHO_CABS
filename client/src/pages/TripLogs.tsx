@@ -152,8 +152,8 @@ export default function TripLogs() {
     const today = new Date().toISOString().split('T')[0];
     const todayLogs = filteredLogs.filter(log => log.tripDate.startsWith(today));
     
-    // Calculate total rent collection from filtered logs (including substitute drivers)
-    const totalRentCollection = filteredLogs.reduce((sum, log) => {
+    // Calculate total rent paid from filtered logs (only paid entries)
+    const totalRentPaid = filteredLogs.reduce((sum, log) => {
       const rentStatus = getRentStatus(log);
       if (rentStatus.status === "paid" || rentStatus.status === "substitute") {
         return sum + rentStatus.amount;
@@ -174,7 +174,7 @@ export default function TripLogs() {
       totalTrips: filteredLogs.reduce((sum, log) => sum + log.tripCount, 0),
       todayTrips: todayLogs.reduce((sum, log) => sum + log.tripCount, 0),
       todayRentPaid: todayRentPaid,
-      totalRentCollection: totalRentCollection
+      totalRentPaid: totalRentPaid
     };
   }, [filteredLogs, getRentStatus]);
 
@@ -314,10 +314,10 @@ export default function TripLogs() {
 
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm">Total Rent Collection</CardTitle>
+            <CardTitle className="text-sm">Total Rent Paid</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">₹{totals.totalRentCollection}</div>
+            <div className="text-2xl font-bold">₹{totals.totalRentPaid}</div>
           </CardContent>
         </Card>
       </div>

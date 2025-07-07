@@ -356,6 +356,7 @@ export const api = {
     shift: "morning" | "evening";
     shiftHours: 6 | 8 | 12;
     charge: number;
+    tripCount?: number;
   }): Promise<any> => {
     const serializedData = {
       ...substituteData,
