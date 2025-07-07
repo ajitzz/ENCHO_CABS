@@ -545,6 +545,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Create substitute driver
+  app.post("/api/substitute-drivers", async (req, res) => {
+    try {
+      const substituteData = insertSubstituteDriverSchema.parse(req.body);
+      const substitute = await storage.createSubstituteDriver(substituteData);
+      res.status(201).json(substitute);
+    } catch (error) {
+      res.status(400).json({ message: "Failed to create substitute driver", error: error.message });
+    }
+  });
+
   // Delete substitute driver
   app.delete("/api/substitute-drivers/:id", async (req, res) => {
     try {
