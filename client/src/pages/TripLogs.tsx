@@ -98,8 +98,6 @@ export default function TripLogs() {
       return rent.driverId === log.driverId && rentDate === tripDate;
     });
     
-
-    
     if (rentLog) {
       return { status: rentLog.paid ? "paid" : "unpaid", amount: rentLog.rent };
     }
