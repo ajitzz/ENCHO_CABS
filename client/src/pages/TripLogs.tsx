@@ -89,6 +89,11 @@ export default function TripLogs() {
       return { status: "substitute", amount: log.charge || 0 };
     }
     
+    // Return loading state if rent logs haven't loaded yet
+    if (allRentLogsLoading) {
+      return { status: "loading", amount: 0 };
+    }
+    
     // Normalize dates for comparison
     const tripDate = new Date(log.tripDate).toISOString().split('T')[0];
     
@@ -98,12 +103,14 @@ export default function TripLogs() {
       return rent.driverId === log.driverId && rentDate === tripDate;
     });
     
+
+    
     if (rentLog) {
       return { status: rentLog.paid ? "paid" : "unpaid", amount: rentLog.rent };
     }
     
     return { status: "unknown", amount: 0 };
-  }, [allRentLogs]);
+  }, [allRentLogs, allRentLogsLoading]);
 
   // Combine trips and substitute drivers
   const allLogs = useMemo(() => {
@@ -449,7 +456,11 @@ export default function TripLogs() {
                       </td>
                       <td className="p-4">
                         <div className="flex items-center gap-3">
-                          <span className="font-bold text-green-600">₹{rentStatus.amount || 0}</span>
+                          {rentStatus.status === "loading" ? (
+                            <span className="text-gray-400">Loading...</span>
+                          ) : (
+                            <span className="font-bold text-green-600">₹{rentStatus.amount || 0}</span>
+                          )}
                           {rentStatus.status === "unpaid" && (
                             <Button
                               size="sm"
