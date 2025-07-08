@@ -46,7 +46,8 @@ export default function TripLogs() {
   const [substituteModalOpen, setSubstituteModalOpen] = useState(false);
   
   // Filter states
-  const [dateFilter, setDateFilter] = useState("");
+  const [startDateFilter, setStartDateFilter] = useState("");
+  const [endDateFilter, setEndDateFilter] = useState("");
   const [vehicleFilter, setVehicleFilter] = useState("");
   const [driverFilter, setDriverFilter] = useState("");
   const [rentFilter, setRentFilter] = useState("all");
@@ -136,7 +137,19 @@ export default function TripLogs() {
     
     return allLogs.filter(log => {
       const logDate = log.tripDate.split('T')[0]; // Get YYYY-MM-DD format
-      const matchesDate = !dateFilter || logDate === dateFilter;
+      
+      // Date range filtering
+      let matchesDateRange = true;
+      if (startDateFilter || endDateFilter) {
+        const logDateObj = new Date(logDate);
+        if (startDateFilter) {
+          matchesDateRange = matchesDateRange && logDateObj >= new Date(startDateFilter);
+        }
+        if (endDateFilter) {
+          matchesDateRange = matchesDateRange && logDateObj <= new Date(endDateFilter);
+        }
+      }
+      
       const matchesVehicle = !vehicleFilter || log.vehicleNumber.toLowerCase().includes(vehicleFilter.toLowerCase());
       const matchesDriver = !driverFilter || log.driverName.toLowerCase().includes(driverFilter.toLowerCase());
       
@@ -146,9 +159,9 @@ export default function TripLogs() {
         (rentFilter === "paid" && rentStatus.status === "paid") || 
         (rentFilter === "unpaid" && rentStatus.status === "unpaid");
       
-      return matchesDate && matchesVehicle && matchesDriver && matchesRent;
+      return matchesDateRange && matchesVehicle && matchesDriver && matchesRent;
     });
-  }, [allLogs, dateFilter, vehicleFilter, driverFilter, rentFilter, getRentStatus, allRentLogsLoading]);
+  }, [allLogs, startDateFilter, endDateFilter, vehicleFilter, driverFilter, rentFilter, getRentStatus, allRentLogsLoading]);
 
   // Calculate totals for filtered data
   const totals = useMemo(() => {
@@ -260,7 +273,8 @@ export default function TripLogs() {
   };
 
   const clearFilters = () => {
-    setDateFilter("");
+    setStartDateFilter("");
+    setEndDateFilter("");
     setVehicleFilter("");
     setDriverFilter("");
     setRentFilter("all");
@@ -357,14 +371,81 @@ export default function TripLogs() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            {/* Quick Date Presets */}
+            <div className="flex flex-wrap gap-2 mb-4">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  const today = new Date().toISOString().split('T')[0];
+                  setStartDateFilter(today);
+                  setEndDateFilter(today);
+                }}
+              >
+                Today
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  const today = new Date();
+                  const weekStart = new Date(today);
+                  weekStart.setDate(today.getDate() - today.getDay() + 1); // Monday
+                  const weekEnd = new Date(today);
+                  weekEnd.setDate(today.getDate() - today.getDay() + 7); // Sunday
+                  setStartDateFilter(weekStart.toISOString().split('T')[0]);
+                  setEndDateFilter(weekEnd.toISOString().split('T')[0]);
+                }}
+              >
+                This Week
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  const today = new Date();
+                  const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
+                  const monthEnd = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+                  setStartDateFilter(monthStart.toISOString().split('T')[0]);
+                  setEndDateFilter(monthEnd.toISOString().split('T')[0]);
+                }}
+              >
+                This Month
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  const today = new Date();
+                  const lastWeekStart = new Date(today);
+                  lastWeekStart.setDate(today.getDate() - today.getDay() - 6); // Last Monday
+                  const lastWeekEnd = new Date(today);
+                  lastWeekEnd.setDate(today.getDate() - today.getDay()); // Last Sunday
+                  setStartDateFilter(lastWeekStart.toISOString().split('T')[0]);
+                  setEndDateFilter(lastWeekEnd.toISOString().split('T')[0]);
+                }}
+              >
+                Last Week
+              </Button>
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
               <div>
-                <label className="text-sm font-medium">Date</label>
+                <label className="text-sm font-medium">Start Date</label>
                 <Input
                   type="date"
-                  value={dateFilter}
-                  onChange={(e) => setDateFilter(e.target.value)}
-                  placeholder="Filter by date"
+                  value={startDateFilter}
+                  onChange={(e) => setStartDateFilter(e.target.value)}
+                  placeholder="From date"
+                />
+              </div>
+              <div>
+                <label className="text-sm font-medium">End Date</label>
+                <Input
+                  type="date"
+                  value={endDateFilter}
+                  onChange={(e) => setEndDateFilter(e.target.value)}
+                  placeholder="To date"
                 />
               </div>
               <div>
