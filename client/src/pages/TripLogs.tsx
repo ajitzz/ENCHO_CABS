@@ -152,6 +152,13 @@ export default function TripLogs() {
         
         // Debug: Show specific case for KA05AP7514 evening shift on 2025-06-30
         if (log.vehicleNumber === "KA05AP7514" && logDate === "2025-06-30" && log.shift === "evening") {
+          const vehicleMatches = !vehicleFilter || log.vehicleNumber.toLowerCase().includes(vehicleFilter.toLowerCase());
+          const driverMatches = !driverFilter || log.driverName.toLowerCase().includes(driverFilter.toLowerCase());
+          const rentStatus = getRentStatus(log);
+          const rentMatches = !rentFilter || rentFilter === "all" || 
+            (rentFilter === "paid" && rentStatus.status === "paid") || 
+            (rentFilter === "unpaid" && rentStatus.status === "unpaid");
+          
           console.log(`🔍 DEBUGGING KA05AP7514 evening 2025-06-30:`, {
             driverName: log.driverName,
             vehicleNumber: log.vehicleNumber,
@@ -162,17 +169,13 @@ export default function TripLogs() {
             endDateFilter: endDateFilter,
             matchesDateRange: matchesDateRange,
             vehicleFilter: vehicleFilter,
-            matchesVehicle: !vehicleFilter || log.vehicleNumber.toLowerCase().includes(vehicleFilter.toLowerCase()),
+            matchesVehicle: vehicleMatches,
             driverFilter: driverFilter,
-            matchesDriver: !driverFilter || log.driverId === parseInt(driverFilter),
+            matchesDriver: driverMatches,
             rentFilter: rentFilter,
-            matchesRent: "checking rent..."
+            matchesRent: rentMatches,
+            finalMatch: matchesDateRange && vehicleMatches && driverMatches && rentMatches
           });
-        }
-        
-        // Debug: Show filtering results for the test range
-        if ((startDateFilter === "2025-06-30" && endDateFilter === "2025-07-03") && matchesDateRange) {
-          console.log(`✅ INCLUDED: ${log.driverName} on ${logDate} (${log.tripCount} trips)`);
         }
       }
       
