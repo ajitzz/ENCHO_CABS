@@ -302,26 +302,33 @@ export class DatabaseStorage implements IStorage {
     // Add vehicle information for each rent log
     const result: Array<DriverRentLog & { driverName: string; vehicleNumber: string }> = [];
     for (const rentLog of rentLogs) {
-      // Find vehicle assignment for this driver
-      const assignment = await db.select({
-        vehicleId: vehicleDriverAssignments.vehicleId,
-        vehicleNumber: vehicles.vehicleNumber,
-      }).from(vehicleDriverAssignments)
-        .innerJoin(vehicles, eq(vehicleDriverAssignments.vehicleId, vehicles.id))
-        .where(or(
-          eq(vehicleDriverAssignments.morningDriverId, rentLog.driverId),
-          eq(vehicleDriverAssignments.eveningDriverId, rentLog.driverId)
-        ))
-        .limit(1);
+      try {
+        // Find vehicle assignment for this driver
+        const assignment = await db.select({
+          vehicleId: vehicleDriverAssignments.vehicleId,
+          vehicleNumber: vehicles.vehicleNumber,
+        }).from(vehicleDriverAssignments)
+          .innerJoin(vehicles, eq(vehicleDriverAssignments.vehicleId, vehicles.id))
+          .where(or(
+            eq(vehicleDriverAssignments.morningDriverId, rentLog.driverId),
+            eq(vehicleDriverAssignments.eveningDriverId, rentLog.driverId)
+          ))
+          .limit(1);
 
-      const vehicleNumber = assignment[0]?.vehicleNumber || "Unassigned";
-      
-      result.push({
-        ...rentLog,
-        vehicleNumber: vehicleNumber as string,
-      });
+        const vehicleNumber = assignment[0]?.vehicleNumber || "Unassigned";
+        
+        result.push({
+          ...rentLog,
+          vehicleNumber: vehicleNumber as string,
+        });
+      } catch (error) {
+        // Still add the entry with "Unassigned" vehicle
+        result.push({
+          ...rentLog,
+          vehicleNumber: "Unassigned",
+        });
+      }
     }
-
     return result;
   }
 
