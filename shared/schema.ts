@@ -36,8 +36,6 @@ export const trips = pgTable("trips", {
   tripDate: timestamp("trip_date").notNull(),
   shift: text("shift").notNull(), // "morning" or "evening"
   tripCount: integer("trip_count").notNull().default(0),
-  weekStart: timestamp("week_start").notNull(), // Sunday of the week
-  weekEnd: timestamp("week_end").notNull(),     // Saturday of the week
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
@@ -45,12 +43,9 @@ export const trips = pgTable("trips", {
 export const driverRentLogs = pgTable("driver_rent_logs", {
   id: serial("id").primaryKey(),
   driverId: integer("driver_id").notNull(),
-  vehicleId: integer("vehicle_id").notNull(), // Add vehicle reference
   date: timestamp("date").notNull(),
   rent: integer("rent").notNull(),
   paid: boolean("paid").notNull().default(false),
-  weekStart: timestamp("week_start").notNull(), // Sunday of the week
-  weekEnd: timestamp("week_end").notNull(),     // Saturday of the week
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
@@ -62,17 +57,12 @@ export const weeklySettlements = pgTable("weekly_settlements", {
   weekEnd: timestamp("week_end").notNull(),
   totalTrips: integer("total_trips").notNull().default(0),
   rentalRate: integer("rental_rate").notNull(),
-  companyRent: integer("company_rent").notNull(), // Rename from totalRentToCompany
-  driverRent: integer("driver_rent").notNull(),
-  substituteRent: integer("substitute_rent").notNull(),
-  totalRent: integer("total_rent").notNull(), // driverRent + substituteRent
+  totalRentToCompany: integer("total_rent_to_company").notNull(),
+  driver1Data: json("driver1_data"), // { id: number, rent: number }
+  driver2Data: json("driver2_data"), // { id: number, rent: number }
+  totalDriverRent: integer("total_driver_rent").notNull(),
   profit: integer("profit").notNull(),
-  settlementDate: timestamp("settlement_date").defaultNow().notNull(), // When settlement was processed
-  driverDetails: json("driver_details").notNull(), // Store detailed driver payment records
-  substituteDetails: json("substitute_details").notNull(), // Store substitute driver records
-  status: text("status").notNull().default("settled"), // "settled", "archived"
-  notes: text("notes"), // Optional notes about the settlement
-  processedBy: text("processed_by"), // Who processed the settlement
+  paid: boolean("paid").notNull().default(false),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
@@ -86,8 +76,6 @@ export const substituteDrivers = pgTable("substitute_drivers", {
   shiftHours: integer("shift_hours").notNull(), // 6, 8, or 12
   tripCount: integer("trip_count").notNull(),
   charge: integer("charge").notNull(),
-  weekStart: timestamp("week_start").notNull(), // Sunday of the week
-  weekEnd: timestamp("week_end").notNull(),     // Saturday of the week
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
@@ -178,17 +166,12 @@ export const insertTripSchema = createInsertSchema(trips).omit({
   id: true,
   createdAt: true,
   updatedAt: true,
-  weekStart: true,  // Auto-calculated
-  weekEnd: true,    // Auto-calculated
 });
 
 export const insertDriverRentLogSchema = createInsertSchema(driverRentLogs).omit({
   id: true,
   createdAt: true,
   updatedAt: true,
-  vehicleId: true,  // Auto-calculated from driver assignment
-  weekStart: true,  // Auto-calculated
-  weekEnd: true,    // Auto-calculated
 });
 
 export const insertWeeklySettlementSchema = createInsertSchema(weeklySettlements).omit({
@@ -201,8 +184,6 @@ export const insertSubstituteDriverSchema = createInsertSchema(substituteDrivers
   id: true,
   createdAt: true,
   updatedAt: true,
-  weekStart: true,  // Auto-calculated
-  weekEnd: true,    // Auto-calculated
 }).extend({
   date: z.coerce.date(),
 });

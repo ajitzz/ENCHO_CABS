@@ -147,17 +147,7 @@ export class DatabaseStorage implements IStorage {
 
   // Trip operations
   async createTrip(trip: InsertTrip): Promise<Trip> {
-    // Automatically calculate week boundaries for the trip
-    const { getWeekBoundaries } = await import("./utils/weekUtils");
-    const { weekStart, weekEnd } = getWeekBoundaries(trip.tripDate);
-    
-    const tripWithWeeks = {
-      ...trip,
-      weekStart,
-      weekEnd
-    };
-    
-    const [result] = await db.insert(trips).values(tripWithWeeks).returning();
+    const [result] = await db.insert(trips).values(trip).returning();
     return result;
   }
 
@@ -221,31 +211,7 @@ export class DatabaseStorage implements IStorage {
 
   // Driver rent log operations
   async createDriverRentLog(rentLog: InsertDriverRentLog): Promise<DriverRentLog> {
-    // Automatically calculate week boundaries and vehicle_id for the rent log
-    const { getWeekBoundaries } = await import("./utils/weekUtils");
-    const { weekStart, weekEnd } = getWeekBoundaries(rentLog.date);
-    
-    // Get vehicle_id from driver assignment if not provided
-    let vehicleId = (rentLog as any).vehicleId;
-    if (!vehicleId) {
-      const assignment = await db.select().from(vehicleDriverAssignments)
-        .where(or(
-          eq(vehicleDriverAssignments.morningDriverId, rentLog.driverId),
-          eq(vehicleDriverAssignments.eveningDriverId, rentLog.driverId)
-        ))
-        .limit(1);
-      
-      vehicleId = assignment[0]?.vehicleId || 1; // Default to vehicle 1
-    }
-    
-    const rentLogWithWeeks = {
-      ...rentLog,
-      vehicleId,
-      weekStart,
-      weekEnd
-    };
-    
-    const [result] = await db.insert(driverRentLogs).values(rentLogWithWeeks).returning();
+    const [result] = await db.insert(driverRentLogs).values(rentLog).returning();
     return result;
   }
 
@@ -336,33 +302,26 @@ export class DatabaseStorage implements IStorage {
     // Add vehicle information for each rent log
     const result: Array<DriverRentLog & { driverName: string; vehicleNumber: string }> = [];
     for (const rentLog of rentLogs) {
-      try {
-        // Find vehicle assignment for this driver
-        const assignment = await db.select({
-          vehicleId: vehicleDriverAssignments.vehicleId,
-          vehicleNumber: vehicles.vehicleNumber,
-        }).from(vehicleDriverAssignments)
-          .innerJoin(vehicles, eq(vehicleDriverAssignments.vehicleId, vehicles.id))
-          .where(or(
-            eq(vehicleDriverAssignments.morningDriverId, rentLog.driverId),
-            eq(vehicleDriverAssignments.eveningDriverId, rentLog.driverId)
-          ))
-          .limit(1);
+      // Find vehicle assignment for this driver
+      const assignment = await db.select({
+        vehicleId: vehicleDriverAssignments.vehicleId,
+        vehicleNumber: vehicles.vehicleNumber,
+      }).from(vehicleDriverAssignments)
+        .innerJoin(vehicles, eq(vehicleDriverAssignments.vehicleId, vehicles.id))
+        .where(or(
+          eq(vehicleDriverAssignments.morningDriverId, rentLog.driverId),
+          eq(vehicleDriverAssignments.eveningDriverId, rentLog.driverId)
+        ))
+        .limit(1);
 
-        const vehicleNumber = assignment[0]?.vehicleNumber || "Unassigned";
-        
-        result.push({
-          ...rentLog,
-          vehicleNumber: vehicleNumber as string,
-        });
-      } catch (error) {
-        // Still add the entry with "Unassigned" vehicle
-        result.push({
-          ...rentLog,
-          vehicleNumber: "Unassigned",
-        });
-      }
+      const vehicleNumber = assignment[0]?.vehicleNumber || "Unassigned";
+      
+      result.push({
+        ...rentLog,
+        vehicleNumber: vehicleNumber as string,
+      });
     }
+
     return result;
   }
 
@@ -396,52 +355,32 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getAllWeeklySettlements(): Promise<Array<WeeklySettlement & { vehicleNumber: string }>> {
-    try {
-      const result = await db.select({
-        id: weeklySettlements.id,
-        vehicleId: weeklySettlements.vehicleId,
-        weekStart: weeklySettlements.weekStart,
-        weekEnd: weeklySettlements.weekEnd,
-        totalTrips: weeklySettlements.totalTrips,
-        rentalRate: weeklySettlements.rentalRate,
-        companyRent: weeklySettlements.companyRent,
-        driverRent: weeklySettlements.driverRent,
-        substituteRent: weeklySettlements.substituteRent,
-        totalRent: weeklySettlements.totalRent,
-        profit: weeklySettlements.profit,
-        settlementDate: weeklySettlements.settlementDate,
-        status: weeklySettlements.status,
-        driverDetails: weeklySettlements.driverDetails,
-        substituteDetails: weeklySettlements.substituteDetails,
-        notes: weeklySettlements.notes,
-        processedBy: weeklySettlements.processedBy,
-        createdAt: weeklySettlements.createdAt,
-        updatedAt: weeklySettlements.updatedAt,
-        vehicleNumber: vehicles.vehicleNumber,
-      }).from(weeklySettlements)
-        .innerJoin(vehicles, eq(weeklySettlements.vehicleId, vehicles.id))
-        .orderBy(desc(weeklySettlements.weekStart));
-      
-      return result;
-    } catch (error) {
-      console.log("Weekly settlements table may not exist yet, returning empty array");
-      return [];
-    }
+    const result = await db.select({
+      id: weeklySettlements.id,
+      vehicleId: weeklySettlements.vehicleId,
+      weekStart: weeklySettlements.weekStart,
+      weekEnd: weeklySettlements.weekEnd,
+      totalTrips: weeklySettlements.totalTrips,
+      rentalRate: weeklySettlements.rentalRate,
+      totalRentToCompany: weeklySettlements.totalRentToCompany,
+      driver1Data: weeklySettlements.driver1Data,
+      driver2Data: weeklySettlements.driver2Data,
+      totalDriverRent: weeklySettlements.totalDriverRent,
+      profit: weeklySettlements.profit,
+      paid: weeklySettlements.paid,
+      createdAt: weeklySettlements.createdAt,
+      updatedAt: weeklySettlements.updatedAt,
+      vehicleNumber: vehicles.vehicleNumber,
+    }).from(weeklySettlements)
+      .innerJoin(vehicles, eq(weeklySettlements.vehicleId, vehicles.id))
+      .orderBy(desc(weeklySettlements.weekStart));
+    
+    return result;
   }
 
   // Substitute driver operations
   async createSubstituteDriver(substitute: InsertSubstituteDriver): Promise<SubstituteDriver> {
-    // Automatically calculate week boundaries for the substitute driver
-    const { getWeekBoundaries } = await import("./utils/weekUtils");
-    const { weekStart, weekEnd } = getWeekBoundaries(substitute.date);
-    
-    const substituteWithWeeks = {
-      ...substitute,
-      weekStart,
-      weekEnd
-    };
-    
-    const [result] = await db.insert(substituteDrivers).values(substituteWithWeeks).returning();
+    const [result] = await db.insert(substituteDrivers).values(substitute).returning();
     return result;
   }
 
