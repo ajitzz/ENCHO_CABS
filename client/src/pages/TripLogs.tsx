@@ -150,6 +150,26 @@ export default function TripLogs() {
           matchesDateRange = matchesDateRange && endMatch;
         }
         
+        // Debug: Show specific case for KA05AP7514 evening shift on 2025-06-30
+        if (log.vehicleNumber === "KA05AP7514" && logDate === "2025-06-30" && log.shift === "evening") {
+          console.log(`🔍 DEBUGGING KA05AP7514 evening 2025-06-30:`, {
+            driverName: log.driverName,
+            vehicleNumber: log.vehicleNumber,
+            shift: log.shift,
+            tripCount: log.tripCount,
+            logDate: logDate,
+            startDateFilter: startDateFilter,
+            endDateFilter: endDateFilter,
+            matchesDateRange: matchesDateRange,
+            vehicleFilter: vehicleFilter,
+            matchesVehicle: !vehicleFilter || log.vehicleId === parseInt(vehicleFilter),
+            driverFilter: driverFilter,
+            matchesDriver: !driverFilter || log.driverId === parseInt(driverFilter),
+            rentFilter: rentFilter,
+            matchesRent: "checking rent..."
+          });
+        }
+        
         // Debug: Show filtering results for the test range
         if ((startDateFilter === "2025-06-30" && endDateFilter === "2025-07-03") && matchesDateRange) {
           console.log(`✅ INCLUDED: ${log.driverName} on ${logDate} (${log.tripCount} trips)`);
