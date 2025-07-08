@@ -346,7 +346,52 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Get weekly settlement data for profit calculation (current week)
       const weekStartDate = req.query.weekStart ? new Date(req.query.weekStart as string) : new Date();
-      const settlementData = await calculateWeeklySettlement(id, weekStartDate);
+      const weekStart = new Date(weekStartDate);
+      weekStart.setDate(weekStart.getDate() - weekStart.getDay() + 1); // Get Monday of current week
+      const weekEnd = new Date(weekStart);
+      weekEnd.setDate(weekEnd.getDate() + 6); // Get Sunday of current week
+      
+      // Get substitute drivers for this specific vehicle in this week
+      const weeklySubstituteDrivers = await storage.getSubstituteDriversByVehicleAndDateRange(id, weekStart, weekEnd);
+      
+      // Calculate total driver rent for this vehicle only
+      // We need to get rent logs for drivers who worked on this specific vehicle
+      const vehicleTripsThisWeek = await storage.getTripsByVehicleAndDateRange(id, weekStart, weekEnd);
+      let totalActualDriverRent = 0;
+      
+      // Create a Set to track unique driver-date combinations to avoid double counting
+      const processedDriverDates = new Set<string>();
+      
+      // Get rent logs for each driver who worked on this vehicle during the week
+      for (const trip of vehicleTripsThisWeek) {
+        const tripDate = new Date(trip.tripDate);
+        const dateKey = `${trip.driverId}-${tripDate.toISOString().split('T')[0]}`;
+        
+        // Skip if we already processed this driver-date combination
+        if (processedDriverDates.has(dateKey)) {
+          continue;
+        }
+        processedDriverDates.add(dateKey);
+        
+        const dayStart = new Date(tripDate.getFullYear(), tripDate.getMonth(), tripDate.getDate());
+        const dayEnd = new Date(tripDate.getFullYear(), tripDate.getMonth(), tripDate.getDate() + 1);
+        
+        const driverRentLogsForDay = await storage.getDriverRentLogsByDateRange(trip.driverId, dayStart, dayEnd);
+        totalActualDriverRent += driverRentLogsForDay.reduce((sum, log) => sum + log.rent, 0);
+      }
+      
+      // Calculate total substitute charges for this vehicle
+      const totalSubstituteCharges = weeklySubstituteDrivers.reduce((sum, sub) => sum + sub.charge, 0);
+      
+      // Calculate total income for this vehicle = driver rent + substitute charges
+      const totalIncome = totalActualDriverRent + totalSubstituteCharges;
+      
+      // Calculate company rent based on total trips
+      const rentalRate = getRentalRate(vehicle.company as "PMV" | "Letzryd", totalTrips);
+      const totalRentToCompany = rentalRate * 7; // Weekly rent
+      
+      // Calculate actual profit: Total Income - Company Rent
+      const actualProfit = totalIncome - totalRentToCompany;
       
       // Use total trips for rental info calculation
       const rentalInfo = getRentalInfo(vehicle.company as "PMV" | "Letzryd", totalTrips);
@@ -366,15 +411,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const summary = {
         vehicle,
         totalTrips, // Use all-time total trips
-        rentalRate: settlementData?.rentalRate || getRentalRate(vehicle.company as "PMV" | "Letzryd", totalTrips),
-        totalRentToCompany: settlementData?.totalRentToCompany || 0,
-        totalDriverRent: settlementData?.totalDriverRent || 0,
-        profit: settlementData?.profit || 0,
+        rentalRate: rentalRate,
+        totalRentToCompany: totalRentToCompany,
+        totalDriverRent: totalActualDriverRent,
+        totalSubstituteCharges: totalSubstituteCharges,
+        totalIncome: totalIncome,
+        profit: actualProfit, // Use actual profit based on real rent logs
         rentalInfo,
         morningDriver,
         eveningDriver,
-        weekStart: settlementData?.weekStart,
-        weekEnd: settlementData?.weekEnd,
+        weekStart: weekStart,
+        weekEnd: weekEnd,
       };
 
       res.json(summary);

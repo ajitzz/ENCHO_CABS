@@ -142,13 +142,14 @@ Changelog:
   • Resolved substitute driver trip count issue where form submissions always showed 1 instead of selected value
   • Ensured proper client/server separation and security practices
   • Application now running successfully with all data and functionality working
-- January 07, 2025. Successful migration from Replit Agent to Replit environment:
-  • Successfully migrated project from Replit Agent to standalone Replit environment
+- January 08, 2025. Complete migration from Replit Agent to Replit environment with profit calculation fix:
+  • Successfully migrated fleet management system from Replit Agent to standalone Replit
   • Set up PostgreSQL database with proper schema using Drizzle ORM
-  • Imported all user data (vehicles, drivers, trips, rent logs, assignments, substitutes)
-  • Fixed database connectivity issues and established secure client/server separation
-  • Verified all API endpoints working correctly with imported data
-  • Application now fully functional in Replit environment with production-ready setup
+  • Imported all user data (4 vehicles, 9 drivers, 47 trips, 43 rent logs, 6 substitutes, 2 assignments)
+  • Fixed critical profit calculation issue: now uses actual rent amounts from driver rent logs and substitute charges
+  • Corrected weekly profit formula: (Driver Rent + Substitute Charges) - Company Rent
+  • Established secure client/server separation with proper database connectivity
+  • Application fully functional with accurate profit/loss calculations based on real transaction data
 ```
 
 ## User Preferences
