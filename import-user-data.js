@@ -1,117 +1,101 @@
-import { readFileSync } from 'fs';
-import { db } from './server/db.ts';
-import { vehicles, drivers, vehicleDriverAssignments, trips, driverRentLogs, substituteDrivers } from './shared/schema.ts';
+import { drizzle } from 'drizzle-orm/neon-serverless';
+import { Pool, neonConfig } from '@neondatabase/serverless';
+import * as schema from './shared/schema.ts';
+import fs from 'fs';
+import ws from 'ws';
+
+neonConfig.webSocketConstructor = ws;
+const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+const db = drizzle({ client: pool, schema });
 
 async function importUserData() {
   try {
     console.log('Starting data import...');
 
-    // Read the JSON files
-    const vehiclesData = JSON.parse(readFileSync('./attached_assets/vehicles-2_1751922573457.json', 'utf8'));
-    const driversData = JSON.parse(readFileSync('./attached_assets/drivers-2_1751922573457.json', 'utf8'));
-    const assignmentsData = JSON.parse(readFileSync('./attached_assets/vehicle_driver_assignments-2_1751922573457.json', 'utf8'));
-    const tripsData = JSON.parse(readFileSync('./attached_assets/trips-2_1751922573457.json', 'utf8'));
-    const rentLogsData = JSON.parse(readFileSync('./attached_assets/driver_rent_logs-2_1751922573455.json', 'utf8'));
-    const substitutesData = JSON.parse(readFileSync('./attached_assets/substitute_drivers-2_1751922573457.json', 'utf8'));
-
-    // Clear existing data (in reverse order due to foreign keys)
-    console.log('Clearing existing data...');
-    await db.delete(substituteDrivers);
-    await db.delete(driverRentLogs);
-    await db.delete(trips);
-    await db.delete(vehicleDriverAssignments);
-    await db.delete(drivers);
-    await db.delete(vehicles);
-
-    // Insert vehicles
-    console.log('Importing vehicles...');
+    // Read and import vehicles
+    const vehiclesData = JSON.parse(fs.readFileSync('./attached_assets/vehicles-3_1752005103906.json', 'utf8'));
+    console.log(`Importing ${vehiclesData.length} vehicles...`);
     for (const vehicle of vehiclesData) {
-      await db.insert(vehicles).values({
+      await db.insert(schema.vehicles).values({
         id: vehicle.id,
         vehicleNumber: vehicle.vehicle_number,
-        company: vehicle.company,
-        createdAt: new Date(vehicle.created_at),
-        updatedAt: new Date(vehicle.updated_at)
-      });
+        company: vehicle.company
+      }).onConflictDoNothing();
     }
 
-    // Insert drivers
-    console.log('Importing drivers...');
+    // Read and import drivers  
+    const driversData = JSON.parse(fs.readFileSync('./attached_assets/drivers-3_1752005103906.json', 'utf8'));
+    console.log(`Importing ${driversData.length} drivers...`);
     for (const driver of driversData) {
-      await db.insert(drivers).values({
+      await db.insert(schema.drivers).values({
         id: driver.id,
         name: driver.name,
         phone: driver.phone,
-        hasAccommodation: driver.has_accommodation,
-        createdAt: new Date(driver.created_at),
-        updatedAt: new Date(driver.updated_at)
-      });
+        hasAccommodation: driver.has_accommodation
+      }).onConflictDoNothing();
     }
 
-    // Insert vehicle driver assignments
-    console.log('Importing vehicle driver assignments...');
-    for (const assignment of assignmentsData) {
-      await db.insert(vehicleDriverAssignments).values({
-        id: assignment.id,
-        vehicleId: assignment.vehicle_id,
-        morningDriverId: assignment.morning_driver_id,
-        eveningDriverId: assignment.evening_driver_id,
-        createdAt: new Date(assignment.created_at),
-        updatedAt: new Date(assignment.updated_at)
-      });
-    }
-
-    // Insert trips
-    console.log('Importing trips...');
+    // Read and import trips
+    const tripsData = JSON.parse(fs.readFileSync('./attached_assets/trips-3_1752005103906.json', 'utf8'));
+    console.log(`Importing ${tripsData.length} trips...`);
     for (const trip of tripsData) {
-      await db.insert(trips).values({
+      await db.insert(schema.trips).values({
         id: trip.id,
         driverId: trip.driver_id,
         vehicleId: trip.vehicle_id,
         tripDate: new Date(trip.trip_date),
         shift: trip.shift,
-        tripCount: trip.trip_count,
-        createdAt: new Date(trip.created_at),
-        updatedAt: new Date(trip.updated_at)
-      });
+        tripCount: trip.trip_count
+      }).onConflictDoNothing();
     }
 
-    // Insert driver rent logs
-    console.log('Importing driver rent logs...');
+    // Read and import driver rent logs
+    const rentLogsData = JSON.parse(fs.readFileSync('./attached_assets/driver_rent_logs-3_1752005103905.json', 'utf8'));
+    console.log(`Importing ${rentLogsData.length} rent logs...`);
     for (const rentLog of rentLogsData) {
-      await db.insert(driverRentLogs).values({
+      await db.insert(schema.driverRentLogs).values({
         id: rentLog.id,
         driverId: rentLog.driver_id,
         date: new Date(rentLog.date),
         rent: rentLog.rent,
-        paid: rentLog.paid,
-        createdAt: new Date(rentLog.created_at),
-        updatedAt: new Date(rentLog.updated_at)
-      });
+        paid: rentLog.paid
+      }).onConflictDoNothing();
     }
 
-    // Insert substitute drivers
-    console.log('Importing substitute drivers...');
-    for (const substitute of substitutesData) {
-      await db.insert(substituteDrivers).values({
+    // Read and import substitute drivers
+    const substituteData = JSON.parse(fs.readFileSync('./attached_assets/substitute_drivers-3_1752005103906.json', 'utf8'));
+    console.log(`Importing ${substituteData.length} substitute drivers...`);
+    for (const substitute of substituteData) {
+      await db.insert(schema.substituteDrivers).values({
         id: substitute.id,
         name: substitute.name,
         vehicleId: substitute.vehicle_id,
         date: new Date(substitute.date),
         shift: substitute.shift,
         shiftHours: substitute.shift_hours,
-        charge: substitute.charge,
         tripCount: substitute.trip_count,
-        createdAt: new Date(substitute.created_at),
-        updatedAt: new Date(substitute.updated_at)
-      });
+        charge: substitute.charge
+      }).onConflictDoNothing();
+    }
+
+    // Read and import vehicle driver assignments
+    const assignmentsData = JSON.parse(fs.readFileSync('./attached_assets/vehicle_driver_assignments-2_1751922573457.json', 'utf8'));
+    console.log(`Importing ${assignmentsData.length} vehicle driver assignments...`);
+    for (const assignment of assignmentsData) {
+      await db.insert(schema.vehicleDriverAssignments).values({
+        id: assignment.id,
+        vehicleId: assignment.vehicle_id,
+        morningDriverId: assignment.morning_driver_id,
+        eveningDriverId: assignment.evening_driver_id
+      }).onConflictDoNothing();
     }
 
     console.log('Data import completed successfully!');
-    process.exit(0);
   } catch (error) {
     console.error('Error importing data:', error);
     process.exit(1);
+  } finally {
+    await pool.end();
   }
 }
 
