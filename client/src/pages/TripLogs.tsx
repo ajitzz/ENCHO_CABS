@@ -162,7 +162,7 @@ export default function TripLogs() {
             endDateFilter: endDateFilter,
             matchesDateRange: matchesDateRange,
             vehicleFilter: vehicleFilter,
-            matchesVehicle: !vehicleFilter || log.vehicleId === parseInt(vehicleFilter),
+            matchesVehicle: !vehicleFilter || log.vehicleNumber.toLowerCase().includes(vehicleFilter.toLowerCase()),
             driverFilter: driverFilter,
             matchesDriver: !driverFilter || log.driverId === parseInt(driverFilter),
             rentFilter: rentFilter,
