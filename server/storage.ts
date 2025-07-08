@@ -147,7 +147,17 @@ export class DatabaseStorage implements IStorage {
 
   // Trip operations
   async createTrip(trip: InsertTrip): Promise<Trip> {
-    const [result] = await db.insert(trips).values(trip).returning();
+    // Automatically calculate week boundaries for the trip
+    const { getWeekBoundaries } = await import("./utils/weekUtils");
+    const { weekStart, weekEnd } = getWeekBoundaries(trip.tripDate);
+    
+    const tripWithWeeks = {
+      ...trip,
+      weekStart,
+      weekEnd
+    };
+    
+    const [result] = await db.insert(trips).values(tripWithWeeks).returning();
     return result;
   }
 
@@ -211,7 +221,31 @@ export class DatabaseStorage implements IStorage {
 
   // Driver rent log operations
   async createDriverRentLog(rentLog: InsertDriverRentLog): Promise<DriverRentLog> {
-    const [result] = await db.insert(driverRentLogs).values(rentLog).returning();
+    // Automatically calculate week boundaries and vehicle_id for the rent log
+    const { getWeekBoundaries } = await import("./utils/weekUtils");
+    const { weekStart, weekEnd } = getWeekBoundaries(rentLog.date);
+    
+    // Get vehicle_id from driver assignment if not provided
+    let vehicleId = (rentLog as any).vehicleId;
+    if (!vehicleId) {
+      const assignment = await db.select().from(vehicleDriverAssignments)
+        .where(or(
+          eq(vehicleDriverAssignments.morningDriverId, rentLog.driverId),
+          eq(vehicleDriverAssignments.eveningDriverId, rentLog.driverId)
+        ))
+        .limit(1);
+      
+      vehicleId = assignment[0]?.vehicleId || 1; // Default to vehicle 1
+    }
+    
+    const rentLogWithWeeks = {
+      ...rentLog,
+      vehicleId,
+      weekStart,
+      weekEnd
+    };
+    
+    const [result] = await db.insert(driverRentLogs).values(rentLogWithWeeks).returning();
     return result;
   }
 
@@ -387,7 +421,17 @@ export class DatabaseStorage implements IStorage {
 
   // Substitute driver operations
   async createSubstituteDriver(substitute: InsertSubstituteDriver): Promise<SubstituteDriver> {
-    const [result] = await db.insert(substituteDrivers).values(substitute).returning();
+    // Automatically calculate week boundaries for the substitute driver
+    const { getWeekBoundaries } = await import("./utils/weekUtils");
+    const { weekStart, weekEnd } = getWeekBoundaries(substitute.date);
+    
+    const substituteWithWeeks = {
+      ...substitute,
+      weekStart,
+      weekEnd
+    };
+    
+    const [result] = await db.insert(substituteDrivers).values(substituteWithWeeks).returning();
     return result;
   }
 

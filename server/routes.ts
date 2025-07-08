@@ -8,6 +8,8 @@ import {
 } from "@shared/schema";
 import { getRentalInfo, getAllSlabs, getDriverRent, getRentalRate } from "./services/rentalCalculator";
 import { calculateWeeklySettlement, processWeeklySettlement, processAllVehicleSettlements, generateDailyRentLogs } from "./services/settlementProcessor";
+import { getWeeklySummary, calculateWeeklyData, getAvailableWeeksForVehicle } from "./services/weeklyService";
+import { getWeekBoundaries } from "./utils/weekUtils";
 
 // Validation schemas
 const vehicleIdSchema = z.object({
@@ -653,6 +655,51 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(data);
     } catch (error: any) {
       res.status(500).json({ message: "Failed to export data", error: error.message });
+    }
+  });
+
+  // Weekly calculation routes
+  app.get("/api/weekly/vehicle/:id", async (req, res) => {
+    try {
+      const { id } = vehicleIdSchema.parse(req.params);
+      const weekStartParam = req.query.week as string;
+      
+      let weekStart: Date | undefined;
+      if (weekStartParam) {
+        weekStart = new Date(weekStartParam);
+      }
+      
+      const weeklySummary = await getWeeklySummary(id, weekStart);
+      res.json(weeklySummary);
+    } catch (error: any) {
+      res.status(500).json({ message: "Failed to fetch weekly summary", error: error.message });
+    }
+  });
+
+  app.get("/api/weekly/vehicle/:id/weeks", async (req, res) => {
+    try {
+      const { id } = vehicleIdSchema.parse(req.params);
+      const availableWeeks = await getAvailableWeeksForVehicle(id);
+      res.json(availableWeeks);
+    } catch (error: any) {
+      res.status(500).json({ message: "Failed to fetch available weeks", error: error.message });
+    }
+  });
+
+  app.get("/api/weekly/vehicle/:id/calculate", async (req, res) => {
+    try {
+      const { id } = vehicleIdSchema.parse(req.params);
+      const weekStartParam = req.query.week as string;
+      
+      if (!weekStartParam) {
+        return res.status(400).json({ message: "Week start date is required" });
+      }
+      
+      const weekStart = new Date(weekStartParam);
+      const weeklyData = await calculateWeeklyData(id, weekStart);
+      res.json(weeklyData);
+    } catch (error: any) {
+      res.status(500).json({ message: "Failed to calculate weekly data", error: error.message });
     }
   });
 
