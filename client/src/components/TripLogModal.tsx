@@ -117,18 +117,8 @@ export default function TripLogModal({ open, onOpenChange }: TripLogModalProps) 
   const getAvailableDrivers = () => {
     if (!drivers || !Array.isArray(drivers)) return [];
     
-    // If no vehicle is selected or no assignment exists, show all drivers
-    if (!selectedVehicleId || !vehicleAssignment) return drivers;
-    
-    const availableDriverIds = [
-      vehicleAssignment.morningDriverId,
-      vehicleAssignment.eveningDriverId
-    ].filter(Boolean);
-    
-    // If no drivers are assigned, show all drivers
-    if (availableDriverIds.length === 0) return drivers;
-    
-    return drivers.filter((driver: any) => availableDriverIds.includes(driver.id));
+    // Always return all drivers - allow any driver to be assigned to any vehicle
+    return drivers;
   };
 
   return (

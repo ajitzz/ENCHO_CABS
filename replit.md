@@ -150,6 +150,7 @@ Changelog:
   • Corrected weekly profit formula: (Driver Rent + Substitute Charges) - Company Rent
   • Established secure client/server separation with proper database connectivity
   • Application fully functional with accurate profit/loss calculations based on real transaction data
+  • Fixed driver selection in Add Trip Log form: all drivers now available for any vehicle (not restricted to assigned drivers)
 ```
 
 ## User Preferences
