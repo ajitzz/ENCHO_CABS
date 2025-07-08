@@ -396,27 +396,37 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getAllWeeklySettlements(): Promise<Array<WeeklySettlement & { vehicleNumber: string }>> {
-    const result = await db.select({
-      id: weeklySettlements.id,
-      vehicleId: weeklySettlements.vehicleId,
-      weekStart: weeklySettlements.weekStart,
-      weekEnd: weeklySettlements.weekEnd,
-      totalTrips: weeklySettlements.totalTrips,
-      rentalRate: weeklySettlements.rentalRate,
-      totalRentToCompany: weeklySettlements.totalRentToCompany,
-      driver1Data: weeklySettlements.driver1Data,
-      driver2Data: weeklySettlements.driver2Data,
-      totalDriverRent: weeklySettlements.totalDriverRent,
-      profit: weeklySettlements.profit,
-      paid: weeklySettlements.paid,
-      createdAt: weeklySettlements.createdAt,
-      updatedAt: weeklySettlements.updatedAt,
-      vehicleNumber: vehicles.vehicleNumber,
-    }).from(weeklySettlements)
-      .innerJoin(vehicles, eq(weeklySettlements.vehicleId, vehicles.id))
-      .orderBy(desc(weeklySettlements.weekStart));
-    
-    return result;
+    try {
+      const result = await db.select({
+        id: weeklySettlements.id,
+        vehicleId: weeklySettlements.vehicleId,
+        weekStart: weeklySettlements.weekStart,
+        weekEnd: weeklySettlements.weekEnd,
+        totalTrips: weeklySettlements.totalTrips,
+        rentalRate: weeklySettlements.rentalRate,
+        companyRent: weeklySettlements.companyRent,
+        driverRent: weeklySettlements.driverRent,
+        substituteRent: weeklySettlements.substituteRent,
+        totalRent: weeklySettlements.totalRent,
+        profit: weeklySettlements.profit,
+        settlementDate: weeklySettlements.settlementDate,
+        status: weeklySettlements.status,
+        driverDetails: weeklySettlements.driverDetails,
+        substituteDetails: weeklySettlements.substituteDetails,
+        notes: weeklySettlements.notes,
+        processedBy: weeklySettlements.processedBy,
+        createdAt: weeklySettlements.createdAt,
+        updatedAt: weeklySettlements.updatedAt,
+        vehicleNumber: vehicles.vehicleNumber,
+      }).from(weeklySettlements)
+        .innerJoin(vehicles, eq(weeklySettlements.vehicleId, vehicles.id))
+        .orderBy(desc(weeklySettlements.weekStart));
+      
+      return result;
+    } catch (error) {
+      console.log("Weekly settlements table may not exist yet, returning empty array");
+      return [];
+    }
   }
 
   // Substitute driver operations

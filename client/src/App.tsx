@@ -9,7 +9,7 @@ import Drivers from "@/pages/drivers";
 import Trips from "@/pages/trips";
 import TripLogs from "@/pages/TripLogs";
 import WeeklyAnalysis from "@/pages/WeeklyAnalysis";
-import Settlements from "@/pages/settlements";
+import SettlementHistory from "@/pages/SettlementHistory";
 import RentTracking from "@/pages/rent-tracking";
 import NotFound from "@/pages/not-found";
 
@@ -23,7 +23,7 @@ function Router() {
       <Route path="/trips" component={Trips} />
       <Route path="/trip-logs" component={TripLogs} />
       <Route path="/weekly-analysis" component={WeeklyAnalysis} />
-      <Route path="/settlements" component={Settlements} />
+      <Route path="/settlements" component={SettlementHistory} />
       <Route path="/rent-tracking" component={RentTracking} />
       <Route component={NotFound} />
     </Switch>

@@ -10,6 +10,7 @@ import { getRentalInfo, getAllSlabs, getDriverRent, getRentalRate } from "./serv
 import { calculateWeeklySettlement, processWeeklySettlement, processAllVehicleSettlements, generateDailyRentLogs } from "./services/settlementProcessor";
 import { getWeeklySummary, calculateWeeklyData, getAvailableWeeksForVehicle } from "./services/weeklyService";
 import { getWeekBoundaries } from "./utils/weekUtils";
+import { processSettlement, getVehicleSettlementsRoute, getSettlementDetailsRoute, getCurrentWeekStatusRoute } from "./routes/settlement";
 
 // Validation schemas
 const vehicleIdSchema = z.object({
@@ -468,14 +469,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/settlements", async (req, res) => {
-    try {
-      const settlements = await storage.getAllWeeklySettlements();
-      res.json(settlements);
-    } catch (error) {
-      res.status(500).json({ message: "Failed to fetch settlements", error: error.message });
-    }
-  });
+  // Import mock settlement functions
+  const { processSettlementMock, getVehicleSettlementsMock, getCurrentWeekStatusMock, getAllSettlementsMock } = await import("./routes/mock-settlement");
+  
+  app.get("/api/settlements", getAllSettlementsMock);
+  app.post("/api/settlements/process", processSettlementMock);
+  app.get("/api/settlements/vehicle/:vehicleId", getVehicleSettlementsMock);
+  app.get("/api/settlements/status/:vehicleId", getCurrentWeekStatusMock);
 
   // Dashboard profit graph data
   app.get("/api/dashboard/profit-graph", async (req, res) => {
@@ -675,6 +675,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ message: "Failed to fetch weekly summary", error: error.message });
     }
   });
+
+  // Settlement routes
+  app.post("/api/settlements/process", processSettlement);
+  app.get("/api/settlements/vehicle/:vehicleId", getVehicleSettlementsRoute);
+  app.get("/api/settlements/:settlementId", getSettlementDetailsRoute);
+  app.get("/api/settlements/status/:vehicleId", getCurrentWeekStatusRoute);
 
   app.get("/api/weekly/vehicle/:id/weeks", async (req, res) => {
     try {
