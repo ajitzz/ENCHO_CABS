@@ -98,6 +98,8 @@ export default function TripLogs() {
       return rent.driverId === log.driverId && rentDate === tripDate;
     });
     
+
+    
     if (rentLog) {
       return { status: rentLog.paid ? "paid" : "unpaid", amount: rentLog.rent };
     }
@@ -449,7 +451,7 @@ export default function TripLogs() {
                       </td>
                       <td className="p-4">
                         <div className="flex items-center gap-3">
-                          <span className="font-bold text-green-600">₹{rentStatus.amount}</span>
+                          <span className="font-bold text-green-600">₹{rentStatus.amount || 0}</span>
                           {rentStatus.status === "unpaid" && (
                             <Button
                               size="sm"
