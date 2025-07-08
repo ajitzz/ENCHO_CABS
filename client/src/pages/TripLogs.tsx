@@ -138,15 +138,19 @@ export default function TripLogs() {
     return allLogs.filter(log => {
       const logDate = log.tripDate.split('T')[0]; // Get YYYY-MM-DD format
       
-      // Date range filtering
+      // Date range filtering using string comparison (YYYY-MM-DD format)
       let matchesDateRange = true;
       if (startDateFilter || endDateFilter) {
-        const logDateObj = new Date(logDate);
         if (startDateFilter) {
-          matchesDateRange = matchesDateRange && logDateObj >= new Date(startDateFilter);
+          const startMatch = logDate >= startDateFilter;
+          matchesDateRange = matchesDateRange && startMatch;
+          // Debug log for first few entries
+          if (log.id <= 5) {
+            console.log(`[DATE DEBUG] ${log.driverName} ${logDate}: startFilter=${startDateFilter}, match=${startMatch}`);
+          }
         }
         if (endDateFilter) {
-          matchesDateRange = matchesDateRange && logDateObj <= new Date(endDateFilter);
+          matchesDateRange = matchesDateRange && logDate <= endDateFilter;
         }
       }
       
