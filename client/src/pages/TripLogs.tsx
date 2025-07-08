@@ -142,10 +142,17 @@ export default function TripLogs() {
       let matchesDateRange = true;
       if (startDateFilter || endDateFilter) {
         if (startDateFilter) {
-          matchesDateRange = matchesDateRange && logDate >= startDateFilter;
+          const startMatch = logDate >= startDateFilter;
+          matchesDateRange = matchesDateRange && startMatch;
         }
         if (endDateFilter) {
-          matchesDateRange = matchesDateRange && logDate <= endDateFilter;
+          const endMatch = logDate <= endDateFilter;
+          matchesDateRange = matchesDateRange && endMatch;
+        }
+        
+        // Debug: Show filtering results for the test range
+        if ((startDateFilter === "2025-06-30" && endDateFilter === "2025-07-03") && matchesDateRange) {
+          console.log(`✅ INCLUDED: ${log.driverName} on ${logDate} (${log.tripCount} trips)`);
         }
       }
       
@@ -376,11 +383,11 @@ export default function TripLogs() {
                 variant="outline"
                 size="sm"
                 onClick={() => {
-                  setStartDateFilter("2025-07-04");
-                  setEndDateFilter("2025-07-05");
+                  setStartDateFilter("2025-06-30");
+                  setEndDateFilter("2025-07-03");
                 }}
               >
-                Jul 4-5 (Test Range)
+                Jun 30 - Jul 3 (Your Test)
               </Button>
               <Button
                 variant="outline"
