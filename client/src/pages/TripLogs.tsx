@@ -142,12 +142,7 @@ export default function TripLogs() {
       let matchesDateRange = true;
       if (startDateFilter || endDateFilter) {
         if (startDateFilter) {
-          const startMatch = logDate >= startDateFilter;
-          matchesDateRange = matchesDateRange && startMatch;
-          // Debug log for first few entries
-          if (log.id <= 5) {
-            console.log(`[DATE DEBUG] ${log.driverName} ${logDate}: startFilter=${startDateFilter}, match=${startMatch}`);
-          }
+          matchesDateRange = matchesDateRange && logDate >= startDateFilter;
         }
         if (endDateFilter) {
           matchesDateRange = matchesDateRange && logDate <= endDateFilter;
@@ -381,55 +376,42 @@ export default function TripLogs() {
                 variant="outline"
                 size="sm"
                 onClick={() => {
+                  setStartDateFilter("2025-07-04");
+                  setEndDateFilter("2025-07-05");
+                }}
+              >
+                Jul 4-5 (Test Range)
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setStartDateFilter("2025-07-05");
+                  setEndDateFilter("");
+                }}
+              >
+                From Jul 5 Onwards
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setStartDateFilter("2025-07-04");
+                  setEndDateFilter("");
+                }}
+              >
+                From Jul 4 Onwards
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
                   const today = new Date().toISOString().split('T')[0];
                   setStartDateFilter(today);
                   setEndDateFilter(today);
                 }}
               >
-                Today
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => {
-                  const today = new Date();
-                  const weekStart = new Date(today);
-                  weekStart.setDate(today.getDate() - today.getDay() + 1); // Monday
-                  const weekEnd = new Date(today);
-                  weekEnd.setDate(today.getDate() - today.getDay() + 7); // Sunday
-                  setStartDateFilter(weekStart.toISOString().split('T')[0]);
-                  setEndDateFilter(weekEnd.toISOString().split('T')[0]);
-                }}
-              >
-                This Week
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => {
-                  const today = new Date();
-                  const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
-                  const monthEnd = new Date(today.getFullYear(), today.getMonth() + 1, 0);
-                  setStartDateFilter(monthStart.toISOString().split('T')[0]);
-                  setEndDateFilter(monthEnd.toISOString().split('T')[0]);
-                }}
-              >
-                This Month
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => {
-                  const today = new Date();
-                  const lastWeekStart = new Date(today);
-                  lastWeekStart.setDate(today.getDate() - today.getDay() - 6); // Last Monday
-                  const lastWeekEnd = new Date(today);
-                  lastWeekEnd.setDate(today.getDate() - today.getDay()); // Last Sunday
-                  setStartDateFilter(lastWeekStart.toISOString().split('T')[0]);
-                  setEndDateFilter(lastWeekEnd.toISOString().split('T')[0]);
-                }}
-              >
-                Last Week
+                Today Only
               </Button>
             </div>
             
