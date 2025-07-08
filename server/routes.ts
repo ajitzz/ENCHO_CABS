@@ -329,21 +329,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Vehicle not found" });
       }
 
-      // Get ALL trips for this vehicle to calculate total trips (matching Trip Logs page)
-      const allTrips = await storage.getTripsByVehicleAndDateRange(
-        id,
-        new Date('2020-01-01'), // Start from a very early date to get all trips
-        new Date('2030-12-31')  // End at a very late date to get all trips
-      );
-      
-      // Get ALL substitute driver records for this vehicle
-      const allSubstituteDrivers = await storage.getSubstituteDriversByVehicle(id);
-      
-      // Calculate total trips from regular trips + substitute driver trips
-      const regularTrips = allTrips.reduce((sum, trip) => sum + trip.tripCount, 0);
-      const substituteTrips = allSubstituteDrivers.reduce((sum, sub) => sum + (sub.tripCount || 1), 0); // Use actual trip count from substitutes
-      const totalTrips = regularTrips + substituteTrips;
-      
       // Get weekly settlement data for profit calculation (current week)
       const weekStartDate = req.query.weekStart ? new Date(req.query.weekStart as string) : new Date();
       const weekStart = new Date(weekStartDate);
@@ -351,19 +336,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const weekEnd = new Date(weekStart);
       weekEnd.setDate(weekEnd.getDate() + 6); // Get Sunday of current week
       
+      // Get ONLY current week's trips for this vehicle
+      const weeklyTrips = await storage.getTripsByVehicleAndDateRange(id, weekStart, weekEnd);
+      
       // Get substitute drivers for this specific vehicle in this week
       const weeklySubstituteDrivers = await storage.getSubstituteDriversByVehicleAndDateRange(id, weekStart, weekEnd);
       
+      // Calculate total trips from regular trips + substitute driver trips (current week only)
+      const regularTrips = weeklyTrips.reduce((sum, trip) => sum + trip.tripCount, 0);
+      const substituteTrips = weeklySubstituteDrivers.reduce((sum, sub) => sum + (sub.tripCount || 1), 0); // Use actual trip count from substitutes
+      const totalTrips = regularTrips + substituteTrips;
+
+      
       // Calculate total driver rent for this vehicle only
       // We need to get rent logs for drivers who worked on this specific vehicle
-      const vehicleTripsThisWeek = await storage.getTripsByVehicleAndDateRange(id, weekStart, weekEnd);
       let totalActualDriverRent = 0;
       
       // Create a Set to track unique driver-date combinations to avoid double counting
       const processedDriverDates = new Set<string>();
       
       // Get rent logs for each driver who worked on this vehicle during the week
-      for (const trip of vehicleTripsThisWeek) {
+      for (const trip of weeklyTrips) {
         const tripDate = new Date(trip.tripDate);
         const dateKey = `${trip.driverId}-${tripDate.toISOString().split('T')[0]}`;
         
@@ -410,7 +403,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const summary = {
         vehicle,
-        totalTrips, // Use all-time total trips
+        totalTrips, // Current week trips only
         rentalRate: rentalRate,
         totalRentToCompany: totalRentToCompany,
         totalDriverRent: totalActualDriverRent,
