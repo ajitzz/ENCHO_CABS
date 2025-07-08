@@ -89,11 +89,14 @@ export default function TripLogs() {
       return { status: "substitute", amount: log.charge || 0 };
     }
     
+    // Normalize dates for comparison
+    const tripDate = new Date(log.tripDate).toISOString().split('T')[0];
+    
     // Check all rent logs to find the rent amount, paid or unpaid
-    const rentLog = allRentLogs.find((rent: any) => 
-      rent.driverId === log.driverId && 
-      rent.date.startsWith(log.tripDate.split('T')[0])
-    );
+    const rentLog = allRentLogs.find((rent: any) => {
+      const rentDate = new Date(rent.date).toISOString().split('T')[0];
+      return rent.driverId === log.driverId && rentDate === tripDate;
+    });
     
     if (rentLog) {
       return { status: rentLog.paid ? "paid" : "unpaid", amount: rentLog.rent };
@@ -227,8 +230,27 @@ export default function TripLogs() {
     setEditModalOpen(true);
   };
 
-  const handlePayRent = (rentLogId: number) => {
-    payRentMutation.mutate(rentLogId);
+  const handlePayRent = (log: TripLog) => {
+    if (log.isSubstitute) return;
+    
+    // Normalize dates for comparison
+    const tripDate = new Date(log.tripDate).toISOString().split('T')[0];
+    
+    // Find the corresponding rent log ID
+    const rentLog = allRentLogs.find((rent: any) => {
+      const rentDate = new Date(rent.date).toISOString().split('T')[0];
+      return rent.driverId === log.driverId && rentDate === tripDate;
+    });
+    
+    if (rentLog) {
+      payRentMutation.mutate(rentLog.id);
+    } else {
+      toast({ 
+        title: "Error", 
+        description: "No rent log found for this trip", 
+        variant: "destructive" 
+      });
+    }
   };
 
   const handleDeleteSubstitute = (substituteId: number, substituteName: string) => {
@@ -432,7 +454,7 @@ export default function TripLogs() {
                             <Button
                               size="sm"
                               variant="outline"
-                              onClick={() => handlePayRent(log.id)}
+                              onClick={() => handlePayRent(log)}
                               className="text-xs bg-red-50 border-red-200 text-red-700 hover:bg-red-100 font-medium"
                             >
                               Mark Paid
