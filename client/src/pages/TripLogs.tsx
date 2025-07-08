@@ -144,9 +144,9 @@ export default function TripLogs() {
         if (startDateFilter) {
           const startMatch = logDate >= startDateFilter;
           matchesDateRange = matchesDateRange && startMatch;
-          // Debug log for June 30th entries specifically
-          if (logDate === '2025-06-30') {
-            console.log(`[DATE DEBUG JUNE 30] ${log.driverName} ${logDate}: startFilter=${startDateFilter}, match=${startMatch}, rawDate=${log.tripDate}`);
+          // Debug log for first few entries
+          if (log.id <= 5) {
+            console.log(`[DATE DEBUG] ${log.driverName} ${logDate}: startFilter=${startDateFilter}, match=${startMatch}`);
           }
         }
         if (endDateFilter) {
