@@ -150,14 +150,6 @@ Changelog:
   • Corrected weekly profit formula: (Driver Rent + Substitute Charges) - Company Rent
   • Established secure client/server separation with proper database connectivity
   • Application fully functional with accurate profit/loss calculations based on real transaction data
-- January 09, 2025. Global sidebar navigation and layout improvements:
-  • Added collapsible Admin Dashboard sidebar available on every page
-  • Implemented responsive layout with mobile-friendly navigation using Sheet component
-  • Created global Layout component wrapping all pages with consistent navigation
-  • Desktop sidebar shows all navigation items (Dashboard, Vehicles, Drivers, Trips, Trip Logs, Rent Tracking, Settlements)
-  • Mobile header with hamburger menu for space-efficient navigation
-  • Enhanced dark mode support throughout the layout
-  • Removed individual page sidebars in favor of global navigation system
 ```
 
 ## User Preferences
