@@ -1,5 +1,4 @@
 import { useState } from "react";
-import Sidebar from "@/components/Sidebar";
 import VehicleSelector from "@/components/VehicleSelector";
 import DriverPerformanceCard from "@/components/DriverPerformanceCard";
 import ProfitChart from "@/components/ProfitChart";
@@ -26,13 +25,9 @@ export default function Dashboard() {
   });
 
   return (
-    <div className="flex h-screen bg-gray-50">
-      <Sidebar />
-      
-      {/* Main Content */}
-      <div className="flex-1 flex flex-col overflow-hidden">
-        {/* Header */}
-        <header className="bg-white shadow-sm border-b border-gray-200 px-6 py-4">
+    <div className="flex flex-col h-full">
+      {/* Header */}
+      <header className="bg-white shadow-sm border-b border-gray-200 px-6 py-4">
           <div className="flex items-center justify-between">
             <div>
               <h2 className="text-2xl font-bold text-gray-900">Fleet Dashboard</h2>
@@ -107,7 +102,6 @@ export default function Dashboard() {
             <SettlementStatusCard />
           </div>
         </main>
-      </div>
 
       {/* Trip Log Modal */}
       <TripLogModal
