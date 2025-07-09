@@ -78,7 +78,7 @@ export default function TripLogModal({ open, onOpenChange }: TripLogModalProps) 
       const parsedData = {
         vehicleId: parseInt(data.vehicleId),
         driverId: parseInt(data.driverId),
-        tripDate: new Date(data.tripDate),
+        tripDate: data.tripDate, // Send as string, server will handle conversion
         shift: data.shift as "morning" | "evening",
         tripCount: parseInt(data.tripCount),
       };
@@ -117,18 +117,8 @@ export default function TripLogModal({ open, onOpenChange }: TripLogModalProps) 
   const getAvailableDrivers = () => {
     if (!drivers || !Array.isArray(drivers)) return [];
     
-    // If no vehicle is selected or no assignment exists, show all drivers
-    if (!selectedVehicleId || !vehicleAssignment) return drivers;
-    
-    const availableDriverIds = [
-      vehicleAssignment.morningDriverId,
-      vehicleAssignment.eveningDriverId
-    ].filter(Boolean);
-    
-    // If no drivers are assigned, show all drivers
-    if (availableDriverIds.length === 0) return drivers;
-    
-    return drivers.filter((driver: any) => availableDriverIds.includes(driver.id));
+    // Always show all drivers regardless of vehicle assignment
+    return drivers;
   };
 
   return (
