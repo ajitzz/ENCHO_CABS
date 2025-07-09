@@ -38,6 +38,8 @@ export const trips = pgTable("trips", {
   tripCount: integer("trip_count").notNull().default(0),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  weekStart: timestamp("week_start").notNull(),
+  weekEnd: timestamp("week_end").notNull(),
 });
 
 export const driverRentLogs = pgTable("driver_rent_logs", {

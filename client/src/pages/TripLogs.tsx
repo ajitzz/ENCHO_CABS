@@ -150,33 +150,7 @@ export default function TripLogs() {
           matchesDateRange = matchesDateRange && endMatch;
         }
         
-        // Debug: Show specific case for KA05AP7514 evening shift on 2025-06-30
-        if (log.vehicleNumber === "KA05AP7514" && logDate === "2025-06-30" && log.shift === "evening") {
-          const vehicleMatches = !vehicleFilter || log.vehicleNumber.toLowerCase().includes(vehicleFilter.toLowerCase());
-          const driverMatches = !driverFilter || log.driverName.toLowerCase().includes(driverFilter.toLowerCase());
-          const rentStatus = getRentStatus(log);
-          const rentMatches = !rentFilter || rentFilter === "all" || 
-            (rentFilter === "paid" && rentStatus.status === "paid") || 
-            (rentFilter === "unpaid" && rentStatus.status === "unpaid");
-          
-          console.log(`🔍 DEBUGGING KA05AP7514 evening 2025-06-30:`, {
-            driverName: log.driverName,
-            vehicleNumber: log.vehicleNumber,
-            shift: log.shift,
-            tripCount: log.tripCount,
-            logDate: logDate,
-            startDateFilter: startDateFilter,
-            endDateFilter: endDateFilter,
-            matchesDateRange: matchesDateRange,
-            vehicleFilter: vehicleFilter,
-            matchesVehicle: vehicleMatches,
-            driverFilter: driverFilter,
-            matchesDriver: driverMatches,
-            rentFilter: rentFilter,
-            matchesRent: rentMatches,
-            finalMatch: matchesDateRange && vehicleMatches && driverMatches && rentMatches
-          });
-        }
+
       }
       
       const matchesVehicle = !vehicleFilter || log.vehicleNumber.toLowerCase().includes(vehicleFilter.toLowerCase());

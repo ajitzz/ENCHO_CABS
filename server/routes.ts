@@ -155,9 +155,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/trips", async (req, res) => {
     try {
       // Convert tripDate string to Date object before validation
+      const tripDate = new Date(req.body.tripDate);
+      const weekStart = getWeekStart(tripDate);
+      const weekEnd = new Date(weekStart);
+      weekEnd.setDate(weekStart.getDate() + 6); // Add 6 days for the week end
+      
       const body = {
         ...req.body,
-        tripDate: new Date(req.body.tripDate)
+        tripDate: tripDate,
+        weekStart: weekStart,
+        weekEnd: weekEnd
       };
       const tripData = insertTripSchema.parse(body);
       const trip = await storage.createTrip(tripData);
@@ -178,9 +185,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Invalid trip ID" });
       }
       // Convert tripDate string to Date object before validation
+      const tripDate = new Date(req.body.tripDate);
+      const weekStart = getWeekStart(tripDate);
+      const weekEnd = new Date(weekStart);
+      weekEnd.setDate(weekStart.getDate() + 6); // Add 6 days for the week end
+      
       const body = {
         ...req.body,
-        tripDate: new Date(req.body.tripDate)
+        tripDate: tripDate,
+        weekStart: weekStart,
+        weekEnd: weekEnd
       };
       const tripData = insertTripSchema.parse(body);
       const trip = await storage.updateTrip(id, tripData);
