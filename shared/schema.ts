@@ -50,6 +50,9 @@ export const driverRentLogs = pgTable("driver_rent_logs", {
   paid: boolean("paid").notNull().default(false),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  vehicleId: integer("vehicle_id").notNull(),
+  weekStart: timestamp("week_start").notNull(),
+  weekEnd: timestamp("week_end").notNull(),
 });
 
 export const weeklySettlements = pgTable("weekly_settlements", {

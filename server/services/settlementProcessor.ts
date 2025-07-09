@@ -169,7 +169,7 @@ export async function processAllVehicleSettlements(weekStartDate: Date): Promise
   }
 }
 
-export async function generateDailyRentLogs(driverId: number, date: Date): Promise<void> {
+export async function generateDailyRentLogs(driverId: number, date: Date, vehicleId: number): Promise<void> {
   const driver = await storage.getDriver(driverId);
   if (!driver) {
     throw new Error(`Driver with ID ${driverId} not found`);
@@ -190,11 +190,27 @@ export async function generateDailyRentLogs(driverId: number, date: Date): Promi
   if (existingRentLogs.length === 0) {
     const dailyRent = getDriverRent(driver.hasAccommodation);
     
+    // Calculate week start and end for the date
+    function getWeekStart(date: Date): Date {
+      const day = date.getDay();
+      const diff = date.getDate() - day + (day === 0 ? -6 : 1); // Adjust when day is Sunday
+      const weekStart = new Date(date.setDate(diff));
+      weekStart.setHours(0, 0, 0, 0);
+      return weekStart;
+    }
+    
+    const weekStart = getWeekStart(new Date(normalizedDate));
+    const weekEnd = new Date(weekStart);
+    weekEnd.setDate(weekStart.getDate() + 6);
+    
     await storage.createDriverRentLog({
       driverId,
       date: normalizedDate,
       rent: dailyRent,
       paid: false,
+      vehicleId: vehicleId,
+      weekStart: weekStart,
+      weekEnd: weekEnd,
     });
   }
 }
