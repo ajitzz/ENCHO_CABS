@@ -170,7 +170,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const trip = await storage.createTrip(tripData);
       
       // Automatically generate unpaid rent log for the driver
-      await generateDailyRentLogs(tripData.driverId, tripData.tripDate);
+      await generateDailyRentLogs(tripData.driverId, tripData.vehicleId, tripData.tripDate);
       
       res.status(201).json(trip);
     } catch (error) {

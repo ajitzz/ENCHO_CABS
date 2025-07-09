@@ -2,6 +2,14 @@ import { storage } from "../storage";
 import { getRentalRate, getDriverRent } from "./rentalCalculator";
 import { startOfWeek, endOfWeek, addDays } from "date-fns";
 
+// Utility function to get week start (Monday)
+function getWeekStart(date: Date): Date {
+  const d = new Date(date);
+  const day = d.getDay();
+  const diff = d.getDate() - day + (day === 0 ? -6 : 1); // adjust when day is Sunday
+  return new Date(d.setDate(diff));
+}
+
 export interface WeeklySettlementData {
   vehicleId: number;
   weekStart: Date;
@@ -169,7 +177,7 @@ export async function processAllVehicleSettlements(weekStartDate: Date): Promise
   }
 }
 
-export async function generateDailyRentLogs(driverId: number, date: Date): Promise<void> {
+export async function generateDailyRentLogs(driverId: number, vehicleId: number, date: Date): Promise<void> {
   const driver = await storage.getDriver(driverId);
   if (!driver) {
     throw new Error(`Driver with ID ${driverId} not found`);
@@ -178,6 +186,11 @@ export async function generateDailyRentLogs(driverId: number, date: Date): Promi
   // Normalize the date to start of day
   const normalizedDate = new Date(date.getFullYear(), date.getMonth(), date.getDate());
   const nextDay = new Date(date.getFullYear(), date.getMonth(), date.getDate() + 1);
+
+  // Calculate week start and end
+  const weekStart = getWeekStart(normalizedDate);
+  const weekEnd = new Date(weekStart);
+  weekEnd.setDate(weekStart.getDate() + 6);
 
   // Check if rent log already exists for this driver on this date
   const existingRentLogs = await storage.getDriverRentLogsByDateRange(
@@ -192,9 +205,12 @@ export async function generateDailyRentLogs(driverId: number, date: Date): Promi
     
     await storage.createDriverRentLog({
       driverId,
+      vehicleId,
       date: normalizedDate,
       rent: dailyRent,
       paid: false,
+      weekStart,
+      weekEnd,
     });
   }
 }

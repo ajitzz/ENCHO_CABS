@@ -45,9 +45,12 @@ export const trips = pgTable("trips", {
 export const driverRentLogs = pgTable("driver_rent_logs", {
   id: serial("id").primaryKey(),
   driverId: integer("driver_id").notNull(),
+  vehicleId: integer("vehicle_id").notNull(),
   date: timestamp("date").notNull(),
   rent: integer("rent").notNull(),
   paid: boolean("paid").notNull().default(false),
+  weekStart: timestamp("week_start").notNull(),
+  weekEnd: timestamp("week_end").notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });

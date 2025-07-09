@@ -69,7 +69,11 @@ export default function TripLogModal({ open, onOpenChange }: TripLogModalProps) 
   const form = useForm<TripLogFormData>({
     resolver: zodResolver(tripLogFormSchema),
     defaultValues: {
+      vehicleId: "",
+      driverId: "",
       tripDate: format(new Date(), "yyyy-MM-dd"),
+      tripCount: "",
+      shift: undefined,
     },
   });
 
