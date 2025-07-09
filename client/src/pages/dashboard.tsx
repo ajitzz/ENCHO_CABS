@@ -1,5 +1,4 @@
 import { useState } from "react";
-import Sidebar from "@/components/Sidebar";
 import VehicleSelector from "@/components/VehicleSelector";
 import DriverPerformanceCard from "@/components/DriverPerformanceCard";
 import ProfitChart from "@/components/ProfitChart";
@@ -11,7 +10,7 @@ import SettlementStatusCard from "@/components/SettlementStatusCard";
 import TripLogModal from "@/components/TripLogModal";
 import SubstituteDriverForm from "@/components/SubstituteDriverForm";
 import SubstituteDriverList from "@/components/SubstituteDriverList";
-import { Plus, Activity } from "lucide-react";
+import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useQuery } from "@tanstack/react-query";
 
@@ -26,87 +25,77 @@ export default function Dashboard() {
   });
 
   return (
-    <div className="flex h-screen bg-gray-50">
-      <Sidebar />
-      
-      {/* Main Content */}
-      <div className="flex-1 flex flex-col overflow-hidden">
-        {/* Header */}
-        <header className="bg-white shadow-sm border-b border-gray-200 px-6 py-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <h2 className="text-2xl font-bold text-gray-900">Fleet Dashboard</h2>
-              <p className="text-sm text-gray-500">Monitor your fleet performance and manage rentals</p>
-            </div>
-            <div className="flex items-center space-x-4">
-              <Button
-                onClick={() => setShowTripLogModal(true)}
-                className="bg-primary text-white hover:bg-blue-600"
-              >
-                <Plus className="w-4 h-4 mr-2" />
-                Add Trip Log
-              </Button>
-              <div className="flex items-center space-x-2 text-sm">
-                <div className="w-3 h-3 bg-emerald-500 rounded-full"></div>
-                <span className="text-gray-600">System Online</span>
-              </div>
-            </div>
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Fleet Dashboard</h2>
+          <p className="text-sm text-gray-500 dark:text-gray-400">Monitor your fleet performance and manage rentals</p>
+        </div>
+        <div className="flex items-center space-x-4">
+          <Button
+            onClick={() => setShowTripLogModal(true)}
+            className="bg-primary text-white hover:bg-blue-600"
+          >
+            <Plus className="w-4 h-4 mr-2" />
+            Add Trip Log
+          </Button>
+          <div className="flex items-center space-x-2 text-sm">
+            <div className="w-3 h-3 bg-emerald-500 rounded-full"></div>
+            <span className="text-gray-600 dark:text-gray-300">System Online</span>
           </div>
-        </header>
+        </div>
+      </div>
 
-        {/* Dashboard Content */}
-        <main className="flex-1 overflow-auto p-6">
-          {/* Vehicle Selector */}
-          <VehicleSelector 
-            selectedVehicleId={selectedVehicleId}
-            onVehicleSelect={setSelectedVehicleId}
+      {/* Vehicle Selector */}
+      <VehicleSelector 
+        selectedVehicleId={selectedVehicleId}
+        onVehicleSelect={setSelectedVehicleId}
+      />
+
+      {/* Main Dashboard Grid */}
+      <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
+        {/* Left Column - Driver Performance */}
+        <div className="xl:col-span-2 space-y-6">
+          {/* Driver Performance */}
+          {selectedVehicleId && (
+            <DriverPerformanceCard vehicleId={selectedVehicleId} />
+          )}
+
+          {/* Profit Chart */}
+          <ProfitChart />
+        </div>
+
+        {/* Right Column - Rental Tracking & Unpaid Panel */}
+        <div className="space-y-6">
+          {/* Rental Slab Information */}
+          {selectedVehicleId && (
+            <RentalSlabCard vehicleId={selectedVehicleId} />
+          )}
+
+          {/* Unpaid Rents Panel */}
+          <UnpaidRentsPanel />
+
+          {/* Quick Actions */}
+          <QuickActions 
+            onAddTripLog={() => setShowTripLogModal(true)}
+            onAddSubstitute={() => setShowSubstituteModal(true)}
           />
 
-          {/* Main Dashboard Grid */}
-          <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
-            {/* Left Column - Driver Performance */}
-            <div className="xl:col-span-2 space-y-6">
-              {/* Driver Performance */}
-              {selectedVehicleId && (
-                <DriverPerformanceCard vehicleId={selectedVehicleId} />
-              )}
-
-              {/* Profit Chart */}
-              <ProfitChart />
+          {/* Substitute Driver Section */}
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Substitute Drivers</h3>
             </div>
-
-            {/* Right Column - Rental Tracking & Unpaid Panel */}
-            <div className="space-y-6">
-              {/* Rental Slab Information */}
-              {selectedVehicleId && (
-                <RentalSlabCard vehicleId={selectedVehicleId} />
-              )}
-
-              {/* Unpaid Rents Panel */}
-              <UnpaidRentsPanel />
-
-              {/* Quick Actions */}
-              <QuickActions 
-                onAddTripLog={() => setShowTripLogModal(true)}
-                onAddSubstitute={() => setShowSubstituteModal(true)}
-              />
-
-              {/* Substitute Driver Section */}
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-lg font-semibold text-gray-900">Substitute Drivers</h3>
-                </div>
-                <SubstituteDriverList vehicleId={selectedVehicleId} />
-              </div>
-            </div>
+            <SubstituteDriverList vehicleId={selectedVehicleId} />
           </div>
+        </div>
+      </div>
 
-          {/* Bottom Section */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
-            <RecentTripsTable />
-            <SettlementStatusCard />
-          </div>
-        </main>
+      {/* Bottom Section */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
+        <RecentTripsTable />
+        <SettlementStatusCard />
       </div>
 
       {/* Trip Log Modal */}
