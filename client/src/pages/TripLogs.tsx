@@ -162,11 +162,6 @@ export default function TripLogs() {
           const endMatch = logDate <= endDateFilter;
           matchesDateRange = matchesDateRange && endMatch;
         }
-        
-        // Debug logging for date filtering (temporary)
-        if (startDateFilter === "2025-06-30" && endDateFilter === "2025-07-06") {
-          console.log(`Filtering: ${logDate} between ${startDateFilter} and ${endDateFilter} -> Include: ${matchesDateRange}`);
-        }
       }
       
       const matchesVehicle = !vehicleFilter || log.vehicleNumber.toLowerCase().includes(vehicleFilter.toLowerCase());
