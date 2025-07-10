@@ -6,8 +6,11 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { format } from "date-fns";
-import { Trash2, Edit, Filter, X, Search, Plus } from "lucide-react";
+import { Trash2, Edit, Filter, X, Search, Plus, Check, ChevronsUpDown } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import EditTripModal from "@/components/EditTripModal";
 import TripLogModal from "@/components/TripLogModal";
@@ -52,6 +55,10 @@ export default function TripLogs() {
   const [driverFilter, setDriverFilter] = useState("");
   const [rentFilter, setRentFilter] = useState("all");
   const [showFilters, setShowFilters] = useState(false);
+  
+  // Combobox states
+  const [openVehicleSelect, setOpenVehicleSelect] = useState(false);
+  const [openDriverSelect, setOpenDriverSelect] = useState(false);
 
   // Fetch data
   const { data: trips = [], isLoading: tripsLoading } = useQuery({
@@ -72,6 +79,11 @@ export default function TripLogs() {
   const { data: vehicles = [] } = useQuery({
     queryKey: ["/api/vehicles"],
     queryFn: () => api.getVehicles(),
+  });
+
+  const { data: drivers = [] } = useQuery({
+    queryKey: ["/api/drivers"],
+    queryFn: () => api.getDrivers(),
   });
 
   // Fetch all rent logs to show amounts even after payment
@@ -283,6 +295,19 @@ export default function TripLogs() {
     setRentFilter("all");
   };
 
+  // Get unique driver names from trips, substitutes, and regular drivers
+  const allDriverNames = useMemo(() => {
+    const names = new Set<string>();
+    
+    // Add names from regular drivers
+    drivers.forEach(driver => names.add(driver.name));
+    
+    // Add names from trip logs
+    allLogs.forEach(log => names.add(log.driverName));
+    
+    return Array.from(names).sort();
+  }, [drivers, allLogs]);
+
   if (tripsLoading || substitutesLoading || allRentLogsLoading) {
     return (
       <div className="container mx-auto p-4">
@@ -440,19 +465,84 @@ export default function TripLogs() {
               </div>
               <div>
                 <label className="text-sm font-medium">Vehicle</label>
-                <Input
-                  value={vehicleFilter}
-                  onChange={(e) => setVehicleFilter(e.target.value)}
-                  placeholder="Filter by vehicle"
-                />
+                <Select value={vehicleFilter} onValueChange={setVehicleFilter}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="All vehicles" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="">All vehicles</SelectItem>
+                    {vehicles.map((vehicle) => (
+                      <SelectItem key={vehicle.id} value={vehicle.vehicleNumber}>
+                        {vehicle.vehicleNumber} ({vehicle.company})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
               <div>
                 <label className="text-sm font-medium">Driver</label>
-                <Input
-                  value={driverFilter}
-                  onChange={(e) => setDriverFilter(e.target.value)}
-                  placeholder="Filter by driver"
-                />
+                <Popover open={openDriverSelect} onOpenChange={setOpenDriverSelect}>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      role="combobox"
+                      aria-expanded={openDriverSelect}
+                      className="w-full justify-between"
+                    >
+                      {driverFilter ? driverFilter : "All drivers"}
+                      <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-full p-0">
+                    <Command>
+                      <CommandInput 
+                        placeholder="Search or type driver name..." 
+                        value={driverFilter}
+                        onValueChange={setDriverFilter}
+                      />
+                      <CommandList>
+                        <CommandEmpty>
+                          {driverFilter ? `Use "${driverFilter}"` : "No drivers found."}
+                        </CommandEmpty>
+                        <CommandGroup>
+                          <CommandItem
+                            value=""
+                            onSelect={() => {
+                              setDriverFilter("");
+                              setOpenDriverSelect(false);
+                            }}
+                          >
+                            <Check
+                              className={cn(
+                                "mr-2 h-4 w-4",
+                                driverFilter === "" ? "opacity-100" : "opacity-0"
+                              )}
+                            />
+                            All drivers
+                          </CommandItem>
+                          {allDriverNames.map((name) => (
+                            <CommandItem
+                              key={name}
+                              value={name}
+                              onSelect={(currentValue) => {
+                                setDriverFilter(currentValue === driverFilter ? "" : currentValue);
+                                setOpenDriverSelect(false);
+                              }}
+                            >
+                              <Check
+                                className={cn(
+                                  "mr-2 h-4 w-4",
+                                  driverFilter === name ? "opacity-100" : "opacity-0"
+                                )}
+                              />
+                              {name}
+                            </CommandItem>
+                          ))}
+                        </CommandGroup>
+                      </CommandList>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
               </div>
               <div>
                 <label className="text-sm font-medium">Rent Status</label>
