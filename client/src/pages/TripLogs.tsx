@@ -148,9 +148,10 @@ export default function TripLogs() {
     if (allRentLogsLoading) return allLogs; // Return unfiltered if still loading
     
     return allLogs.filter(log => {
-      const logDate = log.tripDate.split('T')[0]; // Get YYYY-MM-DD format
+      // Normalize date to YYYY-MM-DD format for consistent comparison
+      const logDate = new Date(log.tripDate).toISOString().split('T')[0];
       
-      // Date range filtering using string comparison (YYYY-MM-DD format)
+      // Date range filtering - INCLUSIVE of start and end dates
       let matchesDateRange = true;
       if (startDateFilter || endDateFilter) {
         if (startDateFilter) {
@@ -162,7 +163,10 @@ export default function TripLogs() {
           matchesDateRange = matchesDateRange && endMatch;
         }
         
-
+        // Debug logging for date filtering (temporary)
+        if (startDateFilter === "2025-06-30" && endDateFilter === "2025-07-06") {
+          console.log(`Filtering: ${logDate} between ${startDateFilter} and ${endDateFilter} -> Include: ${matchesDateRange}`);
+        }
       }
       
       const matchesVehicle = !vehicleFilter || log.vehicleNumber.toLowerCase().includes(vehicleFilter.toLowerCase());
