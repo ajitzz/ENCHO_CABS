@@ -145,9 +145,16 @@ export default function TripLogs() {
 
   // Filter logs
   const filteredLogs = useMemo(() => {
-    if (allRentLogsLoading) return allLogs; // Return unfiltered if still loading
+    // Wait for all data to load before filtering
+    if (allRentLogsLoading || tripsLoading || substitutesLoading) {
+      return [];
+    }
     
-    return allLogs.filter(log => {
+    console.log("All logs count:", allLogs.length);
+    console.log("Start date filter:", startDateFilter);
+    console.log("End date filter:", endDateFilter);
+    
+    const filtered = allLogs.filter(log => {
       // Normalize date to YYYY-MM-DD format for consistent comparison
       const logDate = new Date(log.tripDate).toISOString().split('T')[0];
       
@@ -163,9 +170,9 @@ export default function TripLogs() {
           matchesDateRange = matchesDateRange && endMatch;
         }
         
-        // Debug: Log filtering for June 30th
-        if (startDateFilter === "2025-06-30" && !endDateFilter) {
-          console.log(`Log: ${log.driverName} (${log.vehicleNumber}) - Date: ${logDate}, IsSubstitute: ${log.isSubstitute}, Matches: ${matchesDateRange}`);
+        // Log each record being processed for June 30th filter
+        if (startDateFilter === "2025-06-30") {
+          console.log(`Processing: ${log.driverName} (${log.vehicleNumber}) - Raw date: ${log.tripDate}, Normalized: ${logDate}, IsSubstitute: ${log.isSubstitute}, DateMatch: ${matchesDateRange}`);
         }
       }
       
@@ -178,9 +185,19 @@ export default function TripLogs() {
         (rentFilter === "paid" && rentStatus.status === "paid") || 
         (rentFilter === "unpaid" && rentStatus.status === "unpaid");
       
-      return matchesDateRange && matchesVehicle && matchesDriver && matchesRent;
+      const finalMatch = matchesDateRange && matchesVehicle && matchesDriver && matchesRent;
+      
+      // Log final result for June 30th filter
+      if (startDateFilter === "2025-06-30" && !finalMatch && matchesDateRange) {
+        console.log(`Excluded by other filters: ${log.driverName} - Vehicle: ${matchesVehicle}, Driver: ${matchesDriver}, Rent: ${matchesRent}`);
+      }
+      
+      return finalMatch;
     });
-  }, [allLogs, startDateFilter, endDateFilter, vehicleFilter, driverFilter, rentFilter, getRentStatus, allRentLogsLoading]);
+    
+    console.log("Filtered logs count:", filtered.length);
+    return filtered;
+  }, [allLogs, startDateFilter, endDateFilter, vehicleFilter, driverFilter, rentFilter, getRentStatus, allRentLogsLoading, tripsLoading, substitutesLoading]);
 
   // Calculate totals for filtered data
   const totals = useMemo(() => {
@@ -312,7 +329,9 @@ export default function TripLogs() {
     return Array.from(names).sort();
   }, [drivers, allLogs]);
 
-  if (tripsLoading || substitutesLoading || allRentLogsLoading) {
+  const isLoading = tripsLoading || substitutesLoading || allRentLogsLoading;
+
+  if (isLoading) {
     return (
       <div className="container mx-auto p-4">
         <div className="text-center">Loading trip logs...</div>
