@@ -150,11 +150,7 @@ export default function TripLogs() {
       return [];
     }
     
-    console.log("All logs count:", allLogs.length);
-    console.log("Start date filter:", startDateFilter);
-    console.log("End date filter:", endDateFilter);
-    
-    const filtered = allLogs.filter(log => {
+    return allLogs.filter(log => {
       // Normalize date to YYYY-MM-DD format for consistent comparison
       const logDate = new Date(log.tripDate).toISOString().split('T')[0];
       
@@ -169,11 +165,6 @@ export default function TripLogs() {
           const endMatch = logDate <= endDateFilter;
           matchesDateRange = matchesDateRange && endMatch;
         }
-        
-        // Log each record being processed for June 30th filter
-        if (startDateFilter === "2025-06-30") {
-          console.log(`Processing: ${log.driverName} (${log.vehicleNumber}) - Raw date: ${log.tripDate}, Normalized: ${logDate}, IsSubstitute: ${log.isSubstitute}, DateMatch: ${matchesDateRange}`);
-        }
       }
       
       const matchesVehicle = !vehicleFilter || log.vehicleNumber.toLowerCase().includes(vehicleFilter.toLowerCase());
@@ -185,18 +176,8 @@ export default function TripLogs() {
         (rentFilter === "paid" && rentStatus.status === "paid") || 
         (rentFilter === "unpaid" && rentStatus.status === "unpaid");
       
-      const finalMatch = matchesDateRange && matchesVehicle && matchesDriver && matchesRent;
-      
-      // Log final result for June 30th filter
-      if (startDateFilter === "2025-06-30" && !finalMatch && matchesDateRange) {
-        console.log(`Excluded by other filters: ${log.driverName} - Vehicle: ${matchesVehicle}, Driver: ${matchesDriver}, Rent: ${matchesRent}`);
-      }
-      
-      return finalMatch;
+      return matchesDateRange && matchesVehicle && matchesDriver && matchesRent;
     });
-    
-    console.log("Filtered logs count:", filtered.length);
-    return filtered;
   }, [allLogs, startDateFilter, endDateFilter, vehicleFilter, driverFilter, rentFilter, getRentStatus, allRentLogsLoading, tripsLoading, substitutesLoading]);
 
   // Calculate totals for filtered data
