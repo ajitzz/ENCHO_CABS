@@ -151,19 +151,21 @@ export default function TripLogs() {
     }
     
     return allLogs.filter(log => {
-      // Normalize date to YYYY-MM-DD format for consistent comparison
-      const logDate = new Date(log.tripDate).toISOString().split('T')[0];
+      // Convert log date to proper Date object
+      const logDateTime = new Date(log.tripDate);
       
-      // Date range filtering - INCLUSIVE of start and end dates
+      // Date range filtering with proper time boundaries
       let matchesDateRange = true;
       if (startDateFilter || endDateFilter) {
         if (startDateFilter) {
-          const startMatch = logDate >= startDateFilter;
-          matchesDateRange = matchesDateRange && startMatch;
+          const start = new Date(startDateFilter);
+          start.setHours(0, 0, 0, 0); // Set to start of day
+          matchesDateRange = matchesDateRange && logDateTime >= start;
         }
         if (endDateFilter) {
-          const endMatch = logDate <= endDateFilter;
-          matchesDateRange = matchesDateRange && endMatch;
+          const end = new Date(endDateFilter);
+          end.setHours(23, 59, 59, 999); // Set to end of day
+          matchesDateRange = matchesDateRange && logDateTime <= end;
         }
       }
       
