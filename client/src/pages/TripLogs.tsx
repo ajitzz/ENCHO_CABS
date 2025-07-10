@@ -465,12 +465,12 @@ export default function TripLogs() {
               </div>
               <div>
                 <label className="text-sm font-medium">Vehicle</label>
-                <Select value={vehicleFilter} onValueChange={setVehicleFilter}>
+                <Select value={vehicleFilter || "all"} onValueChange={(value) => setVehicleFilter(value === "all" ? "" : value)}>
                   <SelectTrigger>
                     <SelectValue placeholder="All vehicles" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">All vehicles</SelectItem>
+                    <SelectItem value="all">All vehicles</SelectItem>
                     {vehicles.map((vehicle) => (
                       <SelectItem key={vehicle.id} value={vehicle.vehicleNumber}>
                         {vehicle.vehicleNumber} ({vehicle.company})
