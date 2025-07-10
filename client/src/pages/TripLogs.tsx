@@ -162,6 +162,11 @@ export default function TripLogs() {
           const endMatch = logDate <= endDateFilter;
           matchesDateRange = matchesDateRange && endMatch;
         }
+        
+        // Debug: Log filtering for June 30th
+        if (startDateFilter === "2025-06-30" && !endDateFilter) {
+          console.log(`Log: ${log.driverName} (${log.vehicleNumber}) - Date: ${logDate}, IsSubstitute: ${log.isSubstitute}, Matches: ${matchesDateRange}`);
+        }
       }
       
       const matchesVehicle = !vehicleFilter || log.vehicleNumber.toLowerCase().includes(vehicleFilter.toLowerCase());
