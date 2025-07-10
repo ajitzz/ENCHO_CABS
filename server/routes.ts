@@ -198,6 +198,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       };
       const tripData = insertTripSchema.parse(body);
       const trip = await storage.updateTrip(id, tripData);
+      
+      // Ensure rent log exists for the updated trip date and driver
+      await generateDailyRentLogs(tripData.driverId, tripData.tripDate, tripData.vehicleId);
+      
       res.json(trip);
     } catch (error) {
       res.status(400).json({ message: "Failed to update trip", error: error.message });
