@@ -192,25 +192,40 @@ export async function generateDailyRentLogs(driverId: number, date: Date, vehicl
     
     // Calculate week start and end for the date
     function getWeekStart(date: Date): Date {
-      const day = date.getDay();
-      const diff = date.getDate() - day + (day === 0 ? -6 : 1); // Adjust when day is Sunday
-      const weekStart = new Date(date.setDate(diff));
-      weekStart.setHours(0, 0, 0, 0);
-      return weekStart;
+      const d = new Date(date); // Create a copy to avoid modifying original
+      const day = d.getDay();
+      const diff = d.getDate() - day + (day === 0 ? -6 : 1); // Adjust when day is Sunday
+      d.setDate(diff);
+      d.setHours(0, 0, 0, 0);
+      return d;
     }
     
-    const weekStart = getWeekStart(new Date(normalizedDate));
+    const weekStart = getWeekStart(normalizedDate);
     const weekEnd = new Date(weekStart);
     weekEnd.setDate(weekStart.getDate() + 6);
     
-    await storage.createDriverRentLog({
-      driverId,
-      date: normalizedDate,
-      rent: dailyRent,
-      paid: false,
-      vehicleId: vehicleId,
-      weekStart: weekStart,
-      weekEnd: weekEnd,
-    });
+    try {
+      await storage.createDriverRentLog({
+        driverId,
+        date: normalizedDate,
+        rent: dailyRent,
+        paid: false,
+        vehicleId: vehicleId,
+        weekStart: weekStart,
+        weekEnd: weekEnd,
+      });
+    } catch (error) {
+      console.error('Failed to create driver rent log:', error);
+      console.error('Rent log data:', {
+        driverId,
+        date: normalizedDate,
+        rent: dailyRent,
+        paid: false,
+        vehicleId: vehicleId,
+        weekStart: weekStart,
+        weekEnd: weekEnd,
+      });
+      throw error;
+    }
   }
 }
