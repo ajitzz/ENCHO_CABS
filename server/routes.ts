@@ -8,6 +8,7 @@ import {
 } from "@shared/schema";
 import { getRentalInfo, getAllSlabs, getDriverRent, getRentalRate } from "./services/rentalCalculator";
 import { calculateWeeklySettlement, processWeeklySettlement, processAllVehicleSettlements, generateDailyRentLogs } from "./services/settlementProcessor";
+import { resetAllSequences, checkSequenceSync } from "./utils/resetSequences";
 
 // Validation schemas
 const vehicleIdSchema = z.object({
@@ -102,6 +103,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const driver = await storage.createDriver(driverData);
       res.status(201).json(driver);
     } catch (error) {
+      console.error("Driver creation error:", error);
+      
+      // Handle specific database errors
+      if (error.message.includes("duplicate key value violates unique constraint")) {
+        if (error.message.includes("drivers_pkey")) {
+          console.log("Attempting to auto-fix sequence issue...");
+          try {
+            await resetAllSequences();
+            console.log("Sequences reset successfully. Retrying driver creation...");
+            const driver = await storage.createDriver(driverData);
+            return res.status(201).json(driver);
+          } catch (resetError) {
+            console.error("Failed to reset sequences:", resetError);
+            return res.status(500).json({ 
+              message: "Database error", 
+              error: "Failed to auto-repair database. Please contact administrator." 
+            });
+          }
+        }
+        return res.status(400).json({ 
+          message: "Duplicate driver", 
+          error: "A driver with this information already exists." 
+        });
+      }
+      
       res.status(400).json({ message: "Invalid driver data", error: error.message });
     }
   });

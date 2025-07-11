@@ -46,8 +46,26 @@ export default function DriversPage() {
       setFormData({ name: "", phone: "", hasAccommodation: false });
       toast({ title: "Success", description: "Driver created successfully" });
     },
-    onError: () => {
-      toast({ title: "Error", description: "Failed to create driver", variant: "destructive" });
+    onError: (error: any) => {
+      console.error("Create driver error:", error);
+      let errorMessage = "Failed to create driver";
+      
+      // Try to get detailed error message from server response
+      if (error.message) {
+        if (error.message.includes("ID sequence needs to be reset")) {
+          errorMessage = "Database error. Please refresh the page and try again.";
+        } else if (error.message.includes("duplicate")) {
+          errorMessage = "A driver with this information already exists.";
+        } else {
+          errorMessage = error.message;
+        }
+      }
+      
+      toast({ 
+        title: "Error", 
+        description: errorMessage, 
+        variant: "destructive" 
+      });
     },
   });
 

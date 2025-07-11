@@ -185,7 +185,13 @@ export const api = {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(driverData),
     });
-    if (!response.ok) throw new Error("Failed to create driver");
+    
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      const errorMessage = errorData.error || errorData.message || "Failed to create driver";
+      throw new Error(errorMessage);
+    }
+    
     return response.json();
   },
 
