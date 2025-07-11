@@ -367,6 +367,8 @@ export default function TripLogs() {
       queryClient.invalidateQueries({ queryKey: ["/api/dashboard/profit-graph"] });
       queryClient.invalidateQueries({ queryKey: ["/api/settlements"] });
       queryClient.invalidateQueries({ queryKey: ["/api/driver-rent-logs/unpaid"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/driver-rent-logs/all"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/driver-rent-logs"] });
       toast({ title: "Trip deleted successfully", variant: "default" });
     },
     onError: (error) => {
@@ -379,6 +381,8 @@ export default function TripLogs() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/driver-rent-logs/unpaid"] });
       queryClient.invalidateQueries({ queryKey: ["/api/driver-rent-logs/all"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/driver-rent-logs"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/dashboard/profit-graph"] });
       toast({ title: "Rent marked as paid", variant: "default" });
     },
     onError: (error) => {
@@ -391,6 +395,8 @@ export default function TripLogs() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/substitute-drivers"] });
       queryClient.invalidateQueries({ queryKey: ["/api/trips/recent/500"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/dashboard/profit-graph"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/settlements"] });
       toast({ title: "Substitute driver deleted successfully", variant: "default" });
     },
     onError: (error) => {

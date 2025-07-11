@@ -90,10 +90,15 @@ export default function EditTripModal({ trip, open, onOpenChange }: EditTripModa
       return api.updateTrip(trip.id, data);
     },
     onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/trips"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/trips/recent/500"] });
       queryClient.invalidateQueries({ queryKey: ["/api/trips/recent/10"] });
       queryClient.invalidateQueries({ queryKey: ["/api/trips/recent/50"] });
       queryClient.invalidateQueries({ queryKey: ["/api/dashboard/profit-graph"] });
       queryClient.invalidateQueries({ queryKey: ["/api/settlements"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/driver-rent-logs/unpaid"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/driver-rent-logs/all"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/driver-rent-logs"] });
       toast({ title: "Trip updated successfully", variant: "default" });
       onOpenChange(false);
     },
