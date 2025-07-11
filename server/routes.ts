@@ -320,6 +320,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const rentLog = await storage.createDriverRentLog(rentLogData);
       res.status(201).json(rentLog);
     } catch (error) {
+      console.error("Driver rent log creation error:", error);
+      console.error("Request body:", req.body);
       res.status(400).json({ message: "Invalid rent log data", error: error.message });
     }
   });

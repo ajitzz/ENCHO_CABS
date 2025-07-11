@@ -150,6 +150,12 @@ Changelog:
   • Corrected weekly profit formula: (Driver Rent + Substitute Charges) - Company Rent
   • Established secure client/server separation with proper database connectivity
   • Application fully functional with accurate profit/loss calculations based on real transaction data
+- January 11, 2025. Database connection fixes and rent log management:
+  • Fixed WebSocket connection issues with Neon database causing application crashes
+  • Improved database connection pooling with better error handling and graceful shutdown
+  • Updated specific rent log (ID: 109) for Mahesh on July 9, 2025 to change paid status from true to false
+  • Added enhanced error logging for driver rent log creation to debug validation issues
+  • Implemented proper connection lifecycle management to prevent database connection leaks
 ```
 
 ## User Preferences
