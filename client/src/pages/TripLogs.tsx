@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { format } from "date-fns";
-import { Trash2, Edit, Filter, X, Search, Plus, Check, ChevronsUpDown, RefreshCw } from "lucide-react";
+import { Trash2, Edit, Filter, X, Search, Plus, Check, ChevronsUpDown, RefreshCw, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import EditTripModal from "@/components/EditTripModal";
@@ -60,6 +60,9 @@ export default function TripLogs() {
   // Combobox states
   const [openVehicleSelect, setOpenVehicleSelect] = useState(false);
   const [openDriverSelect, setOpenDriverSelect] = useState(false);
+  
+  // Sort state
+  const [tripSortOrder, setTripSortOrder] = useState<"none" | "asc" | "desc">("none");
 
   // Fetch data
   const { data: trips = [], isLoading: tripsLoading } = useQuery({
@@ -315,8 +318,16 @@ export default function TripLogs() {
         (rentFilter === "unpaid" && (rentStatus.status === "unpaid" || rentStatus.status === "auto_created"));
       
       return matchesDateRange && matchesVehicle && matchesDriver && matchesRent;
+    }).sort((a, b) => {
+      // Apply trip count sorting
+      if (tripSortOrder === "asc") {
+        return a.tripCount - b.tripCount;
+      } else if (tripSortOrder === "desc") {
+        return b.tripCount - a.tripCount;
+      }
+      return 0; // no sorting for "none"
     });
-  }, [allLogs, startDateFilter, endDateFilter, vehicleFilter, driverFilter, rentFilter, getRentStatus, allRentLogsLoading, tripsLoading, substitutesLoading]);
+  }, [allLogs, startDateFilter, endDateFilter, vehicleFilter, driverFilter, rentFilter, tripSortOrder, getRentStatus, allRentLogsLoading, tripsLoading, substitutesLoading]);
 
   // Calculate totals for filtered data
   const totals = useMemo(() => {
@@ -733,7 +744,29 @@ export default function TripLogs() {
                   <th className="text-left p-4 font-semibold text-gray-700">Vehicle</th>
                   <th className="text-left p-4 font-semibold text-gray-700">Driver</th>
                   <th className="text-left p-4 font-semibold text-gray-700">Shift</th>
-                  <th className="text-left p-4 font-semibold text-gray-700">Trips</th>
+                  <th className="text-left p-4 font-semibold text-gray-700">
+                    <div className="flex items-center gap-2">
+                      <span>Trips</span>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          if (tripSortOrder === "none") {
+                            setTripSortOrder("asc");
+                          } else if (tripSortOrder === "asc") {
+                            setTripSortOrder("desc");
+                          } else {
+                            setTripSortOrder("none");
+                          }
+                        }}
+                        className="h-6 w-6 p-0 hover:bg-gray-200"
+                      >
+                        {tripSortOrder === "none" && <ArrowUpDown className="h-3 w-3" />}
+                        {tripSortOrder === "asc" && <ArrowUp className="h-3 w-3" />}
+                        {tripSortOrder === "desc" && <ArrowDown className="h-3 w-3" />}
+                      </Button>
+                    </div>
+                  </th>
                   <th className="text-left p-4 font-semibold text-gray-700">Type</th>
                   <th className="text-left p-4 font-semibold text-gray-700">Rent</th>
                   <th className="text-left p-4 font-semibold text-gray-700">Actions</th>
