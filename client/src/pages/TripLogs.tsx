@@ -312,7 +312,7 @@ export default function TripLogs() {
       const rentStatus = getRentStatus(log);
       const matchesRent = !rentFilter || rentFilter === "all" || 
         (rentFilter === "paid" && rentStatus.status === "paid") || 
-        (rentFilter === "unpaid" && rentStatus.status === "unpaid");
+        (rentFilter === "unpaid" && (rentStatus.status === "unpaid" || rentStatus.status === "auto_created"));
       
       return matchesDateRange && matchesVehicle && matchesDriver && matchesRent;
     });
@@ -766,7 +766,7 @@ export default function TripLogs() {
                       <td className="p-4">
                         <div className="flex items-center gap-3">
                           <span className="font-bold text-green-600">₹{rentStatus.amount}</span>
-                          {rentStatus.status === "unpaid" && (
+                          {(rentStatus.status === "unpaid" || rentStatus.status === "auto_created") && (
                             <Button
                               size="sm"
                               variant="outline"
@@ -782,7 +782,7 @@ export default function TripLogs() {
                             </Badge>
                           )}
                           {rentStatus.status === "auto_created" && (
-                            <Badge className="text-xs bg-yellow-100 text-yellow-800 border-yellow-200 font-medium">
+                            <Badge className="text-xs bg-yellow-100 text-yellow-800 border-yellow-200 font-medium ml-2">
                               Auto-Fixed
                             </Badge>
                           )}
@@ -790,7 +790,7 @@ export default function TripLogs() {
                       </td>
                       <td className="p-4">
                         <div className="flex gap-2">
-                          {!log.isSubstitute && rentStatus.status !== "auto_created" && (
+                          {!log.isSubstitute && (
                             <>
                               <Button
                                 size="sm"
