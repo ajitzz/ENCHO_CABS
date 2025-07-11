@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { format } from "date-fns";
-import { Trash2, Edit, Filter, X, Search, Plus, Check, ChevronsUpDown } from "lucide-react";
+import { Trash2, Edit, Filter, X, Search, Plus, Check, ChevronsUpDown, RefreshCw } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import EditTripModal from "@/components/EditTripModal";
@@ -45,6 +45,7 @@ export default function TripLogs() {
   const { toast } = useToast();
   const [editTrip, setEditTrip] = useState<any>(null);
   const [editModalOpen, setEditModalOpen] = useState(false);
+  const [repairingData, setRepairingData] = useState(false);
   const [tripLogModalOpen, setTripLogModalOpen] = useState(false);
   const [substituteModalOpen, setSubstituteModalOpen] = useState(false);
   
@@ -102,21 +103,156 @@ export default function TripLogs() {
       return { status: "substitute", amount: log.charge || 0 };
     }
     
-    // Normalize dates for comparison
-    const tripDate = new Date(log.tripDate).toISOString().split('T')[0];
+    // Normalize dates for comparison using UTC to avoid timezone issues
+    const tripDate = new Date(log.tripDate);
+    const tripDateStr = tripDate.toISOString().split('T')[0];
     
-    // Check all rent logs to find the rent amount, paid or unpaid
+    // Find matching rent log with multiple matching strategies
     const rentLog = allRentLogs.find((rent: any) => {
-      const rentDate = new Date(rent.date).toISOString().split('T')[0];
-      return rent.driverId === log.driverId && rentDate === tripDate;
+      const rentDate = new Date(rent.date);
+      const rentDateStr = rentDate.toISOString().split('T')[0];
+      
+      // Primary match: same driver and same date
+      const dateMatch = rentDateStr === tripDateStr;
+      const driverMatch = rent.driverId === log.driverId;
+      
+      // Log for debugging problematic entries
+      if (driverMatch && !dateMatch) {
+        console.warn(`Date mismatch for ${log.driverName}: trip=${tripDateStr}, rent=${rentDateStr}`);
+      }
+      
+      return driverMatch && dateMatch;
     });
     
     if (rentLog) {
-      return { status: rentLog.paid ? "paid" : "unpaid", amount: rentLog.rent };
+      return { 
+        status: rentLog.paid ? "paid" : "unpaid", 
+        amount: rentLog.rent || 0 
+      };
     }
     
-    return { status: "unknown", amount: 0 };
-  }, [allRentLogs]);
+    // Fallback: if no rent log found, look up driver accommodation status and create missing log
+    console.warn(`No rent log found for ${log.driverName} on ${tripDateStr}, auto-creating rent log`);
+    
+    // Find driver details for accurate rent calculation
+    const driver = drivers.find(d => d.id === log.driverId);
+    const fallbackAmount = driver?.hasAccommodation ? 600 : 500;
+    
+    // Trigger auto-creation of missing rent log
+    autoCreateMissingRentLog(log.driverId, new Date(log.tripDate), log.vehicleId, fallbackAmount);
+    
+    return { 
+      status: "auto_created", 
+      amount: fallbackAmount 
+    };
+  }, [allRentLogs, drivers]);
+
+  // Auto-create missing rent logs
+  const autoCreateMissingRentLog = useCallback(async (driverId: number, date: Date, vehicleId: number, amount: number) => {
+    try {
+      // Calculate week boundaries
+      const weekStart = new Date(date);
+      const day = weekStart.getDay();
+      const diff = weekStart.getDate() - day + (day === 0 ? -6 : 1);
+      weekStart.setDate(diff);
+      weekStart.setHours(0, 0, 0, 0);
+      
+      const weekEnd = new Date(weekStart);
+      weekEnd.setDate(weekStart.getDate() + 6);
+      weekEnd.setHours(23, 59, 59, 999);
+
+      // Create the missing rent log
+      const rentLogData = {
+        driverId,
+        date: date.toISOString(),
+        rent: amount,
+        paid: false,
+        vehicleId,
+        weekStart: weekStart.toISOString(),
+        weekEnd: weekEnd.toISOString()
+      };
+
+      const response = await fetch("/api/driver-rent-logs", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(rentLogData)
+      });
+
+      if (response.ok) {
+        console.log(`Auto-created rent log for driver ${driverId} on ${date.toISOString().split('T')[0]}`);
+        // Refresh rent logs data
+        queryClient.invalidateQueries({ queryKey: ["/api/driver-rent-logs/all"] });
+        queryClient.invalidateQueries({ queryKey: ["/api/driver-rent-logs/unpaid"] });
+      }
+    } catch (error) {
+      console.error("Failed to auto-create rent log:", error);
+    }
+  }, [queryClient]);
+
+  // Manual data repair function
+  const repairAllMissingRentLogs = useCallback(async () => {
+    setRepairingData(true);
+    try {
+      // Find all trips that are missing rent logs
+      const missingLogs: Array<{tripId: number, driverId: number, date: Date, vehicleId: number, amount: number}> = [];
+      
+      for (const trip of trips) {
+        const tripDate = new Date(trip.tripDate);
+        const tripDateStr = tripDate.toISOString().split('T')[0];
+        
+        const hasRentLog = allRentLogs.some((rent: any) => {
+          const rentDateStr = new Date(rent.date).toISOString().split('T')[0];
+          return rent.driverId === trip.driverId && rentDateStr === tripDateStr;
+        });
+        
+        if (!hasRentLog) {
+          const driver = drivers.find(d => d.id === trip.driverId);
+          const amount = driver?.hasAccommodation ? 600 : 500;
+          missingLogs.push({
+            tripId: trip.id,
+            driverId: trip.driverId,
+            date: tripDate,
+            vehicleId: trip.vehicleId,
+            amount
+          });
+        }
+      }
+      
+      if (missingLogs.length === 0) {
+        toast({
+          title: "No Issues Found",
+          description: "All trip entries have corresponding rent logs.",
+        });
+        return;
+      }
+      
+      // Create missing rent logs
+      let successCount = 0;
+      for (const missing of missingLogs) {
+        try {
+          await autoCreateMissingRentLog(missing.driverId, missing.date, missing.vehicleId, missing.amount);
+          successCount++;
+        } catch (error) {
+          console.error(`Failed to create rent log for trip ${missing.tripId}:`, error);
+        }
+      }
+      
+      toast({
+        title: "Data Repair Complete",
+        description: `Created ${successCount} missing rent logs out of ${missingLogs.length} needed.`,
+      });
+      
+    } catch (error) {
+      console.error("Data repair failed:", error);
+      toast({
+        title: "Repair Failed",
+        description: "Failed to repair missing rent logs. Check console for details.",
+        variant: "destructive"
+      });
+    } finally {
+      setRepairingData(false);
+    }
+  }, [trips, allRentLogs, drivers, autoCreateMissingRentLog, toast]);
 
   // Combine trips and substitute drivers
   const allLogs = useMemo(() => {
@@ -349,6 +485,19 @@ export default function TripLogs() {
           >
             <Filter className="h-4 w-4" />
             {showFilters ? "Hide Filters" : "Show Filters"}
+          </Button>
+          <Button 
+            onClick={repairAllMissingRentLogs} 
+            variant="outline"
+            disabled={repairingData}
+            className="border-red-200 text-red-700 hover:bg-red-50 flex items-center gap-2"
+          >
+            {repairingData ? (
+              <RefreshCw className="h-4 w-4 animate-spin" />
+            ) : (
+              <RefreshCw className="h-4 w-4" />
+            )}
+            {repairingData ? "Repairing..." : "Fix ₹0 Issues"}
           </Button>
         </div>
       </div>
@@ -632,11 +781,16 @@ export default function TripLogs() {
                               Paid ✓
                             </Badge>
                           )}
+                          {rentStatus.status === "auto_created" && (
+                            <Badge className="text-xs bg-yellow-100 text-yellow-800 border-yellow-200 font-medium">
+                              Auto-Fixed
+                            </Badge>
+                          )}
                         </div>
                       </td>
                       <td className="p-4">
                         <div className="flex gap-2">
-                          {!log.isSubstitute && (
+                          {!log.isSubstitute && rentStatus.status !== "auto_created" && (
                             <>
                               <Button
                                 size="sm"
