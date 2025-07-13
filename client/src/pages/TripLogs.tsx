@@ -415,27 +415,32 @@ export default function TripLogs() {
     setEditModalOpen(true);
   };
 
-  const handlePayRent = (log: TripLog) => {
-    if (log.isSubstitute) return;
-    
-    // Normalize dates for comparison
-    const tripDate = new Date(log.tripDate).toISOString().split('T')[0];
-    
-    // Find the corresponding rent log ID
-    const rentLog = allRentLogs.find((rent: any) => {
-      const rentDate = new Date(rent.date).toISOString().split('T')[0];
-      return rent.driverId === log.driverId && rentDate === tripDate;
-    });
-    
-    if (rentLog) {
-      payRentMutation.mutate(rentLog.id);
-    } else {
+  const markTripRentAsPaidMutation = useMutation({
+    mutationFn: (tripId: number) => 
+      fetch(`/api/trips/${tripId}/mark-paid`, { method: "POST" })
+        .then(res => {
+          if (!res.ok) throw new Error("Failed to mark rent as paid");
+          return res.json();
+        }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/driver-rent-logs/unpaid"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/driver-rent-logs/all"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/driver-rent-logs"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/dashboard/profit-graph"] });
+      toast({ title: "Rent marked as paid successfully", variant: "default" });
+    },
+    onError: (error: any) => {
       toast({ 
-        title: "Error", 
-        description: "No rent log found for this trip", 
+        title: "Failed to mark rent as paid", 
+        description: error.message, 
         variant: "destructive" 
       });
-    }
+    },
+  });
+
+  const handlePayRent = (log: TripLog) => {
+    if (log.isSubstitute) return;
+    markTripRentAsPaidMutation.mutate(log.id);
   };
 
   const handleDeleteSubstitute = (substituteId: number, substituteName: string) => {
