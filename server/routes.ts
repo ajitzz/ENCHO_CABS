@@ -316,7 +316,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Driver rent log routes
   app.post("/api/driver-rent-logs", async (req, res) => {
     try {
-      const rentLogData = insertDriverRentLogSchema.parse(req.body);
+      // Convert date strings to Date objects before validation
+      const body = {
+        ...req.body,
+        date: new Date(req.body.date),
+        weekStart: new Date(req.body.weekStart),
+        weekEnd: new Date(req.body.weekEnd)
+      };
+      const rentLogData = insertDriverRentLogSchema.parse(body);
       const rentLog = await storage.createDriverRentLog(rentLogData);
       res.status(201).json(rentLog);
     } catch (error) {
@@ -334,59 +341,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(updatedRentLog);
     } catch (error) {
       res.status(400).json({ message: "Failed to update rent log status", error: error.message });
-    }
-  });
-
-  // New endpoint to mark trip rent as paid - creates rent log if missing
-  app.post("/api/trips/:tripId/mark-paid", async (req, res) => {
-    try {
-      const tripId = parseInt(req.params.tripId);
-      if (isNaN(tripId)) {
-        return res.status(400).json({ message: "Invalid trip ID" });
-      }
-
-      // Get trip details
-      const trip = await storage.getTrip(tripId);
-      if (!trip) {
-        return res.status(404).json({ message: "Trip not found" });
-      }
-
-      // Get driver details for rent calculation
-      const driver = await storage.getDriver(trip.driverId);
-      if (!driver) {
-        return res.status(404).json({ message: "Driver not found" });
-      }
-
-      // Check if rent log already exists for this trip date and driver
-      const tripDate = new Date(trip.tripDate);
-      const startOfDay = new Date(tripDate.getFullYear(), tripDate.getMonth(), tripDate.getDate());
-      const endOfDay = new Date(tripDate.getFullYear(), tripDate.getMonth(), tripDate.getDate() + 1);
-      
-      let rentLogs = await storage.getDriverRentLogsByDateRange(trip.driverId, startOfDay, endOfDay);
-      let rentLog = rentLogs[0]; // Get the first (should be only one) rent log for the day
-
-      // If no rent log exists, create one
-      if (!rentLog) {
-        await generateDailyRentLogs(trip.driverId, tripDate, trip.vehicleId);
-        // Fetch the newly created rent log
-        rentLogs = await storage.getDriverRentLogsByDateRange(trip.driverId, startOfDay, endOfDay);
-        rentLog = rentLogs[0];
-      }
-
-      if (!rentLog) {
-        return res.status(500).json({ message: "Failed to create or find rent log" });
-      }
-
-      // Mark as paid
-      const updatedRentLog = await storage.updateDriverRentLogPaymentStatus(rentLog.id, true);
-      res.json({ 
-        message: "Rent marked as paid successfully", 
-        rentLog: updatedRentLog 
-      });
-
-    } catch (error) {
-      console.error("Error marking trip rent as paid:", error);
-      res.status(500).json({ message: "Failed to mark rent as paid", error: error.message });
     }
   });
 
