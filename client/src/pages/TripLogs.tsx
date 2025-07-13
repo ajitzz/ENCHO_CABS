@@ -386,32 +386,79 @@ export default function TripLogs() {
   });
 
   const payRentMutation = useMutation({
-    mutationFn: (rentLogId: number) => api.payDriverRent(rentLogId),
-    onSuccess: async (_, rentLogId) => {
-      // Immediately force refetch of all rent logs
-      await refetchAllRentLogs();
+    mutationFn: async (rentLogId: number) => {
+      // First make the API call
+      await api.payDriverRent(rentLogId);
       
-      // Also invalidate and refetch other related queries
-      queryClient.invalidateQueries({ queryKey: ["/api/driver-rent-logs/unpaid"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/driver-rent-logs"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/dashboard/profit-graph"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/settlements"] });
+      // Return the rentLogId for use in onSuccess
+      return rentLogId;
+    },
+    onSuccess: async (rentLogId) => {
+      console.log(`Successfully marked rent log ${rentLogId} as paid`);
       
-      // Force immediate refetch of unpaid rents
-      await queryClient.refetchQueries({ queryKey: ["/api/driver-rent-logs/unpaid"] });
-      
-      // Update the cache directly to show immediate change
+      // STEP 1: Immediately update cache with optimistic UI
       queryClient.setQueryData(["/api/driver-rent-logs/all"], (oldData: any) => {
         if (!oldData) return oldData;
         return oldData.map((log: any) => 
-          log.id === rentLogId ? { ...log, paid: true } : log
+          log.id === rentLogId ? { ...log, paid: true, updatedAt: new Date().toISOString() } : log
         );
       });
       
-      toast({ title: "Rent marked as paid", variant: "default" });
+      // STEP 2: Remove from unpaid list immediately
+      queryClient.setQueryData(["/api/driver-rent-logs/unpaid"], (oldData: any) => {
+        if (!oldData) return oldData;
+        return oldData.filter((log: any) => log.id !== rentLogId);
+      });
+      
+      // STEP 3: Verify payment in database and refresh from server
+      setTimeout(async () => {
+        try {
+          // Double-check the payment status in database
+          const response = await fetch(`/api/driver-rent-logs`);
+          if (response.ok) {
+            const allLogs = await response.json();
+            const updatedLog = allLogs.find((log: any) => log.id === rentLogId);
+            
+            if (updatedLog && !updatedLog.paid) {
+              console.error(`CRITICAL: Payment verification failed for rent log ${rentLogId}`);
+              toast({
+                title: "Payment Verification Failed",
+                description: `Please verify rent log #${rentLogId} manually`,
+                variant: "destructive"
+              });
+            } else {
+              console.log(`Payment verification successful for rent log ${rentLogId}`);
+            }
+          }
+          
+          // Force refresh all queries
+          await Promise.all([
+            refetchAllRentLogs(),
+            queryClient.refetchQueries({ queryKey: ["/api/driver-rent-logs/unpaid"] }),
+            queryClient.refetchQueries({ queryKey: ["/api/driver-rent-logs"] })
+          ]);
+        } catch (error) {
+          console.error("Payment verification error:", error);
+        }
+      }, 200);
+      
+      // STEP 4: Invalidate related caches
+      queryClient.invalidateQueries({ queryKey: ["/api/dashboard/profit-graph"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/settlements"] });
+      
+      toast({ 
+        title: "Payment Recorded Successfully", 
+        description: `Rent log #${rentLogId} marked as paid`,
+        variant: "default" 
+      });
     },
     onError: (error) => {
-      toast({ title: "Failed to update rent status", description: error.message, variant: "destructive" });
+      console.error("Payment update failed:", error);
+      toast({ 
+        title: "Payment Update Failed", 
+        description: error.message || "Unable to mark rent as paid", 
+        variant: "destructive" 
+      });
     },
   });
 
@@ -453,6 +500,16 @@ export default function TripLogs() {
     });
     
     if (rentLog) {
+      // Double-check if already paid to prevent duplicate payments
+      if (rentLog.paid) {
+        toast({ 
+          title: "Already Paid", 
+          description: `Rent for ${log.driverName} on ${tripDate} is already marked as paid`, 
+          variant: "default" 
+        });
+        return;
+      }
+      
       console.log(`Paying rent for log ID ${rentLog.id}, driver: ${log.driverName}, date: ${tripDate}, current paid status: ${rentLog.paid}`);
       payRentMutation.mutate(rentLog.id);
     } else {

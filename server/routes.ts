@@ -337,10 +337,40 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { id } = vehicleIdSchema.parse(req.params);
       const { paid } = rentLogStatusSchema.parse(req.body);
+      
+      console.log(`Updating rent log ${id} payment status to: ${paid}`);
+      
+      // Get the original record for logging
+      const originalRecord = await storage.getDriverRentLog(id);
+      if (!originalRecord) {
+        return res.status(404).json({ message: "Rent log not found" });
+      }
+      
+      console.log(`Original status: paid=${originalRecord.paid}`);
+      
+      // Update the payment status
       const updatedRentLog = await storage.updateDriverRentLogPaymentStatus(id, paid);
-      res.json(updatedRentLog);
+      
+      console.log(`Updated status: paid=${updatedRentLog.paid}`);
+      console.log(`Payment status update successful for rent log ${id}`);
+      
+      // Return the updated record with confirmation
+      res.json({
+        ...updatedRentLog,
+        _meta: {
+          updateConfirmed: true,
+          originalPaidStatus: originalRecord.paid,
+          newPaidStatus: updatedRentLog.paid,
+          timestamp: new Date().toISOString()
+        }
+      });
     } catch (error) {
-      res.status(400).json({ message: "Failed to update rent log status", error: error.message });
+      console.error(`Failed to update rent log ${req.params.id}:`, error);
+      res.status(400).json({ 
+        message: "Failed to update rent log status", 
+        error: error.message,
+        rentLogId: req.params.id 
+      });
     }
   });
 

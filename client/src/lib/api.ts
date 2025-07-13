@@ -346,13 +346,26 @@ export const api = {
     return response.json();
   },
 
-  payDriverRent: async (rentLogId: number): Promise<void> => {
+  payDriverRent: async (rentLogId: number): Promise<any> => {
     const response = await fetch(`/api/driver-rent-logs/${rentLogId}/status`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ paid: true }),
     });
-    if (!response.ok) throw new Error("Failed to mark rent as paid");
+    
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.message || "Failed to mark rent as paid");
+    }
+    
+    const result = await response.json();
+    
+    // Verify the update was successful
+    if (!result._meta?.updateConfirmed || !result.paid) {
+      throw new Error("Payment status update was not confirmed by server");
+    }
+    
+    return result;
   },
 
   createSubstituteDriver: async (substituteData: {
