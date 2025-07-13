@@ -487,14 +487,14 @@ export default function TripLogs() {
     setEditModalOpen(true);
   };
 
-  const handlePayRent = (log: TripLog) => {
+  const handlePayRent = async (log: TripLog) => {
     if (log.isSubstitute) return;
     
     // Normalize dates for comparison
     const tripDate = new Date(log.tripDate).toISOString().split('T')[0];
     
     // Find the corresponding rent log ID
-    const rentLog = allRentLogs.find((rent: any) => {
+    let rentLog = allRentLogs.find((rent: any) => {
       const rentDate = new Date(rent.date).toISOString().split('T')[0];
       return rent.driverId === log.driverId && rentDate === tripDate;
     });
@@ -513,18 +513,32 @@ export default function TripLogs() {
       console.log(`Paying rent for log ID ${rentLog.id}, driver: ${log.driverName}, date: ${tripDate}, current paid status: ${rentLog.paid}`);
       payRentMutation.mutate(rentLog.id);
     } else {
-      console.error(`No rent log found for ${log.driverName} on ${tripDate}. Available rent logs:`, 
-        allRentLogs.filter(r => r.driverId === log.driverId).map(r => ({
-          id: r.id,
-          date: new Date(r.date).toISOString().split('T')[0],
-          paid: r.paid
-        }))
-      );
-      toast({ 
-        title: "Error", 
-        description: "No rent log found for this trip", 
-        variant: "destructive" 
-      });
+      // Create missing rent log first, then mark as paid
+      try {
+        console.log(`Creating missing rent log for ${log.driverName} on ${tripDate}`);
+        
+        // Find driver details for accurate rent calculation
+        const driver = drivers.find(d => d.id === log.driverId);
+        const amount = driver?.hasAccommodation ? 600 : 500;
+        
+        // Create the rent log
+        const newRentLog = await autoCreateMissingRentLog(log.driverId, new Date(log.tripDate), log.vehicleId, amount);
+        
+        if (newRentLog) {
+          console.log(`Successfully created rent log ${newRentLog.id}, now marking as paid`);
+          // Small delay to ensure cache is updated
+          setTimeout(() => {
+            payRentMutation.mutate(newRentLog.id);
+          }, 100);
+        }
+      } catch (error) {
+        console.error("Failed to create rent log:", error);
+        toast({ 
+          title: "Error Creating Rent Log", 
+          description: `Failed to create rent log for ${log.driverName}`, 
+          variant: "destructive" 
+        });
+      }
     }
   };
 
@@ -895,7 +909,7 @@ export default function TripLogs() {
                       <td className="p-4">
                         <div className="flex items-center gap-3">
                           <span className="font-bold text-green-600">₹{rentStatus.amount}</span>
-                          {(rentStatus.status === "unpaid" || rentStatus.status === "auto_created") && (
+                          {(rentStatus.status === "unpaid" || rentStatus.status === "auto_created" || rentStatus.status === "missing") && (
                             <Button
                               size="sm"
                               variant="outline"
@@ -903,7 +917,8 @@ export default function TripLogs() {
                               disabled={payRentMutation.isPending}
                               className="text-xs bg-red-50 border-red-200 text-red-700 hover:bg-red-100 font-medium disabled:opacity-50"
                             >
-                              {payRentMutation.isPending ? "Updating..." : "Mark Paid"}
+                              {rentStatus.status === "missing" ? "Create & Pay" : 
+                               payRentMutation.isPending ? "Updating..." : "Mark Paid"}
                             </Button>
                           )}
                           {rentStatus.status === "paid" && (
