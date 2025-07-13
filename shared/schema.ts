@@ -177,6 +177,10 @@ export const insertDriverRentLogSchema = createInsertSchema(driverRentLogs).omit
   id: true,
   createdAt: true,
   updatedAt: true,
+}).extend({
+  date: z.coerce.date(),
+  weekStart: z.coerce.date(),
+  weekEnd: z.coerce.date(),
 });
 
 export const insertWeeklySettlementSchema = createInsertSchema(weeklySettlements).omit({
