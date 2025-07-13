@@ -379,10 +379,17 @@ export default function TripLogs() {
   const payRentMutation = useMutation({
     mutationFn: (rentLogId: number) => api.payDriverRent(rentLogId),
     onSuccess: () => {
+      // Invalidate all rent-related queries with more specific cache keys
       queryClient.invalidateQueries({ queryKey: ["/api/driver-rent-logs/unpaid"] });
       queryClient.invalidateQueries({ queryKey: ["/api/driver-rent-logs/all"] });
       queryClient.invalidateQueries({ queryKey: ["/api/driver-rent-logs"] });
       queryClient.invalidateQueries({ queryKey: ["/api/dashboard/profit-graph"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/settlements"] });
+      
+      // Force refresh all rent logs with a more aggressive approach
+      queryClient.refetchQueries({ queryKey: ["/api/driver-rent-logs"] });
+      queryClient.refetchQueries({ queryKey: ["/api/driver-rent-logs/unpaid"] });
+      
       toast({ title: "Rent marked as paid", variant: "default" });
     },
     onError: (error) => {
@@ -810,9 +817,10 @@ export default function TripLogs() {
                               size="sm"
                               variant="outline"
                               onClick={() => handlePayRent(log)}
-                              className="text-xs bg-red-50 border-red-200 text-red-700 hover:bg-red-100 font-medium"
+                              disabled={payRentMutation.isPending}
+                              className="text-xs bg-red-50 border-red-200 text-red-700 hover:bg-red-100 font-medium disabled:opacity-50"
                             >
-                              Mark Paid
+                              {payRentMutation.isPending ? "Updating..." : "Mark Paid"}
                             </Button>
                           )}
                           {rentStatus.status === "paid" && (
