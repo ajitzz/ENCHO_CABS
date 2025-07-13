@@ -91,7 +91,7 @@ export default function TripLogs() {
   });
 
   // Fetch all rent logs to show amounts even after payment
-  const { data: allRentLogs = [], isLoading: allRentLogsLoading } = useQuery({
+  const { data: allRentLogs = [], isLoading: allRentLogsLoading, refetch: refetchAllRentLogs } = useQuery({
     queryKey: ["/api/driver-rent-logs/all"],
     queryFn: async () => {
       const response = await fetch("/api/driver-rent-logs");
@@ -128,8 +128,17 @@ export default function TripLogs() {
     });
     
     if (rentLog) {
+      const status = rentLog.paid ? "paid" : "unpaid";
+      // Debug logging for rent status
+      if (status === "unpaid") {
+        console.log(`Found unpaid rent log for ${log.driverName} on ${tripDateStr}:`, {
+          id: rentLog.id,
+          paid: rentLog.paid,
+          amount: rentLog.rent
+        });
+      }
       return { 
-        status: rentLog.paid ? "paid" : "unpaid", 
+        status, 
         amount: rentLog.rent || 0 
       };
     }
@@ -378,17 +387,26 @@ export default function TripLogs() {
 
   const payRentMutation = useMutation({
     mutationFn: (rentLogId: number) => api.payDriverRent(rentLogId),
-    onSuccess: () => {
-      // Invalidate all rent-related queries with more specific cache keys
+    onSuccess: async (_, rentLogId) => {
+      // Immediately force refetch of all rent logs
+      await refetchAllRentLogs();
+      
+      // Also invalidate and refetch other related queries
       queryClient.invalidateQueries({ queryKey: ["/api/driver-rent-logs/unpaid"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/driver-rent-logs/all"] });
       queryClient.invalidateQueries({ queryKey: ["/api/driver-rent-logs"] });
       queryClient.invalidateQueries({ queryKey: ["/api/dashboard/profit-graph"] });
       queryClient.invalidateQueries({ queryKey: ["/api/settlements"] });
       
-      // Force refresh all rent logs with a more aggressive approach
-      queryClient.refetchQueries({ queryKey: ["/api/driver-rent-logs"] });
-      queryClient.refetchQueries({ queryKey: ["/api/driver-rent-logs/unpaid"] });
+      // Force immediate refetch of unpaid rents
+      await queryClient.refetchQueries({ queryKey: ["/api/driver-rent-logs/unpaid"] });
+      
+      // Update the cache directly to show immediate change
+      queryClient.setQueryData(["/api/driver-rent-logs/all"], (oldData: any) => {
+        if (!oldData) return oldData;
+        return oldData.map((log: any) => 
+          log.id === rentLogId ? { ...log, paid: true } : log
+        );
+      });
       
       toast({ title: "Rent marked as paid", variant: "default" });
     },
@@ -435,8 +453,16 @@ export default function TripLogs() {
     });
     
     if (rentLog) {
+      console.log(`Paying rent for log ID ${rentLog.id}, driver: ${log.driverName}, date: ${tripDate}, current paid status: ${rentLog.paid}`);
       payRentMutation.mutate(rentLog.id);
     } else {
+      console.error(`No rent log found for ${log.driverName} on ${tripDate}. Available rent logs:`, 
+        allRentLogs.filter(r => r.driverId === log.driverId).map(r => ({
+          id: r.id,
+          date: new Date(r.date).toISOString().split('T')[0],
+          paid: r.paid
+        }))
+      );
       toast({ 
         title: "Error", 
         description: "No rent log found for this trip", 
