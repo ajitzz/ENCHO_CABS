@@ -316,14 +316,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Driver rent log routes
   app.post("/api/driver-rent-logs", async (req, res) => {
     try {
-      // Convert date strings to Date objects before validation
-      const body = {
-        ...req.body,
-        date: new Date(req.body.date),
-        weekStart: new Date(req.body.weekStart),
-        weekEnd: new Date(req.body.weekEnd)
-      };
-      const rentLogData = insertDriverRentLogSchema.parse(body);
+      const rentLogData = insertDriverRentLogSchema.parse(req.body);
       const rentLog = await storage.createDriverRentLog(rentLogData);
       res.status(201).json(rentLog);
     } catch (error) {
