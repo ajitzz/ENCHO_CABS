@@ -152,7 +152,7 @@ export default function TripLogModal({ open, onOpenChange }: TripLogModalProps) 
                     <SelectContent>
                       {vehicles?.map((vehicle) => (
                         <SelectItem key={vehicle.id} value={vehicle.id.toString()}>
-                          {vehicle.vehicleNumber} ({vehicle.company})
+                          {vehicle.vehicleNumber} {vehicle.qrCode ? `(QR: ${vehicle.qrCode})` : ''} - {vehicle.company}
                         </SelectItem>
                       ))}
                     </SelectContent>

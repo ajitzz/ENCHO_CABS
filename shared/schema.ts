@@ -6,6 +6,7 @@ import { relations } from "drizzle-orm";
 export const vehicles = pgTable("vehicles", {
   id: serial("id").primaryKey(),
   vehicleNumber: text("vehicle_number").notNull().unique(),
+  qrCode: text("qr_code"),
   company: text("company").notNull(), // "PMV" or "Letzryd"
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),

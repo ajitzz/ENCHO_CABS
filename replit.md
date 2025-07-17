@@ -167,6 +167,9 @@ Changelog:
   • Enhanced auto-creation logic with proper duplicate checking and missing rent log handling
   • Implemented "Create & Pay" functionality for seamless rent log creation and payment processing
   • Added comprehensive error recovery with detailed logging for financial transaction audit trails
+  • QR Code Integration: Added QR code field to vehicles table with create/edit functionality
+  • Vehicle QR codes now display in trip log modals and trip logs table for easy identification
+  • Fixed duplicate sidebar issue on vehicles and drivers pages for cleaner UI experience
 ```
 
 ## User Preferences

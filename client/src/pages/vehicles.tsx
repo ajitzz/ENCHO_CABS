@@ -15,6 +15,7 @@ import Sidebar from "@/components/Sidebar";
 interface Vehicle {
   id: number;
   vehicleNumber: string;
+  qrCode?: string;
   company: "PMV" | "Letzryd";
   createdAt: string;
   updatedAt: string;
@@ -26,6 +27,7 @@ export default function VehiclesPage() {
   const [editingVehicle, setEditingVehicle] = useState<Vehicle | null>(null);
   const [formData, setFormData] = useState({
     vehicleNumber: "",
+    qrCode: "",
     company: "PMV" as "PMV" | "Letzryd",
   });
 
@@ -41,7 +43,7 @@ export default function VehiclesPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/vehicles"] });
       setIsCreateOpen(false);
-      setFormData({ vehicleNumber: "", company: "PMV" });
+      setFormData({ vehicleNumber: "", qrCode: "", company: "PMV" });
       toast({ title: "Success", description: "Vehicle created successfully" });
     },
     onError: () => {
@@ -81,6 +83,7 @@ export default function VehiclesPage() {
     setEditingVehicle(vehicle);
     setFormData({
       vehicleNumber: vehicle.vehicleNumber,
+      qrCode: vehicle.qrCode || "",
       company: vehicle.company,
     });
     setIsEditOpen(true);
@@ -103,7 +106,6 @@ export default function VehiclesPage() {
 
   return (
     <div className="flex h-screen bg-gray-50">
-      <Sidebar />
       <main className="flex-1 p-6 overflow-auto">
         <div className="max-w-6xl mx-auto space-y-6">
           <div className="flex items-center justify-between">
@@ -128,6 +130,15 @@ export default function VehiclesPage() {
                       value={formData.vehicleNumber}
                       onChange={(e) => setFormData({ ...formData, vehicleNumber: e.target.value })}
                       placeholder="e.g., KA-01-AB-1234"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="qrCode">QR Code Number</Label>
+                    <Input
+                      id="qrCode"
+                      value={formData.qrCode}
+                      onChange={(e) => setFormData({ ...formData, qrCode: e.target.value })}
+                      placeholder="e.g., QR123456"
                     />
                   </div>
                   <div>
@@ -162,6 +173,7 @@ export default function VehiclesPage() {
                   <TableHeader>
                     <TableRow>
                       <TableHead>Vehicle Number</TableHead>
+                      <TableHead>QR Code</TableHead>
                       <TableHead>Company</TableHead>
                       <TableHead>Created</TableHead>
                       <TableHead>Actions</TableHead>
@@ -171,6 +183,7 @@ export default function VehiclesPage() {
                     {vehicles?.map((vehicle) => (
                       <TableRow key={vehicle.id}>
                         <TableCell className="font-medium">{vehicle.vehicleNumber}</TableCell>
+                        <TableCell className="text-blue-600 font-mono">{vehicle.qrCode || "Not Set"}</TableCell>
                         <TableCell>{vehicle.company}</TableCell>
                         <TableCell>{new Date(vehicle.createdAt).toLocaleDateString()}</TableCell>
                         <TableCell>
@@ -213,6 +226,16 @@ export default function VehiclesPage() {
                     id="editVehicleNumber"
                     value={formData.vehicleNumber}
                     onChange={(e) => setFormData({ ...formData, vehicleNumber: e.target.value })}
+                    placeholder="e.g., KA-01-AB-1234"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="editQrCode">QR Code Number</Label>
+                  <Input
+                    id="editQrCode"
+                    value={formData.qrCode}
+                    onChange={(e) => setFormData({ ...formData, qrCode: e.target.value })}
+                    placeholder="e.g., QR123456"
                   />
                 </div>
                 <div>

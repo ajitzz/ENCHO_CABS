@@ -890,7 +890,17 @@ export default function TripLogs() {
                       <td className="p-4 text-gray-700">
                         {format(new Date(log.tripDate), "MMM dd, yyyy")}
                       </td>
-                      <td className="p-4 font-medium text-gray-800">{log.vehicleNumber}</td>
+                      <td className="p-4">
+                        <div className="flex flex-col">
+                          <span className="font-medium text-gray-800">{log.vehicleNumber}</span>
+                          {(() => {
+                            const vehicle = vehicles.find(v => v.id === log.vehicleId);
+                            return vehicle?.qrCode ? (
+                              <span className="text-xs text-blue-600 font-mono">QR: {vehicle.qrCode}</span>
+                            ) : null;
+                          })()}
+                        </div>
+                      </td>
                       <td className="p-4 text-gray-700">{log.driverName}</td>
                       <td className="p-4">
                         <Badge variant={log.shift === "morning" ? "default" : "secondary"} className="font-medium">

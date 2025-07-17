@@ -124,7 +124,6 @@ export default function DriversPage() {
 
   return (
     <div className="flex h-screen bg-gray-50">
-      <Sidebar />
       <main className="flex-1 p-6 overflow-auto">
         <div className="max-w-6xl mx-auto space-y-6">
           <div className="flex items-center justify-between">
