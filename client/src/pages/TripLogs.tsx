@@ -896,7 +896,7 @@ export default function TripLogs() {
                           {(() => {
                             const vehicle = vehicles.find(v => v.id === log.vehicleId);
                             return vehicle?.qrCode ? (
-                              <span className="text-xs text-blue-600 font-mono">QR: {vehicle.qrCode}</span>
+                              <span className="text-xs text-blue-600 font-mono">{vehicle.qrCode}</span>
                             ) : null;
                           })()}
                         </div>
