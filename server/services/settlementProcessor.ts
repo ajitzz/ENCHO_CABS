@@ -169,7 +169,7 @@ export async function processAllVehicleSettlements(weekStartDate: Date): Promise
   }
 }
 
-export async function generateDailyRentLogs(driverId: number, date: Date, vehicleId: number, shift: "morning" | "evening"): Promise<void> {
+export async function generateDailyRentLogs(driverId: number, date: Date, vehicleId: number): Promise<void> {
   const driver = await storage.getDriver(driverId);
   if (!driver) {
     throw new Error(`Driver with ID ${driverId} not found`);
@@ -179,18 +179,15 @@ export async function generateDailyRentLogs(driverId: number, date: Date, vehicl
   const normalizedDate = new Date(date.getFullYear(), date.getMonth(), date.getDate());
   const nextDay = new Date(date.getFullYear(), date.getMonth(), date.getDate() + 1);
 
-  // Check if rent log already exists for this driver on this date and shift
+  // Check if rent log already exists for this driver on this date
   const existingRentLogs = await storage.getDriverRentLogsByDateRange(
     driverId, 
     normalizedDate, 
     nextDay
   );
 
-  // Check if rent log already exists for this specific shift
-  const shiftRentLogExists = existingRentLogs.some(log => log.shift === shift);
-
-  // Only create rent log if one doesn't already exist for this date and shift
-  if (!shiftRentLogExists) {
+  // Only create rent log if one doesn't already exist for this date
+  if (existingRentLogs.length === 0) {
     const dailyRent = getDriverRent(driver.hasAccommodation);
     
     // Calculate week start and end for the date
@@ -211,7 +208,6 @@ export async function generateDailyRentLogs(driverId: number, date: Date, vehicl
       await storage.createDriverRentLog({
         driverId,
         date: normalizedDate,
-        shift: shift,
         rent: dailyRent,
         paid: false,
         vehicleId: vehicleId,
@@ -223,7 +219,6 @@ export async function generateDailyRentLogs(driverId: number, date: Date, vehicl
       console.error('Rent log data:', {
         driverId,
         date: normalizedDate,
-        shift: shift,
         rent: dailyRent,
         paid: false,
         vehicleId: vehicleId,
