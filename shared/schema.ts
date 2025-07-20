@@ -1,4 +1,4 @@
-import { pgTable, text, serial, integer, boolean, timestamp, decimal, json } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, boolean, timestamp, decimal, json, unique } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 import { relations } from "drizzle-orm";
@@ -47,6 +47,7 @@ export const driverRentLogs = pgTable("driver_rent_logs", {
   id: serial("id").primaryKey(),
   driverId: integer("driver_id").notNull(),
   date: timestamp("date").notNull(),
+  shift: text("shift").notNull(), // "morning" or "evening"
   rent: integer("rent").notNull(),
   paid: boolean("paid").notNull().default(false),
   createdAt: timestamp("created_at").defaultNow().notNull(),
@@ -54,7 +55,9 @@ export const driverRentLogs = pgTable("driver_rent_logs", {
   vehicleId: integer("vehicle_id").notNull(),
   weekStart: timestamp("week_start").notNull(),
   weekEnd: timestamp("week_end").notNull(),
-});
+}, (table) => ({
+  unique_driver_date_shift: unique("unique_driver_date_shift").on(table.driverId, table.date, table.shift)
+}));
 
 export const weeklySettlements = pgTable("weekly_settlements", {
   id: serial("id").primaryKey(),

@@ -110,48 +110,46 @@ export default function TripLogs() {
     const tripDate = new Date(log.tripDate);
     const tripDateStr = tripDate.toISOString().split('T')[0];
     
-    // Find matching rent log with multiple matching strategies
+    // Find matching rent log with exact shift matching
     const rentLog = allRentLogs.find((rent: any) => {
       const rentDate = new Date(rent.date);
       const rentDateStr = rentDate.toISOString().split('T')[0];
       
-      // Primary match: same driver and same date
+      // Exact match: same driver, same date, and same shift
       const dateMatch = rentDateStr === tripDateStr;
       const driverMatch = rent.driverId === log.driverId;
+      const shiftMatch = rent.shift === log.shift;
       
-      // Log for debugging problematic entries
-      if (driverMatch && !dateMatch) {
-        console.warn(`Date mismatch for ${log.driverName}: trip=${tripDateStr}, rent=${rentDateStr}`);
-      }
-      
-      return driverMatch && dateMatch;
+      return driverMatch && dateMatch && shiftMatch;
     });
     
     if (rentLog) {
       const status = rentLog.paid ? "paid" : "unpaid";
       // Debug logging for rent status
       if (status === "unpaid") {
-        console.log(`Found unpaid rent log for ${log.driverName} on ${tripDateStr}:`, {
+        console.log(`Found unpaid rent log for ${log.driverName} ${log.shift} shift on ${tripDateStr}:`, {
           id: rentLog.id,
           paid: rentLog.paid,
-          amount: rentLog.rent
+          amount: rentLog.rent,
+          shift: rentLog.shift
         });
       }
       return { 
         status, 
-        amount: rentLog.rent || 0 
+        amount: rentLog.rent || 0,
+        rentLogId: rentLog.id
       };
     }
     
     // Fallback: if no rent log found, look up driver accommodation status and create missing log
-    console.warn(`No rent log found for ${log.driverName} on ${tripDateStr}, auto-creating rent log`);
+    console.warn(`No rent log found for ${log.driverName} ${log.shift} shift on ${tripDateStr}, auto-creating rent log`);
     
     // Find driver details for accurate rent calculation
     const driver = drivers.find(d => d.id === log.driverId);
     const fallbackAmount = driver?.hasAccommodation ? 600 : 500;
     
-    // Trigger auto-creation of missing rent log
-    autoCreateMissingRentLog(log.driverId, new Date(log.tripDate), log.vehicleId, fallbackAmount);
+    // Trigger auto-creation of missing rent log with shift
+    autoCreateMissingRentLog(log.driverId, new Date(log.tripDate), log.vehicleId, fallbackAmount, log.shift);
     
     return { 
       status: "auto_created", 
@@ -160,7 +158,7 @@ export default function TripLogs() {
   }, [allRentLogs, drivers]);
 
   // Auto-create missing rent logs
-  const autoCreateMissingRentLog = useCallback(async (driverId: number, date: Date, vehicleId: number, amount: number) => {
+  const autoCreateMissingRentLog = useCallback(async (driverId: number, date: Date, vehicleId: number, amount: number, shift: string) => {
     try {
       // Calculate week boundaries
       const weekStart = new Date(date);
@@ -173,10 +171,11 @@ export default function TripLogs() {
       weekEnd.setDate(weekStart.getDate() + 6);
       weekEnd.setHours(23, 59, 59, 999);
 
-      // Create the missing rent log
+      // Create the missing rent log with shift
       const rentLogData = {
         driverId,
         date: date.toISOString(),
+        shift,
         rent: amount,
         paid: false,
         vehicleId,
@@ -191,10 +190,11 @@ export default function TripLogs() {
       });
 
       if (response.ok) {
-        console.log(`Auto-created rent log for driver ${driverId} on ${date.toISOString().split('T')[0]}`);
+        console.log(`Auto-created rent log for driver ${driverId} ${shift} shift on ${date.toISOString().split('T')[0]}`);
         // Refresh rent logs data
         queryClient.invalidateQueries({ queryKey: ["/api/driver-rent-logs/all"] });
         queryClient.invalidateQueries({ queryKey: ["/api/driver-rent-logs/unpaid"] });
+        return await response.json();
       }
     } catch (error) {
       console.error("Failed to auto-create rent log:", error);
@@ -206,7 +206,7 @@ export default function TripLogs() {
     setRepairingData(true);
     try {
       // Find all trips that are missing rent logs
-      const missingLogs: Array<{tripId: number, driverId: number, date: Date, vehicleId: number, amount: number}> = [];
+      const missingLogs: Array<{tripId: number, driverId: number, date: Date, vehicleId: number, amount: number, shift: string}> = [];
       
       for (const trip of trips) {
         const tripDate = new Date(trip.tripDate);
@@ -214,7 +214,7 @@ export default function TripLogs() {
         
         const hasRentLog = allRentLogs.some((rent: any) => {
           const rentDateStr = new Date(rent.date).toISOString().split('T')[0];
-          return rent.driverId === trip.driverId && rentDateStr === tripDateStr;
+          return rent.driverId === trip.driverId && rentDateStr === tripDateStr && rent.shift === trip.shift;
         });
         
         if (!hasRentLog) {
@@ -225,7 +225,8 @@ export default function TripLogs() {
             driverId: trip.driverId,
             date: tripDate,
             vehicleId: trip.vehicleId,
-            amount
+            amount,
+            shift: trip.shift
           });
         }
       }
@@ -242,7 +243,7 @@ export default function TripLogs() {
       let successCount = 0;
       for (const missing of missingLogs) {
         try {
-          await autoCreateMissingRentLog(missing.driverId, missing.date, missing.vehicleId, missing.amount);
+          await autoCreateMissingRentLog(missing.driverId, missing.date, missing.vehicleId, missing.amount, missing.shift);
           successCount++;
         } catch (error) {
           console.error(`Failed to create rent log for trip ${missing.tripId}:`, error);
@@ -493,10 +494,10 @@ export default function TripLogs() {
     // Normalize dates for comparison
     const tripDate = new Date(log.tripDate).toISOString().split('T')[0];
     
-    // Find the corresponding rent log ID
+    // Find the corresponding rent log ID with exact shift matching
     let rentLog = allRentLogs.find((rent: any) => {
       const rentDate = new Date(rent.date).toISOString().split('T')[0];
-      return rent.driverId === log.driverId && rentDate === tripDate;
+      return rent.driverId === log.driverId && rentDate === tripDate && rent.shift === log.shift;
     });
     
     if (rentLog) {
@@ -504,25 +505,25 @@ export default function TripLogs() {
       if (rentLog.paid) {
         toast({ 
           title: "Already Paid", 
-          description: `Rent for ${log.driverName} on ${tripDate} is already marked as paid`, 
+          description: `Rent for ${log.driverName} ${log.shift} shift on ${tripDate} is already marked as paid`, 
           variant: "default" 
         });
         return;
       }
       
-      console.log(`Paying rent for log ID ${rentLog.id}, driver: ${log.driverName}, date: ${tripDate}, current paid status: ${rentLog.paid}`);
+      console.log(`Paying rent for log ID ${rentLog.id}, driver: ${log.driverName}, ${log.shift} shift, date: ${tripDate}, current paid status: ${rentLog.paid}`);
       payRentMutation.mutate(rentLog.id);
     } else {
       // Create missing rent log first, then mark as paid
       try {
-        console.log(`Creating missing rent log for ${log.driverName} on ${tripDate}`);
+        console.log(`Creating missing rent log for ${log.driverName} ${log.shift} shift on ${tripDate}`);
         
         // Find driver details for accurate rent calculation
         const driver = drivers.find(d => d.id === log.driverId);
         const amount = driver?.hasAccommodation ? 600 : 500;
         
-        // Create the rent log
-        const newRentLog = await autoCreateMissingRentLog(log.driverId, new Date(log.tripDate), log.vehicleId, amount);
+        // Create the rent log with shift
+        const newRentLog = await autoCreateMissingRentLog(log.driverId, new Date(log.tripDate), log.vehicleId, amount, log.shift);
         
         if (newRentLog) {
           console.log(`Successfully created rent log ${newRentLog.id}, now marking as paid`);
@@ -535,7 +536,7 @@ export default function TripLogs() {
         console.error("Failed to create rent log:", error);
         toast({ 
           title: "Error Creating Rent Log", 
-          description: `Failed to create rent log for ${log.driverName}`, 
+          description: `Failed to create rent log for ${log.driverName} ${log.shift} shift`, 
           variant: "destructive" 
         });
       }
