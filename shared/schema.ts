@@ -47,6 +47,7 @@ export const driverRentLogs = pgTable("driver_rent_logs", {
   id: serial("id").primaryKey(),
   driverId: integer("driver_id").notNull(),
   date: timestamp("date").notNull(),
+  shift: text("shift").notNull(), // "morning" or "evening"
   rent: integer("rent").notNull(),
   paid: boolean("paid").notNull().default(false),
   createdAt: timestamp("created_at").defaultNow().notNull(),

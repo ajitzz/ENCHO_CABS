@@ -195,8 +195,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const tripData = insertTripSchema.parse(body);
       const trip = await storage.createTrip(tripData);
       
-      // Automatically generate unpaid rent log for the driver
-      await generateDailyRentLogs(tripData.driverId, tripData.tripDate, tripData.vehicleId);
+      // Automatically generate unpaid rent log for the driver with shift information
+      await generateDailyRentLogs(tripData.driverId, tripData.tripDate, tripData.vehicleId, tripData.shift);
       
       res.status(201).json(trip);
     } catch (error) {

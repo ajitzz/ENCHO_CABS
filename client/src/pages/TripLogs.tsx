@@ -110,21 +110,22 @@ export default function TripLogs() {
     const tripDate = new Date(log.tripDate);
     const tripDateStr = tripDate.toISOString().split('T')[0];
     
-    // Find matching rent log with multiple matching strategies
+    // Find matching rent log with multiple matching strategies including shift
     const rentLog = allRentLogs.find((rent: any) => {
       const rentDate = new Date(rent.date);
       const rentDateStr = rentDate.toISOString().split('T')[0];
       
-      // Primary match: same driver and same date
+      // Primary match: same driver, same date, and same shift
       const dateMatch = rentDateStr === tripDateStr;
       const driverMatch = rent.driverId === log.driverId;
+      const shiftMatch = rent.shift === log.shift;
       
       // Log for debugging problematic entries
       if (driverMatch && !dateMatch) {
         console.warn(`Date mismatch for ${log.driverName}: trip=${tripDateStr}, rent=${rentDateStr}`);
       }
       
-      return driverMatch && dateMatch;
+      return driverMatch && dateMatch && shiftMatch;
     });
     
     if (rentLog) {
@@ -150,8 +151,8 @@ export default function TripLogs() {
     const driver = drivers.find(d => d.id === log.driverId);
     const fallbackAmount = driver?.hasAccommodation ? 600 : 500;
     
-    // Trigger auto-creation of missing rent log
-    autoCreateMissingRentLog(log.driverId, new Date(log.tripDate), log.vehicleId, fallbackAmount);
+    // Trigger auto-creation of missing rent log with shift information
+    autoCreateMissingRentLog(log.driverId, new Date(log.tripDate), log.vehicleId, fallbackAmount, log.shift);
     
     return { 
       status: "auto_created", 
@@ -160,7 +161,7 @@ export default function TripLogs() {
   }, [allRentLogs, drivers]);
 
   // Auto-create missing rent logs
-  const autoCreateMissingRentLog = useCallback(async (driverId: number, date: Date, vehicleId: number, amount: number) => {
+  const autoCreateMissingRentLog = useCallback(async (driverId: number, date: Date, vehicleId: number, amount: number, shift: "morning" | "evening") => {
     try {
       // Calculate week boundaries
       const weekStart = new Date(date);
@@ -177,6 +178,7 @@ export default function TripLogs() {
       const rentLogData = {
         driverId,
         date: date.toISOString(),
+        shift: shift,
         rent: amount,
         paid: false,
         vehicleId,

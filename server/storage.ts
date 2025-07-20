@@ -248,6 +248,7 @@ export class DatabaseStorage implements IStorage {
       id: driverRentLogs.id,
       driverId: driverRentLogs.driverId,
       date: driverRentLogs.date,
+      shift: driverRentLogs.shift,
       rent: driverRentLogs.rent,
       paid: driverRentLogs.paid,
       createdAt: driverRentLogs.createdAt,
@@ -290,10 +291,14 @@ export class DatabaseStorage implements IStorage {
       id: driverRentLogs.id,
       driverId: driverRentLogs.driverId,
       date: driverRentLogs.date,
+      shift: driverRentLogs.shift,
       rent: driverRentLogs.rent,
       paid: driverRentLogs.paid,
       createdAt: driverRentLogs.createdAt,
       updatedAt: driverRentLogs.updatedAt,
+      vehicleId: driverRentLogs.vehicleId,
+      weekStart: driverRentLogs.weekStart,
+      weekEnd: driverRentLogs.weekEnd,
       driverName: drivers.name,
     }).from(driverRentLogs)
       .innerJoin(drivers, eq(driverRentLogs.driverId, drivers.id))
