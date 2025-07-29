@@ -8,7 +8,7 @@ import {
   type InsertSubstituteDriver
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, and, or, gte, lte, desc, asc } from "drizzle-orm";
+import { eq, and, or, gte, lte, desc, asc, ne } from "drizzle-orm";
 
 export interface IStorage {
   // Vehicle operations
@@ -64,6 +64,9 @@ export interface IStorage {
   getSubstituteDriversByVehicleAndDateRange(vehicleId: number, startDate: Date, endDate: Date): Promise<Array<SubstituteDriver & { vehicleNumber: string }>>;
   getAllSubstituteDrivers(): Promise<Array<SubstituteDriver & { vehicleNumber: string }>>;
   deleteSubstituteDriver(id: number): Promise<void>;
+
+  // QR Code validation operations
+  checkQrCodeExists(qrCode: string, excludeVehicleId?: number, excludeDriverId?: number): Promise<{ exists: boolean; type: 'vehicle' | 'driver' | null; name: string | null }>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -474,6 +477,55 @@ export class DatabaseStorage implements IStorage {
 
   async deleteSubstituteDriver(id: number): Promise<void> {
     await db.delete(substituteDrivers).where(eq(substituteDrivers.id, id));
+  }
+
+  // QR Code validation operations
+  async checkQrCodeExists(qrCode: string, excludeVehicleId?: number, excludeDriverId?: number): Promise<{ exists: boolean; type: 'vehicle' | 'driver' | null; name: string | null }> {
+    if (!qrCode || qrCode.trim() === '') {
+      return { exists: false, type: null, name: null };
+    }
+
+    const trimmedQrCode = qrCode.trim();
+
+    // Check if QR code exists in vehicles (excluding current vehicle if updating)
+    const vehicleConditions = [eq(vehicles.qrCode, trimmedQrCode)];
+    if (excludeVehicleId) {
+      vehicleConditions.push(ne(vehicles.id, excludeVehicleId));
+    }
+
+    const [existingVehicle] = await db.select({
+      id: vehicles.id,
+      vehicleNumber: vehicles.vehicleNumber,
+      qrCode: vehicles.qrCode
+    }).from(vehicles).where(and(...vehicleConditions));
+    if (existingVehicle) {
+      return { 
+        exists: true, 
+        type: 'vehicle', 
+        name: existingVehicle.vehicleNumber 
+      };
+    }
+
+    // Check if QR code exists in drivers (excluding current driver if updating)
+    const driverConditions = [eq(drivers.qrCode, trimmedQrCode)];
+    if (excludeDriverId) {
+      driverConditions.push(ne(drivers.id, excludeDriverId));
+    }
+
+    const [existingDriver] = await db.select({
+      id: drivers.id,
+      name: drivers.name,
+      qrCode: drivers.qrCode
+    }).from(drivers).where(and(...driverConditions));
+    if (existingDriver) {
+      return { 
+        exists: true, 
+        type: 'driver', 
+        name: existingDriver.name 
+      };
+    }
+
+    return { exists: false, type: null, name: null };
   }
 }
 

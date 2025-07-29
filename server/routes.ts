@@ -46,6 +46,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/vehicles", async (req, res) => {
     try {
       const vehicleData = insertVehicleSchema.parse(req.body);
+      
+      // Check QR code uniqueness if provided
+      if (vehicleData.qrCode && vehicleData.qrCode.trim()) {
+        const qrCheck = await storage.checkQrCodeExists(vehicleData.qrCode);
+        if (qrCheck.exists) {
+          return res.status(400).json({ 
+            message: "QR Code already exists", 
+            error: `This QR code is already assigned to ${qrCheck.type} "${qrCheck.name}". Please use a different QR code.`
+          });
+        }
+      }
+      
       const vehicle = await storage.createVehicle(vehicleData);
       res.status(201).json(vehicle);
     } catch (error) {
@@ -57,6 +69,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { id } = vehicleIdSchema.parse(req.params);
       const vehicleData = insertVehicleSchema.parse(req.body);
+      
+      // Check QR code uniqueness if provided (excluding current vehicle)
+      if (vehicleData.qrCode && vehicleData.qrCode.trim()) {
+        const qrCheck = await storage.checkQrCodeExists(vehicleData.qrCode, id);
+        if (qrCheck.exists) {
+          return res.status(400).json({ 
+            message: "QR Code already exists", 
+            error: `This QR code is already assigned to ${qrCheck.type} "${qrCheck.name}". Please use a different QR code.`
+          });
+        }
+      }
+      
       const vehicle = await storage.updateVehicle(id, vehicleData);
       res.json(vehicle);
     } catch (error) {
@@ -100,6 +124,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/drivers", async (req, res) => {
     try {
       const driverData = insertDriverSchema.parse(req.body);
+      
+      // Check QR code uniqueness if provided
+      if (driverData.qrCode && driverData.qrCode.trim()) {
+        const qrCheck = await storage.checkQrCodeExists(driverData.qrCode);
+        if (qrCheck.exists) {
+          return res.status(400).json({ 
+            message: "QR Code already exists", 
+            error: `This QR code is already assigned to ${qrCheck.type} "${qrCheck.name}". Please use a different QR code.`
+          });
+        }
+      }
+      
       const driver = await storage.createDriver(driverData);
       res.status(201).json(driver);
     } catch (error) {
@@ -136,6 +172,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { id } = vehicleIdSchema.parse(req.params);
       const driverData = insertDriverSchema.parse(req.body);
+      
+      // Check QR code uniqueness if provided (excluding current driver)
+      if (driverData.qrCode && driverData.qrCode.trim()) {
+        const qrCheck = await storage.checkQrCodeExists(driverData.qrCode, undefined, id);
+        if (qrCheck.exists) {
+          return res.status(400).json({ 
+            message: "QR Code already exists", 
+            error: `This QR code is already assigned to ${qrCheck.type} "${qrCheck.name}". Please use a different QR code.`
+          });
+        }
+      }
+      
       const driver = await storage.updateDriver(id, driverData);
       res.json(driver);
     } catch (error) {
@@ -548,6 +596,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(settlements);
     } catch (error) {
       res.status(500).json({ message: "Failed to fetch settlements", error: error.message });
+    }
+  });
+
+  // QR Code validation endpoint
+  app.get("/api/validate-qr-code", async (req, res) => {
+    try {
+      const { qrCode, excludeVehicleId, excludeDriverId } = req.query;
+      
+      if (!qrCode || typeof qrCode !== 'string') {
+        return res.status(400).json({ message: "QR code is required" });
+      }
+      
+      const result = await storage.checkQrCodeExists(
+        qrCode, 
+        excludeVehicleId ? Number(excludeVehicleId) : undefined,
+        excludeDriverId ? Number(excludeDriverId) : undefined
+      );
+      
+      res.json(result);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to validate QR code", error: error.message });
     }
   });
 
