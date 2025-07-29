@@ -16,6 +16,7 @@ interface Driver {
   id: number;
   name: string;
   phone: string;
+  qrCode?: string;
   hasAccommodation: boolean;
   createdAt: string;
   updatedAt: string;
@@ -28,6 +29,7 @@ export default function DriversPage() {
   const [formData, setFormData] = useState({
     name: "",
     phone: "",
+    qrCode: "",
     hasAccommodation: false,
   });
 
@@ -43,7 +45,7 @@ export default function DriversPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/drivers"] });
       setIsCreateOpen(false);
-      setFormData({ name: "", phone: "", hasAccommodation: false });
+      setFormData({ name: "", phone: "", qrCode: "", hasAccommodation: false });
       toast({ title: "Success", description: "Driver created successfully" });
     },
     onError: (error: any) => {
@@ -102,6 +104,7 @@ export default function DriversPage() {
     setFormData({
       name: driver.name,
       phone: driver.phone,
+      qrCode: driver.qrCode || "",
       hasAccommodation: driver.hasAccommodation,
     });
     setIsEditOpen(true);
@@ -159,6 +162,15 @@ export default function DriversPage() {
                       placeholder="e.g., 9876543210"
                     />
                   </div>
+                  <div>
+                    <Label htmlFor="qrCode">QR Code (Optional)</Label>
+                    <Input
+                      id="qrCode"
+                      value={formData.qrCode}
+                      onChange={(e) => setFormData({ ...formData, qrCode: e.target.value })}
+                      placeholder="e.g., QR12345678"
+                    />
+                  </div>
                   <div className="flex items-center space-x-2">
                     <Switch
                       id="hasAccommodation"
@@ -191,6 +203,7 @@ export default function DriversPage() {
                     <TableRow>
                       <TableHead>Name</TableHead>
                       <TableHead>Phone</TableHead>
+                      <TableHead>QR Code</TableHead>
                       <TableHead>Accommodation</TableHead>
                       <TableHead>Created</TableHead>
                       <TableHead>Actions</TableHead>
@@ -201,6 +214,15 @@ export default function DriversPage() {
                       <TableRow key={driver.id}>
                         <TableCell className="font-medium">{driver.name}</TableCell>
                         <TableCell>{driver.phone}</TableCell>
+                        <TableCell>
+                          {driver.qrCode ? (
+                            <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded text-sm font-mono">
+                              {driver.qrCode}
+                            </span>
+                          ) : (
+                            <span className="text-gray-400 text-sm">No QR Code</span>
+                          )}
+                        </TableCell>
                         <TableCell>
                           <div className="flex items-center space-x-2">
                             {driver.hasAccommodation ? (
@@ -262,6 +284,15 @@ export default function DriversPage() {
                     id="editPhone"
                     value={formData.phone}
                     onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="editQrCode">QR Code (Optional)</Label>
+                  <Input
+                    id="editQrCode"
+                    value={formData.qrCode}
+                    onChange={(e) => setFormData({ ...formData, qrCode: e.target.value })}
+                    placeholder="e.g., QR12345678"
                   />
                 </div>
                 <div className="flex items-center space-x-2">

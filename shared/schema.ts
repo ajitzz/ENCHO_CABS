@@ -16,6 +16,7 @@ export const drivers = pgTable("drivers", {
   id: serial("id").primaryKey(),
   name: text("name").notNull(),
   phone: text("phone").notNull(),
+  qrCode: text("qr_code"),
   hasAccommodation: boolean("has_accommodation").notNull().default(false),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),

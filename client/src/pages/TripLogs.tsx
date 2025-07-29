@@ -902,7 +902,22 @@ export default function TripLogs() {
                           })()}
                         </div>
                       </td>
-                      <td className="p-4 text-gray-700">{log.driverName}</td>
+                      <td className="p-4">
+                        <div className="flex flex-col">
+                          <span className="font-medium text-gray-800">{log.driverName}</span>
+                          {(() => {
+                            // For regular drivers, find driver QR code
+                            if (!log.isSubstitute) {
+                              const driver = drivers.find(d => d.id === log.driverId);
+                              return driver?.qrCode ? (
+                                <span className="text-xs text-blue-600 font-mono">{driver.qrCode}</span>
+                              ) : null;
+                            }
+                            // For substitute drivers, no QR code available
+                            return null;
+                          })()}
+                        </div>
+                      </td>
                       <td className="p-4">
                         <Badge variant={log.shift === "morning" ? "default" : "secondary"} className="font-medium">
                           {log.shift === "morning" ? "Morning" : "Evening"}

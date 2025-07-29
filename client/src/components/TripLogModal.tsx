@@ -177,7 +177,7 @@ export default function TripLogModal({ open, onOpenChange }: TripLogModalProps) 
                     <SelectContent>
                       {getAvailableDrivers().map((driver) => (
                         <SelectItem key={driver.id} value={driver.id.toString()}>
-                          {driver.name}
+                          {driver.name} {driver.qrCode ? `(QR: ${driver.qrCode})` : ''}
                         </SelectItem>
                       ))}
                     </SelectContent>
