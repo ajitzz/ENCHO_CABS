@@ -3,7 +3,7 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { z } from "zod";
 import { 
-  insertVehicleSchema, insertDriverSchema, insertVehicleDriverAssignmentSchema,
+  insertVehicleSchema, updateVehicleSchema, insertDriverSchema, insertVehicleDriverAssignmentSchema,
   insertTripSchema, insertDriverRentLogSchema, insertSubstituteDriverSchema,
   upsertWeeklySummarySchema
 } from "@shared/schema";
@@ -66,7 +66,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.put("/api/vehicles/:id", async (req, res) => {
     try {
       const { id } = vehicleIdSchema.parse(req.params);
-      const vehicleData = insertVehicleSchema.parse(req.body);
+      const vehicleData = updateVehicleSchema.parse(req.body);
       
       // Check QR code uniqueness if provided (excluding current vehicle)
       if (vehicleData.qrCode && vehicleData.qrCode.trim()) {
