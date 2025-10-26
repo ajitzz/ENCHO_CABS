@@ -15,9 +15,6 @@ const vehicleIdSchema = z.object({
   id: z.string().transform(Number),
 });
 
-const rentLogStatusSchema = z.object({
-  paid: z.boolean(),
-});
 
 const weeklySettlementSchema = z.object({
   vehicleId: z.number(),
@@ -381,55 +378,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.patch("/api/driver-rent-logs/:id/status", async (req, res) => {
+  app.put("/api/driver-rent-logs/:id", async (req, res) => {
     try {
       const { id } = vehicleIdSchema.parse(req.params);
-      const { paid } = rentLogStatusSchema.parse(req.body);
-      
-      console.log(`Updating rent log ${id} payment status to: ${paid}`);
-      
-      // Get the original record for logging
-      const originalRecord = await storage.getDriverRentLog(id);
-      if (!originalRecord) {
-        return res.status(404).json({ message: "Rent log not found" });
+      const body = {
+        ...req.body,
+      };
+      if (req.body.date) {
+        body.date = new Date(req.body.date);
       }
-      
-      console.log(`Original status: paid=${originalRecord.paid}`);
-      
-      // Update the payment status
-      const updatedRentLog = await storage.updateDriverRentLogPaymentStatus(id, paid);
-      
-      console.log(`Updated status: paid=${updatedRentLog.paid}`);
-      console.log(`Payment status update successful for rent log ${id}`);
-      
-      // Return the updated record with confirmation
-      res.json({
-        ...updatedRentLog,
-        _meta: {
-          updateConfirmed: true,
-          originalPaidStatus: originalRecord.paid,
-          newPaidStatus: updatedRentLog.paid,
-          timestamp: new Date().toISOString()
-        }
-      });
+      if (req.body.weekStart) {
+        body.weekStart = new Date(req.body.weekStart);
+      }
+      if (req.body.weekEnd) {
+        body.weekEnd = new Date(req.body.weekEnd);
+      }
+      const rentLog = await storage.updateDriverRentLog(id, body);
+      res.json(rentLog);
     } catch (error) {
-      console.error(`Failed to update rent log ${req.params.id}:`, error);
-      res.status(400).json({ 
-        message: "Failed to update rent log status", 
-        error: error.message,
-        rentLogId: req.params.id 
-      });
+      console.error("Driver rent log update error:", error);
+      res.status(400).json({ message: "Failed to update rent log", error: error.message });
     }
   });
 
-  app.get("/api/driver-rent-logs/unpaid", async (req, res) => {
-    try {
-      const unpaidRents = await storage.getUnpaidDriverRents();
-      res.json(unpaidRents);
-    } catch (error: any) {
-      res.status(500).json({ message: "Failed to fetch unpaid rents", error: error.message });
-    }
-  });
+
 
   app.get("/api/driver-rent-logs", async (req, res) => {
     try {
@@ -474,7 +446,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const weeklySubstituteDrivers = await storage.getSubstituteDriversByVehicleAndDateRange(id, weekStart, weekEnd);
       
       // Calculate total trips from regular trips + substitute driver trips (current week only)
-      const regularTrips = weeklyTrips.reduce((sum, trip) => sum + trip.tripCount, 0);
+      // Since trips no longer have tripCount, count the number of trip records (each shift = 1 trip entry)
+      const regularTrips = weeklyTrips.length;
       const substituteTrips = weeklySubstituteDrivers.reduce((sum, sub) => sum + (sub.tripCount || 1), 0); // Use actual trip count from substitutes
       const totalTrips = regularTrips + substituteTrips;
 
