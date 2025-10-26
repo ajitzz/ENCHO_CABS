@@ -22,11 +22,13 @@ interface TripLog {
   vehicleId: number;
   tripDate: string;
   shift: "morning" | "evening";
-  tripCount: number;
   driverName: string;
   vehicleNumber: string;
   isSubstitute?: boolean;
   charge?: number;
+  rent?: number;
+  amountCollected?: number;
+  fuel?: number;
 }
 
 interface SubstituteDriver {
@@ -54,15 +56,12 @@ export default function TripLogs() {
   const [endDateFilter, setEndDateFilter] = useState("");
   const [vehicleFilter, setVehicleFilter] = useState("");
   const [driverFilter, setDriverFilter] = useState("");
-  const [rentFilter, setRentFilter] = useState("all");
   const [showFilters, setShowFilters] = useState(false);
   
   // Combobox states
   const [openVehicleSelect, setOpenVehicleSelect] = useState(false);
   const [openDriverSelect, setOpenDriverSelect] = useState(false);
   
-  // Sort state
-  const [tripSortOrder, setTripSortOrder] = useState<"none" | "asc" | "desc">("none");
 
   // Fetch data
   const { data: trips = [], isLoading: tripsLoading } = useQuery({
@@ -75,10 +74,6 @@ export default function TripLogs() {
     queryFn: () => api.getSubstituteDrivers(),
   });
 
-  const { data: unpaidRentLogs = [], isLoading: unpaidRentLogsLoading } = useQuery({
-    queryKey: ["/api/driver-rent-logs/unpaid"],
-    queryFn: () => api.getUnpaidDriverRents(),
-  });
 
   const { data: vehicles = [] } = useQuery({
     queryKey: ["/api/vehicles"],
@@ -100,13 +95,13 @@ export default function TripLogs() {
     },
   });
 
-  // Helper function to get rent status  
-  const getRentStatus = useCallback((log: TripLog) => {
+  // Helper function to get rent details
+  const getRentDetails = useCallback((log: TripLog) => {
     if (log.isSubstitute) {
-      return { status: "substitute", amount: log.charge || 0 };
+      return { rent: log.charge || 0, amountCollected: 0, fuel: 0 };
     }
     
-    // Normalize dates for comparison using UTC to avoid timezone issues
+    // Normalize dates for comparison
     const tripDate = new Date(log.tripDate);
     const tripDateStr = tripDate.toISOString().split('T')[0];
     
@@ -124,41 +119,30 @@ export default function TripLogs() {
     });
     
     if (rentLog) {
-      const status = rentLog.paid ? "paid" : "unpaid";
-      // Debug logging for rent status
-      if (status === "unpaid") {
-        console.log(`Found unpaid rent log for ${log.driverName} ${log.shift} shift on ${tripDateStr}:`, {
-          id: rentLog.id,
-          paid: rentLog.paid,
-          amount: rentLog.rent,
-          shift: rentLog.shift
-        });
-      }
       return { 
-        status, 
-        amount: rentLog.rent || 0,
+        rent: rentLog.rent || 0,
+        amountCollected: rentLog.amountCollected || 0,
+        fuel: rentLog.fuel || 0,
         rentLogId: rentLog.id
       };
     }
     
-    // Fallback: if no rent log found, look up driver accommodation status and create missing log
-    console.warn(`No rent log found for ${log.driverName} ${log.shift} shift on ${tripDateStr}, auto-creating rent log`);
-    
-    // Find driver details for accurate rent calculation
+    // Fallback: if no rent log found, use default values
     const driver = drivers.find(d => d.id === log.driverId);
-    const fallbackAmount = driver?.hasAccommodation ? 600 : 500;
+    const fallbackRent = driver?.hasAccommodation ? 600 : 500;
     
     // Trigger auto-creation of missing rent log with shift
-    autoCreateMissingRentLog(log.driverId, new Date(log.tripDate), log.vehicleId, fallbackAmount, log.shift);
+    autoCreateMissingRentLog(log.driverId, new Date(log.tripDate), log.vehicleId, fallbackRent, log.shift, 0, 0);
     
     return { 
-      status: "auto_created", 
-      amount: fallbackAmount 
+      rent: fallbackRent,
+      amountCollected: 0,
+      fuel: 0
     };
   }, [allRentLogs, drivers]);
 
   // Auto-create missing rent logs
-  const autoCreateMissingRentLog = useCallback(async (driverId: number, date: Date, vehicleId: number, amount: number, shift: string) => {
+  const autoCreateMissingRentLog = useCallback(async (driverId: number, date: Date, vehicleId: number, rent: number, shift: string, amountCollected: number, fuel: number) => {
     try {
       // Calculate week boundaries
       const weekStart = new Date(date);
@@ -176,8 +160,9 @@ export default function TripLogs() {
         driverId,
         date: date.toISOString(),
         shift,
-        rent: amount,
-        paid: false,
+        rent,
+        amountCollected,
+        fuel,
         vehicleId,
         weekStart: weekStart.toISOString(),
         weekEnd: weekEnd.toISOString()
@@ -193,7 +178,7 @@ export default function TripLogs() {
         console.log(`Auto-created rent log for driver ${driverId} ${shift} shift on ${date.toISOString().split('T')[0]}`);
         // Refresh rent logs data
         queryClient.invalidateQueries({ queryKey: ["/api/driver-rent-logs/all"] });
-        queryClient.invalidateQueries({ queryKey: ["/api/driver-rent-logs/unpaid"] });
+        queryClient.invalidateQueries({ queryKey: ["/api/driver-rent-logs"] });
         return await response.json();
       }
     } catch (error) {
@@ -243,7 +228,7 @@ export default function TripLogs() {
       let successCount = 0;
       for (const missing of missingLogs) {
         try {
-          await autoCreateMissingRentLog(missing.driverId, missing.date, missing.vehicleId, missing.amount, missing.shift);
+          await autoCreateMissingRentLog(missing.driverId, missing.date, missing.vehicleId, missing.amount, missing.shift, 0, 0);
           successCount++;
         } catch (error) {
           console.error(`Failed to create rent log for trip ${missing.tripId}:`, error);
@@ -280,7 +265,6 @@ export default function TripLogs() {
       vehicleId: sub.vehicleId,
       tripDate: sub.date,
       shift: sub.shift,
-      tripCount: sub.tripCount || 1, // Use actual trip count for substitutes
       driverName: sub.name,
       vehicleNumber: sub.vehicleNumber,
       isSubstitute: true,
@@ -321,54 +305,56 @@ export default function TripLogs() {
       const matchesVehicle = !vehicleFilter || log.vehicleNumber.toLowerCase().includes(vehicleFilter.toLowerCase());
       const matchesDriver = !driverFilter || log.driverName.toLowerCase().includes(driverFilter.toLowerCase());
       
-      // Fix rent filter logic
-      const rentStatus = getRentStatus(log);
-      const matchesRent = !rentFilter || rentFilter === "all" || 
-        (rentFilter === "paid" && rentStatus.status === "paid") || 
-        (rentFilter === "unpaid" && (rentStatus.status === "unpaid" || rentStatus.status === "auto_created"));
-      
-      return matchesDateRange && matchesVehicle && matchesDriver && matchesRent;
-    }).sort((a, b) => {
-      // Apply trip count sorting
-      if (tripSortOrder === "asc") {
-        return a.tripCount - b.tripCount;
-      } else if (tripSortOrder === "desc") {
-        return b.tripCount - a.tripCount;
-      }
-      return 0; // no sorting for "none"
+      return matchesDateRange && matchesVehicle && matchesDriver;
     });
-  }, [allLogs, startDateFilter, endDateFilter, vehicleFilter, driverFilter, rentFilter, tripSortOrder, getRentStatus, allRentLogsLoading, tripsLoading, substitutesLoading]);
+  }, [allLogs, startDateFilter, endDateFilter, vehicleFilter, driverFilter, allRentLogsLoading, tripsLoading, substitutesLoading]);
 
   // Calculate totals for filtered data
   const totals = useMemo(() => {
     const today = new Date().toISOString().split('T')[0];
     const todayLogs = filteredLogs.filter(log => log.tripDate.startsWith(today));
     
-    // Calculate total rent paid from filtered logs (only paid entries)
-    const totalRentPaid = filteredLogs.reduce((sum, log) => {
-      const rentStatus = getRentStatus(log);
-      if (rentStatus.status === "paid" || rentStatus.status === "substitute") {
-        return sum + rentStatus.amount;
-      }
-      return sum;
+    // Calculate total rent, collection, fuel from all filtered logs
+    const totalRent = filteredLogs.reduce((sum, log) => {
+      const details = getRentDetails(log);
+      return sum + details.rent;
     }, 0);
 
-    // Calculate today's rent paid (including substitute drivers)
-    const todayRentPaid = todayLogs.reduce((sum, log) => {
-      const rentStatus = getRentStatus(log);
-      if (rentStatus.status === "paid" || rentStatus.status === "substitute") {
-        return sum + rentStatus.amount;
-      }
-      return sum;
+    const totalCollection = filteredLogs.reduce((sum, log) => {
+      const details = getRentDetails(log);
+      return sum + details.amountCollected;
+    }, 0);
+
+    const totalFuel = filteredLogs.reduce((sum, log) => {
+      const details = getRentDetails(log);
+      return sum + details.fuel;
+    }, 0);
+
+    // Calculate today's rent, collection, fuel
+    const todayRent = todayLogs.reduce((sum, log) => {
+      const details = getRentDetails(log);
+      return sum + details.rent;
+    }, 0);
+
+    const todayCollection = todayLogs.reduce((sum, log) => {
+      const details = getRentDetails(log);
+      return sum + details.amountCollected;
+    }, 0);
+
+    const todayFuel = todayLogs.reduce((sum, log) => {
+      const details = getRentDetails(log);
+      return sum + details.fuel;
     }, 0);
     
     return {
-      totalTrips: filteredLogs.reduce((sum, log) => sum + log.tripCount, 0),
-      todayTrips: todayLogs.reduce((sum, log) => sum + log.tripCount, 0),
-      todayRentPaid: todayRentPaid,
-      totalRentPaid: totalRentPaid
+      totalRent,
+      totalCollection,
+      totalFuel,
+      todayRent,
+      todayCollection,
+      todayFuel
     };
-  }, [filteredLogs, getRentStatus]);
+  }, [filteredLogs, getRentDetails]);
 
   const deleteTripMutation = useMutation({
     mutationFn: (tripId: number) => api.deleteTrip(tripId),
@@ -523,7 +509,7 @@ export default function TripLogs() {
         const amount = driver?.hasAccommodation ? 600 : 500;
         
         // Create the rent log with shift
-        const newRentLog = await autoCreateMissingRentLog(log.driverId, new Date(log.tripDate), log.vehicleId, amount, log.shift);
+        const newRentLog = await autoCreateMissingRentLog(log.driverId, new Date(log.tripDate), log.vehicleId, amount, log.shift, 0, 0);
         
         if (newRentLog) {
           console.log(`Successfully created rent log ${newRentLog.id}, now marking as paid`);
@@ -554,7 +540,6 @@ export default function TripLogs() {
     setEndDateFilter("");
     setVehicleFilter("");
     setDriverFilter("");
-    setRentFilter("all");
   };
 
   // Get unique driver names from trips, substitutes, and regular drivers
@@ -625,40 +610,34 @@ export default function TripLogs() {
       </div>
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm">Total Trips</CardTitle>
+            <CardTitle className="text-sm">Total Rent</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{totals.totalTrips}</div>
+            <div className="text-2xl font-bold">₹{totals.totalRent}</div>
+            <div className="text-xs text-gray-500 mt-1">Today: ₹{totals.todayRent}</div>
           </CardContent>
         </Card>
         
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm">Today's Trips</CardTitle>
+            <CardTitle className="text-sm">Total Collection</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{totals.todayTrips}</div>
+            <div className="text-2xl font-bold">₹{totals.totalCollection}</div>
+            <div className="text-xs text-gray-500 mt-1">Today: ₹{totals.todayCollection}</div>
           </CardContent>
         </Card>
         
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm">Today's Rent Paid</CardTitle>
+            <CardTitle className="text-sm">Total Fuel</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">₹{totals.todayRentPaid}</div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm">Total Rent Paid</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">₹{totals.totalRentPaid}</div>
+            <div className="text-2xl font-bold">₹{totals.totalFuel}</div>
+            <div className="text-xs text-gray-500 mt-1">Today: ₹{totals.todayFuel}</div>
           </CardContent>
         </Card>
       </div>
@@ -721,7 +700,7 @@ export default function TripLogs() {
               </Button>
             </div>
             
-            <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
               <div>
                 <label className="text-sm font-medium">Start Date</label>
                 <Input
@@ -821,19 +800,6 @@ export default function TripLogs() {
                   </PopoverContent>
                 </Popover>
               </div>
-              <div>
-                <label className="text-sm font-medium">Rent Status</label>
-                <Select value={rentFilter} onValueChange={setRentFilter}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="All" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All</SelectItem>
-                    <SelectItem value="paid">Paid</SelectItem>
-                    <SelectItem value="unpaid">Unpaid</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
             </div>
           </CardContent>
         </Card>
@@ -855,67 +821,31 @@ export default function TripLogs() {
                   <th className="text-left p-4 font-semibold text-gray-700">Vehicle</th>
                   <th className="text-left p-4 font-semibold text-gray-700">Driver</th>
                   <th className="text-left p-4 font-semibold text-gray-700">Shift</th>
-                  <th className="text-left p-4 font-semibold text-gray-700">
-                    <div className="flex items-center gap-2">
-                      <span>Trips</span>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => {
-                          if (tripSortOrder === "none") {
-                            setTripSortOrder("asc");
-                          } else if (tripSortOrder === "asc") {
-                            setTripSortOrder("desc");
-                          } else {
-                            setTripSortOrder("none");
-                          }
-                        }}
-                        className="h-6 w-6 p-0 hover:bg-gray-200"
-                      >
-                        {tripSortOrder === "none" && <ArrowUpDown className="h-3 w-3" />}
-                        {tripSortOrder === "asc" && <ArrowUp className="h-3 w-3" />}
-                        {tripSortOrder === "desc" && <ArrowDown className="h-3 w-3" />}
-                      </Button>
-                    </div>
-                  </th>
-                  <th className="text-left p-4 font-semibold text-gray-700">Type</th>
                   <th className="text-left p-4 font-semibold text-gray-700">Rent</th>
+                  <th className="text-left p-4 font-semibold text-gray-700">Collection</th>
+                  <th className="text-left p-4 font-semibold text-gray-700">Fuel</th>
                   <th className="text-left p-4 font-semibold text-gray-700">Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {filteredLogs.map((log) => {
-                  const rentStatus = getRentStatus(log);
+                  const details = getRentDetails(log);
                   return (
                     <tr key={`${log.isSubstitute ? 'sub' : 'trip'}-${log.id}`} className="border-b border-gray-100 hover:bg-blue-50 transition-colors">
                       <td className="p-4 text-gray-700">
                         {format(new Date(log.tripDate), "MMM dd, yyyy")}
                       </td>
                       <td className="p-4">
-                        <div className="flex flex-col">
-                          <span className="font-medium text-gray-800">{log.vehicleNumber}</span>
-                          {(() => {
-                            const vehicle = vehicles.find(v => v.id === log.vehicleId);
-                            return vehicle?.qrCode ? (
-                              <span className="text-xs text-blue-600 font-mono">{vehicle.qrCode}</span>
-                            ) : null;
-                          })()}
-                        </div>
+                        <span className="font-medium text-gray-800">{log.vehicleNumber}</span>
                       </td>
                       <td className="p-4">
                         <div className="flex flex-col">
                           <span className="font-medium text-gray-800">{log.driverName}</span>
-                          {(() => {
-                            // For regular drivers, find driver QR code
-                            if (!log.isSubstitute) {
-                              const driver = drivers.find(d => d.id === log.driverId);
-                              return driver?.qrCode ? (
-                                <span className="text-xs text-blue-600 font-mono">{driver.qrCode}</span>
-                              ) : null;
-                            }
-                            // For substitute drivers, no QR code available
-                            return null;
-                          })()}
+                          {log.isSubstitute && (
+                            <Badge variant="outline" className="border-orange-200 text-orange-700 bg-orange-50 text-xs mt-1 w-fit">
+                              Substitute
+                            </Badge>
+                          )}
                         </div>
                       </td>
                       <td className="p-4">
@@ -923,42 +853,9 @@ export default function TripLogs() {
                           {log.shift === "morning" ? "Morning" : "Evening"}
                         </Badge>
                       </td>
-                      <td className="p-4 font-semibold text-blue-600">{log.tripCount}</td>
-                      <td className="p-4">
-                        <Badge 
-                          variant={log.isSubstitute ? "outline" : "default"} 
-                          className={log.isSubstitute ? "border-orange-200 text-orange-700 bg-orange-50" : "bg-blue-100 text-blue-800 border-blue-200"}
-                        >
-                          {log.isSubstitute ? "Substitute" : "Regular"}
-                        </Badge>
-                      </td>
-                      <td className="p-4">
-                        <div className="flex items-center gap-3">
-                          <span className="font-bold text-green-600">₹{rentStatus.amount}</span>
-                          {(rentStatus.status === "unpaid" || rentStatus.status === "auto_created" || rentStatus.status === "missing") && (
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => handlePayRent(log)}
-                              disabled={payRentMutation.isPending}
-                              className="text-xs bg-red-50 border-red-200 text-red-700 hover:bg-red-100 font-medium disabled:opacity-50"
-                            >
-                              {rentStatus.status === "missing" ? "Create & Pay" : 
-                               payRentMutation.isPending ? "Updating..." : "Mark Paid"}
-                            </Button>
-                          )}
-                          {rentStatus.status === "paid" && (
-                            <Badge className="text-xs bg-green-100 text-green-800 border-green-200 font-medium">
-                              Paid ✓
-                            </Badge>
-                          )}
-                          {rentStatus.status === "auto_created" && (
-                            <Badge className="text-xs bg-yellow-100 text-yellow-800 border-yellow-200 font-medium ml-2">
-                              Auto-Fixed
-                            </Badge>
-                          )}
-                        </div>
-                      </td>
+                      <td className="p-4 font-semibold text-green-600">₹{details.rent}</td>
+                      <td className="p-4 font-semibold text-blue-600">₹{details.amountCollected}</td>
+                      <td className="p-4 font-semibold text-purple-600">₹{details.fuel}</td>
                       <td className="p-4">
                         <div className="flex gap-2">
                           {!log.isSubstitute && (
