@@ -20,6 +20,8 @@ export const drivers = pgTable("drivers", {
   phone: text("phone").notNull(),
   qrCode: text("qr_code"),
   hasAccommodation: boolean("has_accommodation").notNull().default(false),
+  joinedDate: date("joined_date").notNull(),
+  dismissDate: date("dismiss_date"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
@@ -198,6 +200,12 @@ export const insertDriverSchema = createInsertSchema(drivers).omit({
   updatedAt: true,
 });
 
+export const updateDriverSchema = createInsertSchema(drivers).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+}).partial();
+
 export const insertVehicleDriverAssignmentSchema = createInsertSchema(vehicleDriverAssignments).omit({
   id: true,
   createdAt: true,
@@ -259,6 +267,7 @@ export type WeeklySummary = typeof weeklySummaries.$inferSelect;
 export type InsertVehicle = z.infer<typeof insertVehicleSchema>;
 export type UpdateVehicle = z.infer<typeof updateVehicleSchema>;
 export type InsertDriver = z.infer<typeof insertDriverSchema>;
+export type UpdateDriver = z.infer<typeof updateDriverSchema>;
 export type InsertVehicleDriverAssignment = z.infer<typeof insertVehicleDriverAssignmentSchema>;
 export type InsertTrip = z.infer<typeof insertTripSchema>;
 export type InsertDriverRentLog = z.infer<typeof insertDriverRentLogSchema>;
