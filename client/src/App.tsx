@@ -11,6 +11,7 @@ import Trips from "@/pages/trips";
 import TripLogs from "@/pages/TripLogs";
 import Settlements from "@/pages/settlements";
 import RentTracking from "@/pages/rent-tracking";
+import WeeklySummary from "@/pages/WeeklySummary";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -25,6 +26,7 @@ function Router() {
         <Route path="/trip-logs" component={TripLogs} />
         <Route path="/settlements" component={Settlements} />
         <Route path="/rent-tracking" component={RentTracking} />
+        <Route path="/weekly-summary" component={WeeklySummary} />
         <Route component={NotFound} />
       </Switch>
     </Layout>
