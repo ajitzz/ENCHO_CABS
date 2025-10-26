@@ -8,6 +8,8 @@ export const vehicles = pgTable("vehicles", {
   vehicleNumber: text("vehicle_number").notNull().unique(),
   qrCode: text("qr_code"),
   company: text("company").notNull(), // "PMV" or "Letzryd"
+  purchasedDate: date("purchased_date").notNull(),
+  droppedDate: date("dropped_date"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
@@ -182,7 +184,18 @@ export const insertVehicleSchema = createInsertSchema(vehicles).omit({
   id: true,
   createdAt: true,
   updatedAt: true,
+}).extend({
+  purchasedDate: z.coerce.date(),
 });
+
+export const updateVehicleSchema = createInsertSchema(vehicles).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+}).extend({
+  purchasedDate: z.coerce.date().optional(),
+  droppedDate: z.coerce.date().nullable().optional(),
+}).partial();
 
 export const insertDriverSchema = createInsertSchema(drivers).omit({
   id: true,
@@ -249,6 +262,7 @@ export type SubstituteDriver = typeof substituteDrivers.$inferSelect;
 export type WeeklySummary = typeof weeklySummaries.$inferSelect;
 
 export type InsertVehicle = z.infer<typeof insertVehicleSchema>;
+export type UpdateVehicle = z.infer<typeof updateVehicleSchema>;
 export type InsertDriver = z.infer<typeof insertDriverSchema>;
 export type InsertVehicleDriverAssignment = z.infer<typeof insertVehicleDriverAssignmentSchema>;
 export type InsertTrip = z.infer<typeof insertTripSchema>;

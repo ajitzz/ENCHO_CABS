@@ -1,0 +1,57 @@
+You are editing a full-stack TS project:
+
+- server/: Express + Drizzle (Postgres/Neon). Main: server/index.ts. Routes in server/routes.ts. DB helpers in server/storage.ts. Schemas: shared/schema.ts.
+- client/: React + TS + Vite + shadcn/ui. Pages include Vehicles list + Add/Edit vehicle UI.
+- Timezone: Asia/Kolkata (IST).
+
+=====================================
+FEATURE: Vehicles use Purchased/Dropped dates
+=====================================
+UI goals:
+- In “All Vehicles” table, replace **Created** with **Purchased**, and add a new **Dropped** column.
+- **Purchased** is read-only; **Dropped** is editable inline.
+- Create Vehicle form should include: **Vehicle Number**, **QR Code**, **Company**, **Purchased** (required). **Do NOT** show Dropped in the create form.
+
+DB goals:
+- Table `vehicles` must have:
+  - `purchased_date DATE NOT NULL`
+  - `dropped_date DATE NULL`
+- Backfill `purchased_date` for existing rows from `created_at::date`.
+- Keep `created_at` in DB, but not displayed.
+
+=====================================
+1) Drizzle schema (shared/schema.ts)
+=====================================
+Update the Vehicles table definition to expose the two dates:
+
+```ts
+// shared/schema.ts (adjust existing import paths/names)
+import { pgTable, uuid, varchar, date, timestamp } from "drizzle-orm/pg-core";
+import { z } from "zod";
+
+export const vehicles = pgTable("vehicles", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  vehicleNumber: varchar("vehicle_number", { length: 32 }).notNull(),
+  qrCode: varchar("qr_code", { length: 255 }), // nullable
+  company: varchar("company", { length: 120 }).notNull(),
+  purchasedDate: date("purchased_date").notNull(),   // NEW
+  droppedDate: date("dropped_date"),                 // NEW, nullable
+  createdAt: timestamp("created_at").notNull().defaultNow(), // keep for auditing
+});
+
+// Zod for create/update:
+export const insertVehicleSchema = z.object({
+  vehicleNumber: z.string().min(1),
+  qrCode: z.string().optional().nullable(),
+  company: z.string().min(1),
+  purchasedDate: z.coerce.date(), // REQUIRED
+  // dropped not allowed on create
+});
+
+export const updateVehicleSchema = z.object({
+  vehicleNumber: z.string().min(1).optional(),
+  qrCode: z.string().optional().nullable(),
+  company: z.string().min(1).optional(),
+  purchasedDate: z.coerce.date().optional(),
+  droppedDate: z.coerce.date().nullable().optional(), // allow set/clear
+});
