@@ -1,0 +1,76 @@
+You are editing a full-stack TS project with this structure:
+- server/: Express + Drizzle (Postgres/Neon). Main: server/index.ts. Routes in server/routes.ts. DB helpers in server/storage.ts. Schemas in shared/schema.ts.
+- client/: React + TS + Vite + shadcn/ui. Entry: client/src/main.tsx. Router: client/src/App.tsx.
+- API helper: client/src/lib/api.ts. Query client: client/src/lib/queryClient.ts.
+- Timezone: Asia/Kolkata (IST) for all date logic.
+
+=====================================
+FEATURE: Weekly Summary page
+=====================================
+Purpose: For a selected date range (default: current week Monday → today, IST), show one row **per driver who has at least one trip log** in that range. Aggregate from Trip Logs (driver_rent_logs) and allow editing of business fields for that period.
+
+Columns (left → right), editability rules:
+1) Driver (id, unique primary per row) – read-only
+2) Name – read-only
+3) Rent (sum of rent) – read-only
+4) Collection (sum of amountCollected) – read-only
+5) Fuel (sum of fuel) – read-only
+6) Total Earnings – EDITABLE (blank by default)
+7) Cash – EDITABLE (blank by default)
+8) Refund – EDITABLE (blank by default)
+9) Expenses – EDITABLE (blank by default)
+10) Wallet – read-only, computed = TotalEarnings − Cash + Refund − Expenses − 100
+11) Dues – EDITABLE (blank by default)
+12) Payout – EDITABLE (blank by default)
+13) Total – read-only, computed = Collection + Wallet + Dues − Rent − Payout
+14) Actions – “Save” and “Clear” for that driver+period
+
+Date filter:
+- Always visible (ON by default).
+- Defaults:
+  - Start Date = Monday of CURRENT week (IST)
+  - End Date = Today (IST)
+- Changing dates refetches data.
+
+Currency: INR, integer, no decimals.
+
+=====================================
+DB: New table for editable period fields
+=====================================
+Add a new table `weekly_summaries` keyed by (driver_id, start_date, end_date). We store only the editable fields; computed columns stay derived.
+
+1) In shared/schema.ts add:
+
+```ts
+import { pgTable, uuid, date, integer, timestamp, primaryKey, index } from "drizzle-orm/pg-core";
+import { z } from "zod";
+
+export const weeklySummaries = pgTable("weekly_summaries", {
+  driverId: uuid("driver_id").notNull(),
+  startDate: date("start_date").notNull(), // inclusive
+  endDate: date("end_date").notNull(),     // inclusive
+  totalEarnings: integer("total_earnings").notNull().default(0),
+  cash: integer("cash").notNull().default(0),
+  refund: integer("refund").notNull().default(0),
+  expenses: integer("expenses").notNull().default(0),
+  dues: integer("dues").notNull().default(0),
+  payout: integer("payout").notNull().default(0),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+}, (t) => ({
+  pk: primaryKey({ columns: [t.driverId, t.startDate, t.endDate] }),
+  byDriver: index("weekly_summaries_driver_idx").on(t.driverId),
+}));
+
+export const upsertWeeklySummarySchema = z.object({
+  driverId: z.string().uuid(),
+  startDate: z.coerce.date(), // yyyy-mm-dd
+  endDate: z.coerce.date(),
+  totalEarnings: z.number().int().min(0).optional(),
+  cash: z.number().int().min(0).optional(),
+  refund: z.number().int().min(0).optional(),
+  expenses: z.number().int().min(0).optional(),
+  dues: z.number().int().min(0).optional(),
+  payout: z.number().int().min(0).optional(),
+});
+export type UpsertWeeklySummaryInput = z.infer<typeof upsertWeeklySummarySchema>;

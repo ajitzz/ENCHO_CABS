@@ -1,4 +1,4 @@
-import { pgTable, text, serial, integer, boolean, timestamp, decimal, json, unique } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, boolean, timestamp, decimal, json, unique, date, primaryKey, index } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 import { relations } from "drizzle-orm";
@@ -90,6 +90,23 @@ export const substituteDrivers = pgTable("substitute_drivers", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
+export const weeklySummaries = pgTable("weekly_summaries", {
+  driverId: integer("driver_id").notNull(),
+  startDate: date("start_date").notNull(), // inclusive
+  endDate: date("end_date").notNull(),     // inclusive
+  totalEarnings: integer("total_earnings").notNull().default(0),
+  cash: integer("cash").notNull().default(0),
+  refund: integer("refund").notNull().default(0),
+  expenses: integer("expenses").notNull().default(0),
+  dues: integer("dues").notNull().default(0),
+  payout: integer("payout").notNull().default(0),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (t) => ({
+  pk: primaryKey({ columns: [t.driverId, t.startDate, t.endDate] }),
+  byDriver: index("weekly_summaries_driver_idx").on(t.driverId),
+}));
+
 // Relations
 export const vehiclesRelations = relations(vehicles, ({ many, one }) => ({
   trips: many(trips),
@@ -153,6 +170,13 @@ export const substituteDriversRelations = relations(substituteDrivers, ({ one })
   }),
 }));
 
+export const weeklySummariesRelations = relations(weeklySummaries, ({ one }) => ({
+  driver: one(drivers, {
+    fields: [weeklySummaries.driverId],
+    references: [drivers.id],
+  }),
+}));
+
 // Insert schemas
 export const insertVehicleSchema = createInsertSchema(vehicles).omit({
   id: true,
@@ -202,6 +226,18 @@ export const insertSubstituteDriverSchema = createInsertSchema(substituteDrivers
   date: z.coerce.date(),
 });
 
+export const upsertWeeklySummarySchema = z.object({
+  driverId: z.number().int().positive(),
+  startDate: z.coerce.date(),
+  endDate: z.coerce.date(),
+  totalEarnings: z.number().int().min(0).default(0),
+  cash: z.number().int().min(0).default(0),
+  refund: z.number().int().min(0).default(0),
+  expenses: z.number().int().min(0).default(0),
+  dues: z.number().int().min(0).default(0),
+  payout: z.number().int().min(0).default(0),
+});
+
 // Types
 export type Vehicle = typeof vehicles.$inferSelect;
 export type Driver = typeof drivers.$inferSelect;
@@ -210,6 +246,7 @@ export type Trip = typeof trips.$inferSelect;
 export type DriverRentLog = typeof driverRentLogs.$inferSelect;
 export type WeeklySettlement = typeof weeklySettlements.$inferSelect;
 export type SubstituteDriver = typeof substituteDrivers.$inferSelect;
+export type WeeklySummary = typeof weeklySummaries.$inferSelect;
 
 export type InsertVehicle = z.infer<typeof insertVehicleSchema>;
 export type InsertDriver = z.infer<typeof insertDriverSchema>;
@@ -218,3 +255,4 @@ export type InsertTrip = z.infer<typeof insertTripSchema>;
 export type InsertDriverRentLog = z.infer<typeof insertDriverRentLogSchema>;
 export type InsertWeeklySettlement = z.infer<typeof insertWeeklySettlementSchema>;
 export type InsertSubstituteDriver = z.infer<typeof insertSubstituteDriverSchema>;
+export type UpsertWeeklySummary = z.infer<typeof upsertWeeklySummarySchema>;
