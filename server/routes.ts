@@ -4,7 +4,8 @@ import { storage } from "./storage";
 import { z } from "zod";
 import { 
   insertVehicleSchema, insertDriverSchema, insertVehicleDriverAssignmentSchema,
-  insertTripSchema, insertDriverRentLogSchema, insertSubstituteDriverSchema 
+  insertTripSchema, insertDriverRentLogSchema, insertSubstituteDriverSchema,
+  upsertWeeklySummarySchema
 } from "@shared/schema";
 import { getRentalInfo, getAllSlabs, getDriverRent, getRentalRate } from "./services/rentalCalculator";
 import { calculateWeeklySettlement, processWeeklySettlement, processAllVehicleSettlements, generateDailyRentLogs } from "./services/settlementProcessor";
@@ -751,6 +752,81 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json({ message: "Substitute driver deleted successfully" });
     } catch (error) {
       res.status(500).json({ message: "Failed to delete substitute driver", error: error.message });
+    }
+  });
+
+  // Weekly Summary routes
+  app.get("/api/weekly-summary/aggregates", async (req, res) => {
+    try {
+      const { startDate, endDate } = req.query;
+      
+      if (!startDate || !endDate) {
+        return res.status(400).json({ message: "startDate and endDate are required" });
+      }
+
+      const aggregates = await storage.getDriverAggregatesForDateRange(
+        String(startDate),
+        String(endDate)
+      );
+
+      // Fetch saved summaries for each driver
+      const results = await Promise.all(
+        aggregates.map(async (aggregate) => {
+          const savedSummary = await storage.getWeeklySummary(
+            aggregate.driverId,
+            String(startDate),
+            String(endDate)
+          );
+
+          return {
+            driverId: aggregate.driverId,
+            driverName: aggregate.driverName,
+            rent: aggregate.totalRent,
+            collection: aggregate.totalCollection,
+            fuel: aggregate.totalFuel,
+            totalEarnings: savedSummary?.totalEarnings || 0,
+            cash: savedSummary?.cash || 0,
+            refund: savedSummary?.refund || 0,
+            expenses: savedSummary?.expenses || 0,
+            dues: savedSummary?.dues || 0,
+            payout: savedSummary?.payout || 0,
+          };
+        })
+      );
+
+      res.json(results);
+    } catch (error: any) {
+      res.status(500).json({ message: "Failed to fetch driver aggregates", error: error.message });
+    }
+  });
+
+  app.post("/api/weekly-summary", async (req, res) => {
+    try {
+      const summaryData = upsertWeeklySummarySchema.parse(req.body);
+      const summary = await storage.upsertWeeklySummary(summaryData);
+      res.json(summary);
+    } catch (error: any) {
+      res.status(400).json({ message: "Failed to save weekly summary", error: error.message });
+    }
+  });
+
+  app.delete("/api/weekly-summary", async (req, res) => {
+    try {
+      const { driverId, startDate, endDate } = req.query;
+      
+      if (!driverId || !startDate || !endDate) {
+        return res.status(400).json({ message: "driverId, startDate, and endDate are required" });
+      }
+
+      await storage.clearWeeklySummary(
+        Number(driverId),
+        String(startDate),
+        String(endDate)
+      );
+
+      res.json({ message: "Weekly summary cleared successfully" });
+    } catch (error: any) {
+      res.status(500).json({ message: "Failed to clear weekly summary", error: error.message });
     }
   });
 
