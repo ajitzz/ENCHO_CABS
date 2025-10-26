@@ -169,7 +169,15 @@ export async function processAllVehicleSettlements(weekStartDate: Date): Promise
   }
 }
 
-export async function generateDailyRentLogs(driverId: number, date: Date, vehicleId: number): Promise<void> {
+export async function generateDailyRentLogs(
+  driverId: number, 
+  date: Date, 
+  vehicleId: number,
+  shift: string,
+  rent?: number,
+  amountCollected?: number,
+  fuel?: number
+): Promise<void> {
   const driver = await storage.getDriver(driverId);
   if (!driver) {
     throw new Error(`Driver with ID ${driverId} not found`);
@@ -179,16 +187,19 @@ export async function generateDailyRentLogs(driverId: number, date: Date, vehicl
   const normalizedDate = new Date(date.getFullYear(), date.getMonth(), date.getDate());
   const nextDay = new Date(date.getFullYear(), date.getMonth(), date.getDate() + 1);
 
-  // Check if rent log already exists for this driver on this date
+  // Check if rent log already exists for this driver on this date and shift
   const existingRentLogs = await storage.getDriverRentLogsByDateRange(
     driverId, 
     normalizedDate, 
     nextDay
   );
 
-  // Only create rent log if one doesn't already exist for this date
-  if (existingRentLogs.length === 0) {
-    const dailyRent = getDriverRent(driver.hasAccommodation);
+  // Filter by shift
+  const existingForShift = existingRentLogs.filter(log => log.shift === shift);
+
+  // Only create rent log if one doesn't already exist for this date and shift
+  if (existingForShift.length === 0) {
+    const dailyRent = rent !== undefined ? rent : getDriverRent(driver.hasAccommodation);
     
     // Calculate week start and end for the date
     function getWeekStart(date: Date): Date {
@@ -208,8 +219,10 @@ export async function generateDailyRentLogs(driverId: number, date: Date, vehicl
       await storage.createDriverRentLog({
         driverId,
         date: normalizedDate,
+        shift: shift,
         rent: dailyRent,
-        paid: false,
+        amountCollected: amountCollected || 0,
+        fuel: fuel || 0,
         vehicleId: vehicleId,
         weekStart: weekStart,
         weekEnd: weekEnd,
@@ -219,8 +232,10 @@ export async function generateDailyRentLogs(driverId: number, date: Date, vehicl
       console.error('Rent log data:', {
         driverId,
         date: normalizedDate,
+        shift: shift,
         rent: dailyRent,
-        paid: false,
+        amountCollected: amountCollected || 0,
+        fuel: fuel || 0,
         vehicleId: vehicleId,
         weekStart: weekStart,
         weekEnd: weekEnd,

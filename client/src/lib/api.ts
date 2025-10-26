@@ -218,7 +218,9 @@ export const api = {
     vehicleId: number;
     tripDate: Date | string;
     shift: "morning" | "evening";
-    tripCount: number;
+    rent: number;
+    amountCollected: number;
+    fuel: number;
   }): Promise<Trip> => {
     const serializedData = {
       ...tripData,
@@ -244,7 +246,9 @@ export const api = {
     vehicleId: number;
     tripDate: Date | string;
     shift: "morning" | "evening";
-    tripCount: number;
+    rent: number;
+    amountCollected: number;
+    fuel: number;
   }): Promise<Trip> => {
     const serializedData = {
       ...tripData,

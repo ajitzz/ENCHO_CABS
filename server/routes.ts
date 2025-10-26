@@ -240,8 +240,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const tripData = insertTripSchema.parse(body);
       const trip = await storage.createTrip(tripData);
       
-      // Automatically generate unpaid rent log for the driver
-      await generateDailyRentLogs(tripData.driverId, tripData.tripDate, tripData.vehicleId);
+      // Automatically generate rent log for the driver with money details
+      await generateDailyRentLogs(
+        tripData.driverId, 
+        tripData.tripDate, 
+        tripData.vehicleId,
+        tripData.shift,
+        req.body.rent,
+        req.body.amountCollected,
+        req.body.fuel
+      );
       
       res.status(201).json(trip);
     } catch (error) {
@@ -271,7 +279,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const trip = await storage.updateTrip(id, tripData);
       
       // Ensure rent log exists for the updated trip date and driver
-      await generateDailyRentLogs(tripData.driverId, tripData.tripDate, tripData.vehicleId);
+      await generateDailyRentLogs(
+        tripData.driverId, 
+        tripData.tripDate, 
+        tripData.vehicleId,
+        tripData.shift,
+        req.body.rent,
+        req.body.amountCollected,
+        req.body.fuel
+      );
       
       res.json(trip);
     } catch (error) {

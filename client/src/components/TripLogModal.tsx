@@ -18,7 +18,9 @@ const tripLogFormSchema = z.object({
   vehicleId: z.string().min(1, "Vehicle is required"),
   driverId: z.string().min(1, "Driver is required"),
   tripDate: z.string().min(1, "Date is required"),
-  tripCount: z.string().min(1, "Trip count is required"),
+  rent: z.string().min(1, "Rent is required"),
+  amountCollected: z.string().min(1, "Collection is required"),
+  fuel: z.string().min(1, "Fuel is required"),
   shift: z.enum(["morning", "evening"], {
     required_error: "Shift is required",
   }),
@@ -28,7 +30,9 @@ const tripLogSchema = tripLogFormSchema.transform((data) => ({
   vehicleId: Number(data.vehicleId),
   driverId: Number(data.driverId),
   tripDate: data.tripDate,
-  tripCount: Number(data.tripCount),
+  rent: Number(data.rent),
+  amountCollected: Number(data.amountCollected),
+  fuel: Number(data.fuel),
   shift: data.shift,
 }));
 
@@ -80,7 +84,9 @@ export default function TripLogModal({ open, onOpenChange }: TripLogModalProps) 
         driverId: parseInt(data.driverId),
         tripDate: data.tripDate, // Send as string, server will handle conversion
         shift: data.shift as "morning" | "evening",
-        tripCount: parseInt(data.tripCount),
+        rent: parseInt(data.rent),
+        amountCollected: parseInt(data.amountCollected),
+        fuel: parseInt(data.fuel),
       };
       return api.createTrip(parsedData);
     },
@@ -187,15 +193,29 @@ export default function TripLogModal({ open, onOpenChange }: TripLogModalProps) 
               )}
             />
             
-            <div className="grid grid-cols-2 gap-4">
+            <FormField
+              control={form.control}
+              name="tripDate"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Trip Date</FormLabel>
+                  <FormControl>
+                    <Input type="date" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            
+            <div className="grid grid-cols-3 gap-4">
               <FormField
                 control={form.control}
-                name="tripDate"
+                name="rent"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Trip Date</FormLabel>
+                    <FormLabel>Rent</FormLabel>
                     <FormControl>
-                      <Input type="date" {...field} />
+                      <Input type="number" min="0" placeholder="₹500" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -204,12 +224,26 @@ export default function TripLogModal({ open, onOpenChange }: TripLogModalProps) 
               
               <FormField
                 control={form.control}
-                name="tripCount"
+                name="amountCollected"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Trip Count</FormLabel>
+                    <FormLabel>Collection</FormLabel>
                     <FormControl>
-                      <Input type="number" min="0" {...field} />
+                      <Input type="number" min="0" placeholder="₹500" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              
+              <FormField
+                control={form.control}
+                name="fuel"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Fuel</FormLabel>
+                    <FormControl>
+                      <Input type="number" min="0" placeholder="₹200" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
