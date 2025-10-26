@@ -43,7 +43,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/vehicles", async (req, res) => {
     try {
+      console.log("Creating vehicle with data:", req.body);
       const vehicleData = insertVehicleSchema.parse(req.body);
+      console.log("Parsed vehicle data:", vehicleData);
       
       // Check QR code uniqueness if provided
       if (vehicleData.qrCode && vehicleData.qrCode.trim()) {
@@ -59,6 +61,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const vehicle = await storage.createVehicle(vehicleData);
       res.status(201).json(vehicle);
     } catch (error) {
+      console.error("Vehicle creation error:", error);
       res.status(400).json({ message: "Invalid vehicle data", error: error.message });
     }
   });
