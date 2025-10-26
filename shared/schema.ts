@@ -184,8 +184,6 @@ export const insertVehicleSchema = createInsertSchema(vehicles).omit({
   id: true,
   createdAt: true,
   updatedAt: true,
-}).extend({
-  purchasedDate: z.coerce.date(),
 });
 
 export const updateVehicleSchema = createInsertSchema(vehicles).omit({
