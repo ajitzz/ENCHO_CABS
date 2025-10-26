@@ -18,6 +18,8 @@ interface Driver {
   phone: string;
   qrCode?: string;
   hasAccommodation: boolean;
+  joinedDate: string;
+  dismissDate?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -31,6 +33,8 @@ export default function DriversPage() {
     phone: "",
     qrCode: "",
     hasAccommodation: false,
+    joinedDate: new Date().toISOString().split('T')[0],
+    dismissDate: "",
   });
 
   const { toast } = useToast();
@@ -45,7 +49,7 @@ export default function DriversPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/drivers"] });
       setIsCreateOpen(false);
-      setFormData({ name: "", phone: "", qrCode: "", hasAccommodation: false });
+      setFormData({ name: "", phone: "", qrCode: "", hasAccommodation: false, joinedDate: new Date().toISOString().split('T')[0], dismissDate: "" });
       toast({ title: "Success", description: "Driver created successfully" });
     },
     onError: (error: any) => {
@@ -96,7 +100,14 @@ export default function DriversPage() {
   });
 
   const handleCreate = () => {
-    createMutation.mutate(formData);
+    const dataToSend = {
+      name: formData.name,
+      phone: formData.phone,
+      qrCode: formData.qrCode || undefined,
+      hasAccommodation: formData.hasAccommodation,
+      joinedDate: formData.joinedDate,
+    };
+    createMutation.mutate(dataToSend);
   };
 
   const handleEdit = (driver: Driver) => {
@@ -106,15 +117,25 @@ export default function DriversPage() {
       phone: driver.phone,
       qrCode: driver.qrCode || "",
       hasAccommodation: driver.hasAccommodation,
+      joinedDate: driver.joinedDate,
+      dismissDate: driver.dismissDate || "",
     });
     setIsEditOpen(true);
   };
 
   const handleUpdate = () => {
     if (editingDriver) {
+      const dataToSend = {
+        name: formData.name,
+        phone: formData.phone,
+        qrCode: formData.qrCode || undefined,
+        hasAccommodation: formData.hasAccommodation,
+        joinedDate: formData.joinedDate,
+        dismissDate: formData.dismissDate || null,
+      };
       updateMutation.mutate({
         id: editingDriver.id,
-        data: formData,
+        data: dataToSend,
       });
     }
   };
@@ -182,6 +203,16 @@ export default function DriversPage() {
                       <span>Has Accommodation</span>
                     </Label>
                   </div>
+                  <div>
+                    <Label htmlFor="joinedDate">Joined Date</Label>
+                    <Input
+                      id="joinedDate"
+                      type="date"
+                      value={formData.joinedDate}
+                      onChange={(e) => setFormData({ ...formData, joinedDate: e.target.value })}
+                      required
+                    />
+                  </div>
                   <Button onClick={handleCreate} disabled={createMutation.isPending} className="w-full">
                     {createMutation.isPending ? "Creating..." : "Create Driver"}
                   </Button>
@@ -205,7 +236,8 @@ export default function DriversPage() {
                       <TableHead>Phone</TableHead>
                       <TableHead>QR Code</TableHead>
                       <TableHead>Accommodation</TableHead>
-                      <TableHead>Created</TableHead>
+                      <TableHead>Joined</TableHead>
+                      <TableHead>Dismiss</TableHead>
                       <TableHead>Actions</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -235,7 +267,8 @@ export default function DriversPage() {
                             )}
                           </div>
                         </TableCell>
-                        <TableCell>{new Date(driver.createdAt).toLocaleDateString()}</TableCell>
+                        <TableCell>{driver.joinedDate ? new Date(driver.joinedDate).toLocaleDateString() : "-"}</TableCell>
+                        <TableCell>{driver.dismissDate ? new Date(driver.dismissDate).toLocaleDateString() : "-"}</TableCell>
                         <TableCell>
                           <div className="flex space-x-2">
                             <Button
@@ -305,6 +338,25 @@ export default function DriversPage() {
                     <Home className="w-4 h-4" />
                     <span>Has Accommodation</span>
                   </Label>
+                </div>
+                <div>
+                  <Label htmlFor="editJoinedDate">Joined Date</Label>
+                  <Input
+                    id="editJoinedDate"
+                    type="date"
+                    value={formData.joinedDate}
+                    onChange={(e) => setFormData({ ...formData, joinedDate: e.target.value })}
+                    required
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="editDismissDate">Dismiss Date (Optional)</Label>
+                  <Input
+                    id="editDismissDate"
+                    type="date"
+                    value={formData.dismissDate}
+                    onChange={(e) => setFormData({ ...formData, dismissDate: e.target.value })}
+                  />
                 </div>
                 <Button onClick={handleUpdate} disabled={updateMutation.isPending} className="w-full">
                   {updateMutation.isPending ? "Updating..." : "Update Driver"}
