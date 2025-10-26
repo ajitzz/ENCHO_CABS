@@ -1,0 +1,87 @@
+You are editing a full-stack TS project:
+
+- server/: Express + Drizzle (Postgres/Neon)
+- client/: React + TS + Vite + shadcn/ui
+- shared/schema.ts: Drizzle models + zod schemas
+- Components:
+- Trip logs table: client/src/components/RecentTripsTable.tsx (or TripLogs.tsx)
+- Add Trip Log modal: client/src/components/TripLogModal.tsx
+- API helper: client/src/lib/api.ts
+
+=====================================
+GOAL
+=====================================
+We are renaming/re-purposing fields to track money, not trip counts:
+- Replace **Trips** with **Collection** (actual ₹ collected from driver).
+- Remove **Type** and all **Mark Paid / Paid ✓** UI and logic.
+- Add **Fuel** column/field (₹ given for fuel).
+- Keep **Rent** (₹ due).
+- Final table header/order: **Date | Vehicle | Driver | Shift | Rent | Collection | Fuel | Actions**.
+
+We want **DB-level changes too** (not just UI):
+- ADD columns: amountCollected (int, default 0), fuel (int, default 0)
+- DROP columns: tripCount, type, paid
+- Update all queries, zod schemas, types, endpoints, components accordingly.
+
+IMPORTANT: We use IST (Asia/Kolkata) for date filtering; keep that behavior.
+
+=====================================
+DATA MODEL (Drizzle + zod)
+=====================================
+1) Update shared/schema.ts.
+
+We have two relevant tables today:
+- trips: has tripDate, shift, tripCount, maybe type
+- driver_rent_logs: has rent and paid
+
+We want:
+- On **driver_rent_logs**: add `amountCollected` and `fuel`; remove `paid`.
+- On **trips**: remove `tripCount` and `type`.
+
+Make the schema camelCase in TS, snake_case in SQL as usual.
+
+Example edits (adjust names/ids to match current code):
+
+```ts
+// shared/schema.ts
+import { pgTable, varchar, integer, boolean, timestamp, date, uuid } from "drizzle-orm/pg-core";
+import { z } from "zod";
+
+// TRIPS TABLE (remove tripCount, type)
+export const trips = pgTable("trips", {
+id: uuid("id").primaryKey().defaultRandom(),
+vehicleId: uuid("vehicle_id").notNull(),
+driverId: uuid("driver_id").notNull(),
+tripDate: date("trip_date").notNull(),
+shift: varchar("shift", { length: 10 }).notNull(), // 'Morning' | 'Evening'
+createdAt: timestamp("created_at").defaultNow().notNull(),
+// REMOVED: integer('trip_count')
+// REMOVED: varchar('type', { length: 20 })
+});
+
+// DRIVER RENT LOGS (add amountCollected, fuel; remove paid)
+export const driverRentLogs = pgTable("driver_rent_logs", {
+id: uuid("id").primaryKey().defaultRandom(),
+vehicleId: uuid("vehicle_id").notNull(),
+driverId: uuid("driver_id").notNull(),
+tripDate: date("trip_date").notNull(),
+shift: varchar("shift", { length: 10 }).notNull(),
+rent: integer("rent").notNull().default(0),
+amountCollected: integer("amount_collected").notNull().default(0), // NEW
+fuel: integer("fuel").notNull().default(0), // NEW
+createdAt: timestamp("created_at").defaultNow().notNull(),
+// REMOVED: boolean('paid').notNull().default(false)
+});
+
+// ---- ZOD ----
+export const insertTripLogSchema = z.object({
+vehicleId: z.string().uuid(),
+driverId: z.string().uuid(),
+tripDate: z.coerce.date(),
+shift: z.enum(["Morning","Evening"]),
+rent: z.number().int().min(0), // keep
+amountCollected: z.number().int().min(0), // NEW
+fuel: z.number().int().min(0), // NEW
+});
+
+export type InsertTripLogInput = z.infer<typeof insertTripLogSchema>;

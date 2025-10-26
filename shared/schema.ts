@@ -37,7 +37,6 @@ export const trips = pgTable("trips", {
   vehicleId: integer("vehicle_id").notNull(),
   tripDate: timestamp("trip_date").notNull(),
   shift: text("shift").notNull(), // "morning" or "evening"
-  tripCount: integer("trip_count").notNull().default(0),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
   weekStart: timestamp("week_start").notNull(),
@@ -50,7 +49,8 @@ export const driverRentLogs = pgTable("driver_rent_logs", {
   date: timestamp("date").notNull(),
   shift: text("shift").notNull(), // "morning" or "evening"
   rent: integer("rent").notNull(),
-  paid: boolean("paid").notNull().default(false),
+  amountCollected: integer("amount_collected").notNull().default(0),
+  fuel: integer("fuel").notNull().default(0),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
   vehicleId: integer("vehicle_id").notNull(),
