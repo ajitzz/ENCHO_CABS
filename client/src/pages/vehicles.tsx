@@ -81,8 +81,10 @@ export default function VehiclesPage() {
 
   const handleCreate = () => {
     const dataToSend = {
-      ...formData,
+      vehicleNumber: formData.vehicleNumber,
       qrCode: formData.qrCode || undefined,
+      company: formData.company,
+      purchasedDate: formData.purchasedDate,
     };
     createMutation.mutate(dataToSend);
   };
