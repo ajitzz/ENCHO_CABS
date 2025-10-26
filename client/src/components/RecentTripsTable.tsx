@@ -28,7 +28,7 @@ export default function RecentTripsTable() {
       queryClient.invalidateQueries({ queryKey: ["/api/trips/recent/50"] });
       queryClient.invalidateQueries({ queryKey: ["/api/dashboard/profit-graph"] });
       queryClient.invalidateQueries({ queryKey: ["/api/settlements"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/driver-rent-logs/unpaid"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/driver-rent-logs"] });
       queryClient.invalidateQueries({ queryKey: ["/api/vehicles"] });
       // Invalidate all vehicle summaries
       queryClient.invalidateQueries({ 
@@ -75,7 +75,6 @@ export default function RecentTripsTable() {
                   <th className="text-left py-2 text-gray-500 font-medium">Date</th>
                   <th className="text-left py-2 text-gray-500 font-medium">Driver</th>
                   <th className="text-left py-2 text-gray-500 font-medium">Vehicle</th>
-                  <th className="text-center py-2 text-gray-500 font-medium">Trips</th>
                   <th className="text-center py-2 text-gray-500 font-medium">Shift</th>
                   <th className="text-center py-2 text-gray-500 font-medium">Action</th>
                 </tr>
@@ -88,7 +87,6 @@ export default function RecentTripsTable() {
                     </td>
                     <td className="py-3 text-gray-900">{trip.driverName}</td>
                     <td className="py-3 text-gray-600">{trip.vehicleNumber}</td>
-                    <td className="py-3 text-center font-semibold text-gray-900">{trip.tripCount}</td>
                     <td className="py-3 text-center">
                       <Badge 
                         variant="secondary" 

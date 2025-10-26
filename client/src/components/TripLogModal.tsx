@@ -97,8 +97,6 @@ export default function TripLogModal({ open, onOpenChange }: TripLogModalProps) 
       queryClient.invalidateQueries({ queryKey: ["/api/vehicles"] });
       queryClient.invalidateQueries({ queryKey: ["/api/dashboard/profit-graph"] });
       queryClient.invalidateQueries({ queryKey: ["/api/settlements"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/driver-rent-logs/unpaid"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/driver-rent-logs/all"] });
       queryClient.invalidateQueries({ queryKey: ["/api/driver-rent-logs"] });
       toast({
         title: "Success",

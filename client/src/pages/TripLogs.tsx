@@ -87,7 +87,7 @@ export default function TripLogs() {
 
   // Fetch all rent logs to show amounts even after payment
   const { data: allRentLogs = [], isLoading: allRentLogsLoading, refetch: refetchAllRentLogs } = useQuery({
-    queryKey: ["/api/driver-rent-logs/all"],
+    queryKey: ["/api/driver-rent-logs"],
     queryFn: async () => {
       const response = await fetch("/api/driver-rent-logs");
       if (!response.ok) throw new Error("Failed to fetch all rent logs");
@@ -177,7 +177,6 @@ export default function TripLogs() {
       if (response.ok) {
         console.log(`Auto-created rent log for driver ${driverId} ${shift} shift on ${date.toISOString().split('T')[0]}`);
         // Refresh rent logs data
-        queryClient.invalidateQueries({ queryKey: ["/api/driver-rent-logs/all"] });
         queryClient.invalidateQueries({ queryKey: ["/api/driver-rent-logs"] });
         return await response.json();
       }
@@ -362,8 +361,6 @@ export default function TripLogs() {
       queryClient.invalidateQueries({ queryKey: ["/api/trips/recent/500"] });
       queryClient.invalidateQueries({ queryKey: ["/api/dashboard/profit-graph"] });
       queryClient.invalidateQueries({ queryKey: ["/api/settlements"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/driver-rent-logs/unpaid"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/driver-rent-logs/all"] });
       queryClient.invalidateQueries({ queryKey: ["/api/driver-rent-logs"] });
       toast({ title: "Trip deleted successfully", variant: "default" });
     },

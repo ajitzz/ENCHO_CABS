@@ -106,8 +106,6 @@ export default function SubstituteDriverForm({ vehicleId, vehicles, open: extern
       queryClient.invalidateQueries({ queryKey: ["/api/settlements"] });
       queryClient.invalidateQueries({ queryKey: ["/api/trips/recent/500"] });
       queryClient.invalidateQueries({ queryKey: ["/api/trips/recent/10"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/driver-rent-logs/unpaid"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/driver-rent-logs/all"] });
       queryClient.invalidateQueries({ queryKey: ["/api/driver-rent-logs"] });
       toast({
         title: "Success",

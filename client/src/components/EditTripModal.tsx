@@ -24,7 +24,9 @@ const editTripSchema = z.object({
   shift: z.enum(["morning", "evening"], {
     required_error: "Please select a shift",
   }),
-  tripCount: z.number().min(1, "Trip count must be at least 1"),
+  rent: z.number().min(0, "Rent cannot be negative"),
+  amountCollected: z.number().min(0, "Amount cannot be negative"),
+  fuel: z.number().min(0, "Fuel cannot be negative"),
 });
 
 type EditTripFormData = z.infer<typeof editTripSchema>;
@@ -35,7 +37,6 @@ interface Trip {
   vehicleId: number;
   tripDate: string;
   shift: "morning" | "evening";
-  tripCount: number;
   driverName: string;
   vehicleNumber: string;
 }
@@ -67,7 +68,9 @@ export default function EditTripModal({ trip, open, onOpenChange }: EditTripModa
       vehicleId: 0,
       tripDate: new Date(),
       shift: "morning",
-      tripCount: 1,
+      rent: 0,
+      amountCollected: 0,
+      fuel: 0,
     },
   });
 
@@ -79,7 +82,9 @@ export default function EditTripModal({ trip, open, onOpenChange }: EditTripModa
         vehicleId: trip.vehicleId,
         tripDate: new Date(trip.tripDate),
         shift: trip.shift,
-        tripCount: trip.tripCount,
+        rent: 0,
+        amountCollected: 0,
+        fuel: 0,
       });
     }
   }, [trip, form]);
@@ -96,8 +101,6 @@ export default function EditTripModal({ trip, open, onOpenChange }: EditTripModa
       queryClient.invalidateQueries({ queryKey: ["/api/trips/recent/50"] });
       queryClient.invalidateQueries({ queryKey: ["/api/dashboard/profit-graph"] });
       queryClient.invalidateQueries({ queryKey: ["/api/settlements"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/driver-rent-logs/unpaid"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/driver-rent-logs/all"] });
       queryClient.invalidateQueries({ queryKey: ["/api/driver-rent-logs"] });
       toast({ title: "Trip updated successfully", variant: "default" });
       onOpenChange(false);
@@ -237,16 +240,54 @@ export default function EditTripModal({ trip, open, onOpenChange }: EditTripModa
 
             <FormField
               control={form.control}
-              name="tripCount"
+              name="rent"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Number of Trips</FormLabel>
+                  <FormLabel>Rent (₹)</FormLabel>
                   <FormControl>
                     <Input
                       type="number"
-                      min="1"
+                      min="0"
                       {...field}
-                      onChange={(e) => field.onChange(parseInt(e.target.value))}
+                      onChange={(e) => field.onChange(parseInt(e.target.value) || 0)}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="amountCollected"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Amount Collected (₹)</FormLabel>
+                  <FormControl>
+                    <Input
+                      type="number"
+                      min="0"
+                      {...field}
+                      onChange={(e) => field.onChange(parseInt(e.target.value) || 0)}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="fuel"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Fuel (₹)</FormLabel>
+                  <FormControl>
+                    <Input
+                      type="number"
+                      min="0"
+                      {...field}
+                      onChange={(e) => field.onChange(parseInt(e.target.value) || 0)}
                     />
                   </FormControl>
                   <FormMessage />
