@@ -75,11 +75,9 @@ export default function Trips() {
     );
   }
 
-  const totalTrips = trips?.reduce((sum, trip) => sum + trip.tripCount, 0) || 0;
   const todayTrips = trips?.filter(trip => 
     format(new Date(trip.tripDate), 'yyyy-MM-dd') === format(new Date(), 'yyyy-MM-dd')
   ) || [];
-  const todayTripCount = todayTrips.reduce((sum, trip) => sum + trip.tripCount, 0);
 
   return (
     <div className="flex-1 p-8">
@@ -95,30 +93,20 @@ export default function Trips() {
       </div>
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
         <Card>
           <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium text-gray-500">Total Trips</CardTitle>
+            <CardTitle className="text-sm font-medium text-gray-500">Today's Entries</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-gray-900">{totalTrips}</div>
-            <div className="text-sm text-gray-600">All time</div>
+            <div className="text-2xl font-bold text-blue-600">{todayTrips.length}</div>
+            <div className="text-sm text-gray-600">Records logged today</div>
           </CardContent>
         </Card>
         
         <Card>
           <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium text-gray-500">Today's Trips</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-blue-600">{todayTripCount}</div>
-            <div className="text-sm text-gray-600">{todayTrips.length} entries</div>
-          </CardContent>
-        </Card>
-        
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium text-gray-500">Recent Entries</CardTitle>
+            <CardTitle className="text-sm font-medium text-gray-500">Total Entries</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-green-600">{trips?.length || 0}</div>
@@ -140,7 +128,6 @@ export default function Trips() {
                 <TableHead>Vehicle</TableHead>
                 <TableHead>Driver</TableHead>
                 <TableHead>Shift</TableHead>
-                <TableHead>Trip Count</TableHead>
                 <TableHead>Actions</TableHead>
               </TableRow>
             </TableHeader>
@@ -171,11 +158,6 @@ export default function Trips() {
                       <Badge variant={trip.shift === "morning" ? "default" : "secondary"}>
                         {trip.shift}
                       </Badge>
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <div className="font-semibold text-lg">
-                      {trip.tripCount}
                     </div>
                   </TableCell>
                   <TableCell>
