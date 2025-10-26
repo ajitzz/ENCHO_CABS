@@ -3,7 +3,10 @@ import { apiRequest } from "./queryClient";
 export interface Vehicle {
   id: number;
   vehicleNumber: string;
+  qrCode?: string;
   company: "PMV" | "Letzryd";
+  purchasedDate: string;
+  droppedDate?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -136,7 +139,7 @@ export const api = {
     return response.json();
   },
 
-  createVehicle: async (vehicle: { vehicleNumber: string; company: "PMV" | "Letzryd" }): Promise<Vehicle> => {
+  createVehicle: async (vehicle: { vehicleNumber: string; qrCode?: string; company: "PMV" | "Letzryd"; purchasedDate: string | Date }): Promise<Vehicle> => {
     const response = await fetch("/api/vehicles", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -146,7 +149,7 @@ export const api = {
     return response.json();
   },
 
-  updateVehicle: async (id: number, vehicle: { vehicleNumber?: string; company?: "PMV" | "Letzryd" }): Promise<Vehicle> => {
+  updateVehicle: async (id: number, vehicle: { vehicleNumber?: string; qrCode?: string; company?: "PMV" | "Letzryd"; purchasedDate?: string | Date; droppedDate?: string | Date | null }): Promise<Vehicle> => {
     const response = await fetch(`/api/vehicles/${id}`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },

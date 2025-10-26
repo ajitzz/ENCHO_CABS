@@ -17,6 +17,8 @@ interface Vehicle {
   vehicleNumber: string;
   qrCode?: string;
   company: "PMV" | "Letzryd";
+  purchasedDate: string;
+  droppedDate?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -29,6 +31,8 @@ export default function VehiclesPage() {
     vehicleNumber: "",
     qrCode: "",
     company: "PMV" as "PMV" | "Letzryd",
+    purchasedDate: new Date().toISOString().split('T')[0],
+    droppedDate: "",
   });
 
   const { toast } = useToast();
@@ -43,7 +47,7 @@ export default function VehiclesPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/vehicles"] });
       setIsCreateOpen(false);
-      setFormData({ vehicleNumber: "", qrCode: "", company: "PMV" });
+      setFormData({ vehicleNumber: "", qrCode: "", company: "PMV", purchasedDate: new Date().toISOString().split('T')[0], droppedDate: "" });
       toast({ title: "Success", description: "Vehicle created successfully" });
     },
     onError: () => {
@@ -85,6 +89,8 @@ export default function VehiclesPage() {
       vehicleNumber: vehicle.vehicleNumber,
       qrCode: vehicle.qrCode || "",
       company: vehicle.company,
+      purchasedDate: vehicle.purchasedDate,
+      droppedDate: vehicle.droppedDate || "",
     });
     setIsEditOpen(true);
   };
@@ -153,6 +159,16 @@ export default function VehiclesPage() {
                       </SelectContent>
                     </Select>
                   </div>
+                  <div>
+                    <Label htmlFor="purchasedDate">Purchased Date</Label>
+                    <Input
+                      id="purchasedDate"
+                      type="date"
+                      value={formData.purchasedDate}
+                      onChange={(e) => setFormData({ ...formData, purchasedDate: e.target.value })}
+                      required
+                    />
+                  </div>
                   <Button onClick={handleCreate} disabled={createMutation.isPending} className="w-full">
                     {createMutation.isPending ? "Creating..." : "Create Vehicle"}
                   </Button>
@@ -175,7 +191,8 @@ export default function VehiclesPage() {
                       <TableHead>Vehicle Number</TableHead>
                       <TableHead>QR Code</TableHead>
                       <TableHead>Company</TableHead>
-                      <TableHead>Created</TableHead>
+                      <TableHead>Purchased</TableHead>
+                      <TableHead>Dropped</TableHead>
                       <TableHead>Actions</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -185,7 +202,8 @@ export default function VehiclesPage() {
                         <TableCell className="font-medium">{vehicle.vehicleNumber}</TableCell>
                         <TableCell className="text-blue-600 font-mono">{vehicle.qrCode || "Not Set"}</TableCell>
                         <TableCell>{vehicle.company}</TableCell>
-                        <TableCell>{new Date(vehicle.createdAt).toLocaleDateString()}</TableCell>
+                        <TableCell>{vehicle.purchasedDate ? new Date(vehicle.purchasedDate).toLocaleDateString() : "-"}</TableCell>
+                        <TableCell>{vehicle.droppedDate ? new Date(vehicle.droppedDate).toLocaleDateString() : "-"}</TableCell>
                         <TableCell>
                           <div className="flex space-x-2">
                             <Button
@@ -249,6 +267,25 @@ export default function VehiclesPage() {
                       <SelectItem value="Letzryd">Letzryd</SelectItem>
                     </SelectContent>
                   </Select>
+                </div>
+                <div>
+                  <Label htmlFor="editPurchasedDate">Purchased Date</Label>
+                  <Input
+                    id="editPurchasedDate"
+                    type="date"
+                    value={formData.purchasedDate}
+                    onChange={(e) => setFormData({ ...formData, purchasedDate: e.target.value })}
+                    required
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="editDroppedDate">Dropped Date (Optional)</Label>
+                  <Input
+                    id="editDroppedDate"
+                    type="date"
+                    value={formData.droppedDate}
+                    onChange={(e) => setFormData({ ...formData, droppedDate: e.target.value })}
+                  />
                 </div>
                 <Button onClick={handleUpdate} disabled={updateMutation.isPending} className="w-full">
                   {updateMutation.isPending ? "Updating..." : "Update Vehicle"}
