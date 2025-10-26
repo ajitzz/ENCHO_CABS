@@ -80,7 +80,11 @@ export default function VehiclesPage() {
   });
 
   const handleCreate = () => {
-    createMutation.mutate(formData);
+    const dataToSend = {
+      ...formData,
+      qrCode: formData.qrCode || undefined,
+    };
+    createMutation.mutate(dataToSend);
   };
 
   const handleEdit = (vehicle: Vehicle) => {
@@ -97,9 +101,14 @@ export default function VehiclesPage() {
 
   const handleUpdate = () => {
     if (editingVehicle) {
+      const dataToSend = {
+        ...formData,
+        qrCode: formData.qrCode || undefined,
+        droppedDate: formData.droppedDate || null,
+      };
       updateMutation.mutate({
         id: editingVehicle.id,
-        data: formData,
+        data: dataToSend,
       });
     }
   };
