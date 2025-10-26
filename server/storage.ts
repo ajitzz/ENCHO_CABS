@@ -1,14 +1,14 @@
 import { 
   vehicles, drivers, vehicleDriverAssignments, trips, driverRentLogs, 
-  weeklySettlements, substituteDrivers,
+  weeklySettlements, substituteDrivers, weeklySummaries,
   type Vehicle, type Driver, type VehicleDriverAssignment, type Trip, 
-  type DriverRentLog, type WeeklySettlement, type SubstituteDriver,
+  type DriverRentLog, type WeeklySettlement, type SubstituteDriver, type WeeklySummary,
   type InsertVehicle, type InsertDriver, type InsertVehicleDriverAssignment, 
   type InsertTrip, type InsertDriverRentLog, type InsertWeeklySettlement, 
-  type InsertSubstituteDriver
+  type InsertSubstituteDriver, type UpsertWeeklySummary
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, and, or, gte, lte, desc, asc, ne } from "drizzle-orm";
+import { eq, and, or, gte, lte, desc, asc, ne, sql } from "drizzle-orm";
 
 export interface IStorage {
   // Vehicle operations
@@ -66,6 +66,18 @@ export interface IStorage {
 
   // QR Code validation operations
   checkQrCodeExists(qrCode: string, excludeVehicleId?: number, excludeDriverId?: number): Promise<{ exists: boolean; type: 'vehicle' | 'driver' | null; name: string | null }>;
+
+  // Weekly summary operations
+  getDriverAggregatesForDateRange(startDate: string, endDate: string): Promise<Array<{
+    driverId: number;
+    driverName: string;
+    totalRent: number;
+    totalCollection: number;
+    totalFuel: number;
+  }>>;
+  upsertWeeklySummary(summary: UpsertWeeklySummary): Promise<WeeklySummary>;
+  getWeeklySummary(driverId: number, startDate: string, endDate: string): Promise<WeeklySummary | undefined>;
+  clearWeeklySummary(driverId: number, startDate: string, endDate: string): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -482,6 +494,91 @@ export class DatabaseStorage implements IStorage {
     }
 
     return { exists: false, type: null, name: null };
+  }
+
+  // Weekly summary operations
+  async getDriverAggregatesForDateRange(startDate: string, endDate: string): Promise<Array<{
+    driverId: number;
+    driverName: string;
+    totalRent: number;
+    totalCollection: number;
+    totalFuel: number;
+  }>> {
+    const result = await db.select({
+      driverId: driverRentLogs.driverId,
+      driverName: drivers.name,
+      totalRent: sql<number>`CAST(COALESCE(SUM(${driverRentLogs.rent}), 0) AS INTEGER)`,
+      totalCollection: sql<number>`CAST(COALESCE(SUM(${driverRentLogs.amountCollected}), 0) AS INTEGER)`,
+      totalFuel: sql<number>`CAST(COALESCE(SUM(${driverRentLogs.fuel}), 0) AS INTEGER)`,
+    })
+      .from(driverRentLogs)
+      .innerJoin(drivers, eq(driverRentLogs.driverId, drivers.id))
+      .where(
+        and(
+          gte(sql`DATE(${driverRentLogs.date} AT TIME ZONE 'Asia/Kolkata')`, startDate),
+          lte(sql`DATE(${driverRentLogs.date} AT TIME ZONE 'Asia/Kolkata')`, endDate)
+        )
+      )
+      .groupBy(driverRentLogs.driverId, drivers.name)
+      .orderBy(asc(drivers.name));
+
+    return result;
+  }
+
+  async upsertWeeklySummary(summary: UpsertWeeklySummary): Promise<WeeklySummary> {
+    const [result] = await db.insert(weeklySummaries)
+      .values({
+        driverId: summary.driverId,
+        startDate: summary.startDate.toISOString().split('T')[0],
+        endDate: summary.endDate.toISOString().split('T')[0],
+        totalEarnings: summary.totalEarnings || 0,
+        cash: summary.cash || 0,
+        refund: summary.refund || 0,
+        expenses: summary.expenses || 0,
+        dues: summary.dues || 0,
+        payout: summary.payout || 0,
+        updatedAt: new Date(),
+      })
+      .onConflictDoUpdate({
+        target: [weeklySummaries.driverId, weeklySummaries.startDate, weeklySummaries.endDate],
+        set: {
+          totalEarnings: summary.totalEarnings || 0,
+          cash: summary.cash || 0,
+          refund: summary.refund || 0,
+          expenses: summary.expenses || 0,
+          dues: summary.dues || 0,
+          payout: summary.payout || 0,
+          updatedAt: new Date(),
+        },
+      })
+      .returning();
+
+    return result;
+  }
+
+  async getWeeklySummary(driverId: number, startDate: string, endDate: string): Promise<WeeklySummary | undefined> {
+    const [result] = await db.select()
+      .from(weeklySummaries)
+      .where(
+        and(
+          eq(weeklySummaries.driverId, driverId),
+          eq(weeklySummaries.startDate, startDate),
+          eq(weeklySummaries.endDate, endDate)
+        )
+      );
+
+    return result || undefined;
+  }
+
+  async clearWeeklySummary(driverId: number, startDate: string, endDate: string): Promise<void> {
+    await db.delete(weeklySummaries)
+      .where(
+        and(
+          eq(weeklySummaries.driverId, driverId),
+          eq(weeklySummaries.startDate, startDate),
+          eq(weeklySummaries.endDate, endDate)
+        )
+      );
   }
 }
 
