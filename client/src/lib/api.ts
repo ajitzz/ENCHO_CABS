@@ -31,11 +31,19 @@ export interface Trip {
 export interface DriverRentLog {
   id: number;
   driverId: number;
+  vehicleId: number;
   date: string;
+  shift: "morning" | "evening";
   rent: number;
-  paid: boolean;
+  amountCollected: number;
+  fuel: number;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface RentLogWithDetails extends DriverRentLog {
+  driverName: string;
+  vehicleNumber: string;
 }
 
 export interface WeeklySettlement {
@@ -271,19 +279,9 @@ export const api = {
   },
 
   // Driver rent log APIs
-  updateRentStatus: async (id: number, paid: boolean): Promise<DriverRentLog> => {
-    const response = await fetch(`/api/driver-rent-logs/${id}/status`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ paid }),
-    });
-    if (!response.ok) throw new Error("Failed to update rent status");
-    return response.json();
-  },
-
-  getUnpaidRents: async (): Promise<UnpaidRent[]> => {
-    const response = await fetch("/api/driver-rent-logs/unpaid");
-    if (!response.ok) throw new Error("Failed to fetch unpaid rents");
+  getAllRentLogs: async (): Promise<RentLogWithDetails[]> => {
+    const response = await fetch("/api/driver-rent-logs");
+    if (!response.ok) throw new Error("Failed to fetch rent logs");
     return response.json();
   },
 
@@ -343,34 +341,6 @@ export const api = {
     return response.json();
   },
 
-  // Rent payment APIs
-  getUnpaidDriverRents: async (): Promise<UnpaidRent[]> => {
-    const response = await fetch("/api/driver-rent-logs/unpaid");
-    if (!response.ok) throw new Error("Failed to fetch unpaid driver rents");
-    return response.json();
-  },
-
-  payDriverRent: async (rentLogId: number): Promise<any> => {
-    const response = await fetch(`/api/driver-rent-logs/${rentLogId}/status`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ paid: true }),
-    });
-    
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      throw new Error(errorData.message || "Failed to mark rent as paid");
-    }
-    
-    const result = await response.json();
-    
-    // Verify the update was successful
-    if (!result._meta?.updateConfirmed || !result.paid) {
-      throw new Error("Payment status update was not confirmed by server");
-    }
-    
-    return result;
-  },
 
   createSubstituteDriver: async (substituteData: {
     name: string;

@@ -30,10 +30,6 @@ export default function Trips() {
     queryFn: () => api.getRecentTrips(50),
   });
 
-  const { data: unpaidRents } = useQuery({
-    queryKey: ["/api/driver-rent-logs/unpaid"],
-    queryFn: () => api.getUnpaidRents(),
-  });
 
   const deleteTripMutation = useMutation({
     mutationFn: (tripId: number) => api.deleteTrip(tripId),
@@ -43,7 +39,7 @@ export default function Trips() {
       queryClient.invalidateQueries({ queryKey: ["/api/trips/recent/10"] });
       queryClient.invalidateQueries({ queryKey: ["/api/dashboard/profit-graph"] });
       queryClient.invalidateQueries({ queryKey: ["/api/settlements"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/driver-rent-logs/unpaid"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/driver-rent-logs"] });
       queryClient.invalidateQueries({ queryKey: ["/api/vehicles"] });
       // Invalidate all vehicle summaries
       queryClient.invalidateQueries({ 
@@ -67,39 +63,6 @@ export default function Trips() {
     setEditModalOpen(true);
   };
 
-  const markAsPaidMutation = useMutation({
-    mutationFn: (id: number) => api.updateRentStatus(id, true),
-    onSuccess: () => {
-      // Invalidate all related queries for complete responsiveness
-      queryClient.invalidateQueries({ queryKey: ["/api/driver-rent-logs/unpaid"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/dashboard/profit-graph"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/settlements"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/vehicles"] });
-      // Invalidate all vehicle summaries for precise profit calculations
-      queryClient.invalidateQueries({ 
-        predicate: (query) => query.queryKey[0] === "/api/vehicles" && query.queryKey[2] === "weekly-summary"
-      });
-      toast({
-        title: "Success",
-        description: "Rent marked as paid - calculations updated",
-      });
-    },
-    onError: (error: any) => {
-      toast({
-        title: "Error",
-        description: error.message || "Failed to update rent status",
-        variant: "destructive",
-      });
-    },
-  });
-
-  // Helper function to find if a trip has unpaid rent
-  const getTripRentStatus = (trip: any) => {
-    return unpaidRents?.find(rent => 
-      rent.driverId === trip.driverId && 
-      rent.date === trip.tripDate
-    );
-  };
 
   if (isLoading) {
     return (
@@ -178,7 +141,6 @@ export default function Trips() {
                 <TableHead>Driver</TableHead>
                 <TableHead>Shift</TableHead>
                 <TableHead>Trip Count</TableHead>
-                <TableHead>Rent</TableHead>
                 <TableHead>Actions</TableHead>
               </TableRow>
             </TableHeader>
@@ -215,26 +177,6 @@ export default function Trips() {
                     <div className="font-semibold text-lg">
                       {trip.tripCount}
                     </div>
-                  </TableCell>
-                  <TableCell>
-                    {(() => {
-                      const rentLog = getTripRentStatus(trip);
-                      return rentLog ? (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="text-xs bg-red-50 text-red-600 hover:bg-red-100 hover:text-red-700 border-red-200"
-                          onClick={() => markAsPaidMutation.mutate(rentLog.id)}
-                          disabled={markAsPaidMutation.isPending}
-                        >
-                          Unpaid (₹{rentLog.rent})
-                        </Button>
-                      ) : (
-                        <Badge variant="secondary" className="bg-green-50 text-green-700">
-                          Paid
-                        </Badge>
-                      );
-                    })()}
                   </TableCell>
                   <TableCell>
                     <div className="flex items-center space-x-2">
