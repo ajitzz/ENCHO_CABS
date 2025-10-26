@@ -44,9 +44,8 @@ export interface IStorage {
   createDriverRentLog(rentLog: InsertDriverRentLog): Promise<DriverRentLog>;
   getDriverRentLog(id: number): Promise<DriverRentLog | undefined>;
   getDriverRentLogsByDateRange(driverId: number, startDate: Date, endDate: Date): Promise<DriverRentLog[]>;
-  updateDriverRentLogPaymentStatus(id: number, paid: boolean): Promise<DriverRentLog>;
+  updateDriverRentLog(id: number, rentLog: Partial<InsertDriverRentLog>): Promise<DriverRentLog>;
   deleteDriverRentLog(id: number): Promise<void>;
-  getUnpaidDriverRents(): Promise<Array<DriverRentLog & { driverName: string; vehicleNumber: string }>>;
   getAllDriverRentLogs(): Promise<Array<DriverRentLog & { driverName: string; vehicleNumber: string }>>;
 
   // Weekly settlement operations
@@ -186,7 +185,8 @@ export class DatabaseStorage implements IStorage {
       vehicleId: trips.vehicleId,
       tripDate: trips.tripDate,
       shift: trips.shift,
-      tripCount: trips.tripCount,
+      weekStart: trips.weekStart,
+      weekEnd: trips.weekEnd,
       createdAt: trips.createdAt,
       updatedAt: trips.updatedAt,
       driverName: drivers.name,
@@ -233,9 +233,9 @@ export class DatabaseStorage implements IStorage {
       .orderBy(desc(driverRentLogs.date));
   }
 
-  async updateDriverRentLogPaymentStatus(id: number, paid: boolean): Promise<DriverRentLog> {
+  async updateDriverRentLog(id: number, rentLog: Partial<InsertDriverRentLog>): Promise<DriverRentLog> {
     const [result] = await db.update(driverRentLogs)
-      .set({ paid })
+      .set({ ...rentLog, updatedAt: new Date() })
       .where(eq(driverRentLogs.id, id))
       .returning();
     return result;
@@ -245,51 +245,6 @@ export class DatabaseStorage implements IStorage {
     await db.delete(driverRentLogs).where(eq(driverRentLogs.id, id));
   }
 
-  async getUnpaidDriverRents(): Promise<Array<DriverRentLog & { driverName: string; vehicleNumber: string }>> {
-    // Get unpaid rent logs with driver names
-    const rentLogs = await db.select({
-      id: driverRentLogs.id,
-      driverId: driverRentLogs.driverId,
-      date: driverRentLogs.date,
-      shift: driverRentLogs.shift,
-      rent: driverRentLogs.rent,
-      paid: driverRentLogs.paid,
-      vehicleId: driverRentLogs.vehicleId,
-      weekStart: driverRentLogs.weekStart,
-      weekEnd: driverRentLogs.weekEnd,
-      createdAt: driverRentLogs.createdAt,
-      updatedAt: driverRentLogs.updatedAt,
-      driverName: drivers.name,
-    }).from(driverRentLogs)
-      .innerJoin(drivers, eq(driverRentLogs.driverId, drivers.id))
-      .where(eq(driverRentLogs.paid, false))
-      .orderBy(desc(driverRentLogs.date));
-
-    // Add vehicle information for each rent log
-    const result: Array<DriverRentLog & { driverName: string; vehicleNumber: string }> = [];
-    for (const rentLog of rentLogs) {
-      // Find vehicle assignment for this driver
-      const assignment = await db.select({
-        vehicleId: vehicleDriverAssignments.vehicleId,
-        vehicleNumber: vehicles.vehicleNumber,
-      }).from(vehicleDriverAssignments)
-        .innerJoin(vehicles, eq(vehicleDriverAssignments.vehicleId, vehicles.id))
-        .where(or(
-          eq(vehicleDriverAssignments.morningDriverId, rentLog.driverId),
-          eq(vehicleDriverAssignments.eveningDriverId, rentLog.driverId)
-        ))
-        .limit(1);
-
-      const vehicleNumber = assignment[0]?.vehicleNumber || "Unassigned";
-      
-      result.push({
-        ...rentLog,
-        vehicleNumber: vehicleNumber as string,
-      });
-    }
-    
-    return result;
-  }
 
   async getAllDriverRentLogs(): Promise<Array<DriverRentLog & { driverName: string; vehicleNumber: string }>> {
     // Get all rent logs with driver names
@@ -299,7 +254,8 @@ export class DatabaseStorage implements IStorage {
       date: driverRentLogs.date,
       shift: driverRentLogs.shift,
       rent: driverRentLogs.rent,
-      paid: driverRentLogs.paid,
+      amountCollected: driverRentLogs.amountCollected,
+      fuel: driverRentLogs.fuel,
       vehicleId: driverRentLogs.vehicleId,
       weekStart: driverRentLogs.weekStart,
       weekEnd: driverRentLogs.weekEnd,
