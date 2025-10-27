@@ -31,7 +31,8 @@ Preferred communication style: Simple, everyday language.
 - **Primary Database**: PostgreSQL via Neon serverless
 - **Schema Management**: Drizzle Kit for migrations
 - **Connection Pooling**: Neon serverless pool with WebSocket support
-- **Core Entities**: Vehicles, Drivers, Vehicle Driver Assignments, Trips, Driver Rent Logs, Weekly Settlements, Substitute Drivers, Investments, Investment Returns.
+- **Core Entities**: Vehicles, Drivers, Vehicle Driver Assignments, Driver Rent Logs, Weekly Settlements, Substitute Drivers, Investments, Investment Returns.
+- **Data Model**: Uses driverRentLogs table exclusively for trip tracking - trips table has been removed as redundant.
 
 ### Key Features
 - **Rental Calculator**: Implements complex slab-based pricing.
@@ -59,6 +60,18 @@ Preferred communication style: Simple, everyday language.
 - **TypeScript**: Static type checking.
 
 ## Recent Updates
+
+### October 27, 2025 - Database Refactoring
+
+#### Trips Table Removal
+- Removed redundant trips table from database schema
+- Consolidated all trip tracking into driverRentLogs table
+- Updated backend API: removed trip endpoints, added /api/driver-rent-logs/recent/:limit endpoint
+- Updated frontend components to use rent logs API exclusively
+- Simplified data model while maintaining all functionality
+- CSV import now creates only rent logs (not separate trip records)
+- All queries and mutations updated to use driver rent logs
+- Architect review passed: clean refactoring with no blocking regressions
 
 ### October 27, 2025 - Keyboard Shortcuts & Data Import
 
