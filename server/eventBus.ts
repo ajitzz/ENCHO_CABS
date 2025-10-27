@@ -3,7 +3,8 @@ import { EventEmitter } from "node:events";
 export type AppEventType =
   | "triplogs:changed"
   | "weeklysummary:changed"
-  | "settlements:changed";
+  | "settlements:changed"
+  | "investments:changed";
 
 type AppEvent = { type: AppEventType; payload?: any };
 

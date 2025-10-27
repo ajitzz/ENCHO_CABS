@@ -4,7 +4,7 @@ import { storage } from "./storage";
 import { z } from "zod";
 import { 
   insertVehicleSchema, updateVehicleSchema, insertDriverSchema, updateDriverSchema, insertVehicleDriverAssignmentSchema,
-  insertTripSchema, insertDriverRentLogSchema, insertSubstituteDriverSchema,
+  insertDriverRentLogSchema, insertSubstituteDriverSchema,
   upsertWeeklySummarySchema, insertInvestmentSchema, updateInvestmentSchema,
   insertInvestmentReturnSchema, updateInvestmentReturnSchema
 } from "@shared/schema";
@@ -247,174 +247,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Trip routes
-  app.post("/api/trips", async (req, res) => {
-    try {
-      // Convert tripDate string to Date object before validation
-      const tripDate = new Date(req.body.tripDate);
-      const weekStart = getWeekStart(tripDate);
-      const weekEnd = new Date(weekStart);
-      weekEnd.setDate(weekStart.getDate() + 6); // Add 6 days for the week end
-      
-      const body = {
-        ...req.body,
-        tripDate: tripDate,
-        weekStart: weekStart,
-        weekEnd: weekEnd
-      };
-      const tripData = insertTripSchema.parse(body);
-      
-      // Check if driver already has an entry for this date
-      const startOfDay = new Date(tripDate.getFullYear(), tripDate.getMonth(), tripDate.getDate());
-      const endOfDay = new Date(tripDate.getFullYear(), tripDate.getMonth(), tripDate.getDate() + 1);
-      const existingLogs = await storage.getDriverRentLogsByDateRange(tripData.driverId, startOfDay, endOfDay);
-      
-      if (existingLogs.length > 0) {
-        const driver = await storage.getDriver(tripData.driverId);
-        return res.status(400).json({ 
-          message: `Driver ${driver?.name || 'this driver'} already has an entry for ${tripDate.toLocaleDateString('en-GB')}. A driver cannot have duplicate entries on the same day.` 
-        });
-      }
-      
-      const trip = await storage.createTrip(tripData);
-      
-      // Automatically generate rent log for the driver with money details
-      await generateDailyRentLogs(
-        tripData.driverId, 
-        tripData.tripDate, 
-        tripData.vehicleId,
-        tripData.shift,
-        req.body.rent,
-        req.body.amountCollected,
-        req.body.fuel
-      );
-      
-      res.status(201).json(trip);
-      broadcast("triplogs:changed");
-    } catch (error) {
-      res.status(400).json({ message: "Invalid trip data", error: error.message });
-    }
-  });
-
-  app.put("/api/trips/:id", async (req, res) => {
-    try {
-      const id = parseInt(req.params.id);
-      if (isNaN(id)) {
-        return res.status(400).json({ message: "Invalid trip ID" });
-      }
-      
-      // Get existing trip to check if driver or date is changing
-      const existingTrip = await storage.getTrip(id);
-      if (!existingTrip) {
-        return res.status(404).json({ message: "Trip not found" });
-      }
-      
-      // Convert tripDate string to Date object before validation
-      const tripDate = new Date(req.body.tripDate);
-      const weekStart = getWeekStart(tripDate);
-      const weekEnd = new Date(weekStart);
-      weekEnd.setDate(weekStart.getDate() + 6); // Add 6 days for the week end
-      
-      const body = {
-        ...req.body,
-        tripDate: tripDate,
-        weekStart: weekStart,
-        weekEnd: weekEnd
-      };
-      const tripData = insertTripSchema.parse(body);
-      
-      // Check if driver or date is changing
-      const existingDate = new Date(existingTrip.tripDate);
-      const existingDateStr = existingDate.toISOString().split('T')[0];
-      const newDateStr = tripDate.toISOString().split('T')[0];
-      const isDriverChanging = existingTrip.driverId !== tripData.driverId;
-      const isDateChanging = existingDateStr !== newDateStr;
-      
-      // If driver or date is changing, check for conflicts
-      if (isDriverChanging || isDateChanging) {
-        const startOfDay = new Date(tripDate.getFullYear(), tripDate.getMonth(), tripDate.getDate());
-        const endOfDay = new Date(tripDate.getFullYear(), tripDate.getMonth(), tripDate.getDate() + 1);
-        const existingLogs = await storage.getDriverRentLogsByDateRange(tripData.driverId, startOfDay, endOfDay);
-        
-        // Filter out the current trip's rent log from the check
-        const conflictingLogs = existingLogs.filter(log => {
-          const logDate = new Date(log.date);
-          const logDateStr = logDate.toISOString().split('T')[0];
-          // A log is conflicting if it's for the same date but not from this trip
-          return logDateStr === newDateStr && log.driverId === tripData.driverId;
-        });
-        
-        if (conflictingLogs.length > 0) {
-          const driver = await storage.getDriver(tripData.driverId);
-          return res.status(400).json({ 
-            message: `Driver ${driver?.name || 'this driver'} already has an entry for ${tripDate.toLocaleDateString('en-GB')}. A driver cannot have duplicate entries on the same day.` 
-          });
-        }
-      }
-      
-      const trip = await storage.updateTrip(id, tripData);
-      
-      // Ensure rent log exists for the updated trip date and driver
-      await generateDailyRentLogs(
-        tripData.driverId, 
-        tripData.tripDate, 
-        tripData.vehicleId,
-        tripData.shift,
-        req.body.rent,
-        req.body.amountCollected,
-        req.body.fuel
-      );
-      
-      res.json(trip);
-      broadcast("triplogs:changed");
-    } catch (error) {
-      res.status(400).json({ message: "Failed to update trip", error: error.message });
-    }
-  });
-
-  app.delete("/api/trips/:id", async (req, res) => {
-    try {
-      const id = parseInt(req.params.id);
-      if (isNaN(id)) {
-        return res.status(400).json({ message: "Invalid trip ID" });
-      }
-
-      // Get trip details before deletion for cascading cleanup
-      const trip = await storage.getTrip(id);
-      if (!trip) {
-        return res.status(404).json({ message: "Trip not found" });
-      }
-
-      // Delete associated rent log for the same driver and date
-      const tripDate = new Date(trip.tripDate);
-      const startOfDay = new Date(tripDate.getFullYear(), tripDate.getMonth(), tripDate.getDate());
-      const endOfDay = new Date(tripDate.getFullYear(), tripDate.getMonth(), tripDate.getDate() + 1);
-      
-      const rentLogs = await storage.getDriverRentLogsByDateRange(trip.driverId, startOfDay, endOfDay);
-      for (const rentLog of rentLogs) {
-        await storage.deleteDriverRentLog(rentLog.id);
-      }
-
-      // Delete the trip
-      await storage.deleteTrip(id);
-
-      res.json({ message: "Trip deleted successfully" });
-      broadcast("triplogs:changed");
-    } catch (error) {
-      res.status(400).json({ message: "Failed to delete trip", error: error.message });
-    }
-  });
-
-  app.get("/api/trips/recent/:limit", async (req, res) => {
-    try {
-      const limit = parseInt(req.params.limit) || 10;
-      const trips = await storage.getRecentTrips(limit);
-      res.json(trips);
-    } catch (error) {
-      res.status(500).json({ message: "Failed to fetch recent trips", error: error.message });
-    }
-  });
-
   // Driver rent log routes
   app.post("/api/driver-rent-logs", async (req, res) => {
     try {
@@ -496,43 +328,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const weekEnd = new Date(weekStart);
       weekEnd.setDate(weekEnd.getDate() + 6); // Get Sunday of current week
       
-      // Get ONLY current week's trips for this vehicle
-      const weeklyTrips = await storage.getTripsByVehicleAndDateRange(id, weekStart, weekEnd);
+      // Get all rent logs and filter for this vehicle and week
+      const allRentLogs = await storage.getAllDriverRentLogs();
+      const weeklyRentLogs = allRentLogs.filter(log => {
+        const logDate = new Date(log.date);
+        return log.vehicleId === id && logDate >= weekStart && logDate <= weekEnd;
+      });
       
       // Get substitute drivers for this specific vehicle in this week
       const weeklySubstituteDrivers = await storage.getSubstituteDriversByVehicleAndDateRange(id, weekStart, weekEnd);
       
-      // Calculate total trips from regular trips + substitute driver trips (current week only)
-      // Since trips no longer have tripCount, count the number of trip records (each shift = 1 trip entry)
-      const regularTrips = weeklyTrips.length;
-      const substituteTrips = weeklySubstituteDrivers.reduce((sum, sub) => sum + (sub.tripCount || 1), 0); // Use actual trip count from substitutes
+      // Calculate total trips from rent logs + substitute driver trips (current week only)
+      const regularTrips = weeklyRentLogs.length;
+      const substituteTrips = weeklySubstituteDrivers.reduce((sum, sub) => sum + (sub.tripCount || 1), 0);
       const totalTrips = regularTrips + substituteTrips;
 
       
-      // Calculate total driver rent for this vehicle only
-      // We need to get rent logs for drivers who worked on this specific vehicle
-      let totalActualDriverRent = 0;
-      
-      // Create a Set to track unique driver-date combinations to avoid double counting
-      const processedDriverDates = new Set<string>();
-      
-      // Get rent logs for each driver who worked on this vehicle during the week
-      for (const trip of weeklyTrips) {
-        const tripDate = new Date(trip.tripDate);
-        const dateKey = `${trip.driverId}-${tripDate.toISOString().split('T')[0]}`;
-        
-        // Skip if we already processed this driver-date combination
-        if (processedDriverDates.has(dateKey)) {
-          continue;
-        }
-        processedDriverDates.add(dateKey);
-        
-        const dayStart = new Date(tripDate.getFullYear(), tripDate.getMonth(), tripDate.getDate());
-        const dayEnd = new Date(tripDate.getFullYear(), tripDate.getMonth(), tripDate.getDate() + 1);
-        
-        const driverRentLogsForDay = await storage.getDriverRentLogsByDateRange(trip.driverId, dayStart, dayEnd);
-        totalActualDriverRent += driverRentLogsForDay.reduce((sum, log) => sum + log.rent, 0);
-      }
+      // Calculate total driver rent for this vehicle from rent logs
+      const totalActualDriverRent = weeklyRentLogs.reduce((sum, log) => sum + log.rent, 0);
       
       // Calculate total substitute charges for this vehicle
       const totalSubstituteCharges = weeklySubstituteDrivers.reduce((sum, sub) => sum + sub.charge, 0);
@@ -1091,7 +904,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           filename = "settlements_export.json";
           break;
         case "trips":
-          data = await storage.getRecentTrips(1000); // Get last 1000 trips
+          data = await storage.getRecentRentLogs(1000); // Get last 1000 rent logs
           filename = "trips_export.json";
           break;
         case "drivers":
@@ -1202,7 +1015,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         details: {
           vehiclesCreated: [] as string[],
           driversCreated: [] as string[],
-          tripsCreated: 0,
           rentLogsCreated: 0,
         }
       };
@@ -1264,7 +1076,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             continue;
           }
 
-          const [day, month, year] = dateParts.map(p => parseInt(p.trim()));
+          const [day, month, year] = dateParts.map((p: string) => parseInt(p.trim()));
           
           if (isNaN(day) || isNaN(month) || isNaN(year)) {
             results.errors.push(`Row ${i + 2}: Invalid date values`);
@@ -1340,21 +1152,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const existingLogs = await storage.getDriverRentLogsByDateRange(driver.id, startOfDay, endOfDay);
           
           if (existingLogs.length > 0) {
-            // Skip this entry - driver already has a trip for this date
+            // Skip this entry - driver already has a rent log for this date
             results.skipped++;
             continue;
           }
-
-          // Create trip
-          const trip = await storage.createTrip({
-            driverId: driver.id,
-            vehicleId: vehicle.id,
-            tripDate: tripDate,
-            shift,
-            weekStart: weekStart,
-            weekEnd: weekEnd,
-          });
-          results.details.tripsCreated++;
 
           // Create rent log
           const rentLog = await storage.createDriverRentLog({
@@ -1381,8 +1182,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
 
-      broadcast({ type: "trip:created" });
-      broadcast({ type: "rentLog:created" });
+      broadcast("triplogs:changed");
 
       res.json({
         message: "Import completed",
