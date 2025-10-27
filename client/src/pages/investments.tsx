@@ -183,10 +183,20 @@ export default function InvestmentsPage() {
   });
 
   const handleCreate = () => {
-    if (!formData.investorName || !formData.amountInvested) {
+    if (!formData.investorName || !formData.amountInvested || !formData.paymentGivenDate) {
       toast({ 
         title: "Validation Error", 
         description: "Please fill all required fields", 
+        variant: "destructive" 
+      });
+      return;
+    }
+
+    // Check if investor name already exists
+    if (investors && investors.some(inv => inv.investorName.toLowerCase() === formData.investorName.toLowerCase())) {
+      toast({ 
+        title: "Investor Already Exists", 
+        description: `An investor named "${formData.investorName}" already exists. Please use the "Add Investment" button in their card to add more investments.`, 
         variant: "destructive" 
       });
       return;
@@ -202,10 +212,10 @@ export default function InvestmentsPage() {
   };
 
   const handleAddReturn = () => {
-    if (!returnFormData.investmentId || !returnFormData.amountReturned) {
+    if (!returnFormData.investmentId || !returnFormData.amountReturned || !returnFormData.returnDate) {
       toast({ 
         title: "Validation Error", 
-        description: "Please select an investment and enter return amount", 
+        description: "Please fill all required fields (Investment, Date, and Amount)", 
         variant: "destructive" 
       });
       return;
@@ -221,10 +231,10 @@ export default function InvestmentsPage() {
   };
 
   const handleEditReturn = () => {
-    if (!selectedReturn || !editReturnFormData.amountReturned) {
+    if (!selectedReturn || !editReturnFormData.amountReturned || !editReturnFormData.returnDate) {
       toast({ 
         title: "Validation Error", 
-        description: "Please enter return amount", 
+        description: "Please fill all required fields (Date and Amount)", 
         variant: "destructive" 
       });
       return;
@@ -251,10 +261,10 @@ export default function InvestmentsPage() {
   };
 
   const handleAddMore = () => {
-    if (!selectedInvestorGroup || !addMoreFormData.amountInvested) {
+    if (!selectedInvestorGroup || !addMoreFormData.amountInvested || !addMoreFormData.paymentGivenDate) {
       toast({ 
         title: "Validation Error", 
-        description: "Please fill all required fields", 
+        description: "Please fill all required fields (Date and Amount)", 
         variant: "destructive" 
       });
       return;
