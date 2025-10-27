@@ -48,21 +48,15 @@ export interface RentLogWithDetails extends DriverRentLog {
   vehicleNumber: string;
 }
 
-export interface WeeklySettlement {
-  id: number;
-  vehicleId: number;
+export interface SettlementRow {
   weekStart: string;
   weekEnd: string;
-  totalTrips: number;
-  rentalRate: number;
-  totalRentToCompany: number;
-  driver1Data: { id: number; rent: number } | null;
-  driver2Data: { id: number; rent: number } | null;
-  totalDriverRent: number;
-  profit: number;
-  paid: boolean;
-  createdAt: string;
-  updatedAt: string;
+  rent: number;
+  wallet: number;
+  companyRent: number | null;
+  companyWallet: number | null;
+  roomRent: number;
+  profit: number | null;
 }
 
 export interface VehicleSummary {
@@ -380,6 +374,29 @@ export const api = {
   getWeeklySummary: async (startDate: string, endDate: string): Promise<any> => {
     const response = await fetch(`/api/weekly-summary/aggregates?startDate=${startDate}&endDate=${endDate}`);
     if (!response.ok) throw new Error("Failed to fetch weekly summary");
+    return response.json();
+  },
+
+  // Settlements APIs
+  getSettlements: async (): Promise<{ items: SettlementRow[] }> => {
+    const response = await fetch("/api/settlements");
+    if (!response.ok) throw new Error("Failed to load settlements");
+    return response.json();
+  },
+
+  saveSettlement: async (p: { weekStart: string; weekEnd: string; companyRent: number | null; companyWallet: number | null }): Promise<{ ok: true; items: SettlementRow[] }> => {
+    const response = await fetch("/api/settlements", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(p),
+    });
+    if (!response.ok) throw new Error("Failed to save settlement");
+    return response.json();
+  },
+
+  deleteSettlement: async (weekStart: string, weekEnd: string): Promise<{ ok: true; items: SettlementRow[] }> => {
+    const response = await fetch(`/api/settlements?weekStart=${weekStart}&weekEnd=${weekEnd}`, { method: "DELETE" });
+    if (!response.ok) throw new Error("Failed to delete settlement");
     return response.json();
   },
 };
