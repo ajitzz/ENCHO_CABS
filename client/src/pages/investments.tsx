@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Plus, ArrowLeftRight, Trash2, IndianRupee } from "lucide-react";
+import { Plus, ArrowLeftRight, Trash2, IndianRupee, Edit } from "lucide-react";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 
 interface Investment {
@@ -14,6 +14,7 @@ interface Investment {
   investorName: string;
   amountInvested: number;
   paymentGivenDate: string;
+  paymentMethod?: string;
   totalReturned: number;
   balance: number;
   createdAt: string;
@@ -25,6 +26,7 @@ interface InvestmentReturn {
   investmentId: number;
   returnDate: string;
   amountReturned: number;
+  paymentMethod?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -32,15 +34,27 @@ interface InvestmentReturn {
 export default function InvestmentsPage() {
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [isReturnOpen, setIsReturnOpen] = useState(false);
+  const [isEditReturnOpen, setIsEditReturnOpen] = useState(false);
   const [selectedInvestment, setSelectedInvestment] = useState<Investment | null>(null);
+  const [selectedReturn, setSelectedReturn] = useState<InvestmentReturn | null>(null);
+  
   const [formData, setFormData] = useState({
     investorName: "",
     amountInvested: "",
     paymentGivenDate: new Date().toISOString().split('T')[0],
+    paymentMethod: "",
   });
+  
   const [returnFormData, setReturnFormData] = useState({
     returnDate: new Date().toISOString().split('T')[0],
     amountReturned: "",
+    paymentMethod: "",
+  });
+
+  const [editReturnFormData, setEditReturnFormData] = useState({
+    returnDate: "",
+    amountReturned: "",
+    paymentMethod: "",
   });
 
   const { toast } = useToast();
@@ -65,6 +79,7 @@ export default function InvestmentsPage() {
         investorName: "", 
         amountInvested: "", 
         paymentGivenDate: new Date().toISOString().split('T')[0],
+        paymentMethod: "",
       });
       toast({ title: "Success", description: "Investment created successfully" });
     },
@@ -89,7 +104,8 @@ export default function InvestmentsPage() {
       setIsReturnOpen(false);
       setReturnFormData({ 
         returnDate: new Date().toISOString().split('T')[0], 
-        amountReturned: "" 
+        amountReturned: "",
+        paymentMethod: "",
       });
       toast({ title: "Success", description: "Return payment added successfully" });
     },
@@ -97,6 +113,28 @@ export default function InvestmentsPage() {
       toast({ 
         title: "Error", 
         description: error.message || "Failed to add return payment", 
+        variant: "destructive" 
+      });
+    },
+  });
+
+  const editReturnMutation = useMutation({
+    mutationFn: async ({ id, data }: { id: number; data: any }) => {
+      return apiRequest("PUT", `/api/investment-returns/${id}`, data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/investments"] });
+      if (selectedInvestment) {
+        queryClient.invalidateQueries({ queryKey: [`/api/investments/${selectedInvestment.id}/returns`] });
+      }
+      setIsEditReturnOpen(false);
+      setSelectedReturn(null);
+      toast({ title: "Success", description: "Return payment updated successfully" });
+    },
+    onError: (error: any) => {
+      toast({ 
+        title: "Error", 
+        description: error.message || "Failed to update return payment", 
         variant: "destructive" 
       });
     },
@@ -129,6 +167,7 @@ export default function InvestmentsPage() {
       investorName: formData.investorName,
       amountInvested: parseInt(formData.amountInvested),
       paymentGivenDate: formData.paymentGivenDate,
+      paymentMethod: formData.paymentMethod || undefined,
     };
     createMutation.mutate(dataToSend);
   };
@@ -157,8 +196,29 @@ export default function InvestmentsPage() {
       investmentId: selectedInvestment.id,
       returnDate: returnFormData.returnDate,
       amountReturned: amount,
+      paymentMethod: returnFormData.paymentMethod || undefined,
     };
     addReturnMutation.mutate(dataToSend);
+  };
+
+  const handleEditReturn = () => {
+    if (!selectedReturn || !editReturnFormData.amountReturned) {
+      toast({ 
+        title: "Validation Error", 
+        description: "Please enter return amount", 
+        variant: "destructive" 
+      });
+      return;
+    }
+
+    const amount = parseInt(editReturnFormData.amountReturned);
+    
+    const dataToSend = {
+      returnDate: editReturnFormData.returnDate,
+      amountReturned: amount,
+      paymentMethod: editReturnFormData.paymentMethod || undefined,
+    };
+    editReturnMutation.mutate({ id: selectedReturn.id, data: dataToSend });
   };
 
   const handleDelete = (id: number) => {
@@ -182,6 +242,16 @@ export default function InvestmentsPage() {
   const openReturnDialog = (investment: Investment) => {
     setSelectedInvestment(investment);
     setIsReturnOpen(true);
+  };
+
+  const openEditReturnDialog = (ret: InvestmentReturn) => {
+    setSelectedReturn(ret);
+    setEditReturnFormData({
+      returnDate: ret.returnDate,
+      amountReturned: ret.amountReturned.toString(),
+      paymentMethod: ret.paymentMethod || "",
+    });
+    setIsEditReturnOpen(true);
   };
 
   return (
@@ -236,6 +306,16 @@ export default function InvestmentsPage() {
                       onChange={(e) => setFormData({ ...formData, paymentGivenDate: e.target.value })}
                     />
                   </div>
+                  <div>
+                    <Label htmlFor="paymentMethod">Payment Method</Label>
+                    <Input
+                      id="paymentMethod"
+                      data-testid="input-payment-method"
+                      value={formData.paymentMethod}
+                      onChange={(e) => setFormData({ ...formData, paymentMethod: e.target.value })}
+                      placeholder="e.g., Cash, Bank Transfer, UPI"
+                    />
+                  </div>
                   <Button 
                     onClick={handleCreate} 
                     className="w-full"
@@ -278,6 +358,11 @@ export default function InvestmentsPage() {
                         <p className="text-sm text-gray-500 mt-1">
                           Started: {formatDate(investment.paymentGivenDate)}
                         </p>
+                        {investment.paymentMethod && (
+                          <p className="text-xs text-gray-500 mt-1">
+                            Method: {investment.paymentMethod}
+                          </p>
+                        )}
                       </div>
                       <span 
                         className={`inline-flex px-3 py-1 text-xs font-semibold rounded-full ${
@@ -344,6 +429,7 @@ export default function InvestmentsPage() {
             </div>
           )}
 
+          {/* Add Return Dialog */}
           <Dialog open={isReturnOpen} onOpenChange={setIsReturnOpen}>
             <DialogContent>
               <DialogHeader>
@@ -380,15 +466,39 @@ export default function InvestmentsPage() {
                     </p>
                   )}
                 </div>
+                <div>
+                  <Label htmlFor="returnPaymentMethod">Payment Method</Label>
+                  <Input
+                    id="returnPaymentMethod"
+                    value={returnFormData.paymentMethod}
+                    onChange={(e) => setReturnFormData({ ...returnFormData, paymentMethod: e.target.value })}
+                    placeholder="e.g., Cash, Bank Transfer, UPI"
+                  />
+                </div>
 
                 {selectedReturns && selectedReturns.length > 0 && (
                   <div className="border-t pt-4">
                     <h4 className="text-sm font-semibold mb-2">Previous Returns</h4>
                     <div className="space-y-2 max-h-40 overflow-y-auto">
                       {selectedReturns.map((ret) => (
-                        <div key={ret.id} className="flex justify-between text-sm bg-gray-50 p-2 rounded">
-                          <span className="text-gray-600">{formatDate(ret.returnDate)}</span>
-                          <span className="font-semibold text-green-700">{formatCurrency(ret.amountReturned)}</span>
+                        <div key={ret.id} className="bg-gray-50 p-3 rounded-lg border border-gray-200">
+                          <div className="flex justify-between items-start">
+                            <div className="flex-1">
+                              <div className="font-semibold text-green-700 text-lg">{formatCurrency(ret.amountReturned)}</div>
+                              <div className="text-sm text-gray-600 mt-1">Date: {formatDate(ret.returnDate)}</div>
+                              {ret.paymentMethod && (
+                                <div className="text-xs text-gray-500 mt-1">Method: {ret.paymentMethod}</div>
+                              )}
+                            </div>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => openEditReturnDialog(ret)}
+                              className="ml-2"
+                            >
+                              <Edit className="w-4 h-4" />
+                            </Button>
+                          </div>
                         </div>
                       ))}
                     </div>
@@ -401,6 +511,53 @@ export default function InvestmentsPage() {
                   disabled={addReturnMutation.isPending}
                 >
                   {addReturnMutation.isPending ? "Adding..." : "Add Return Payment"}
+                </Button>
+              </div>
+            </DialogContent>
+          </Dialog>
+
+          {/* Edit Return Dialog */}
+          <Dialog open={isEditReturnOpen} onOpenChange={setIsEditReturnOpen}>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Edit Return Payment</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-4">
+                <div>
+                  <Label htmlFor="editReturnDate">Return Date*</Label>
+                  <Input
+                    id="editReturnDate"
+                    type="date"
+                    value={editReturnFormData.returnDate}
+                    onChange={(e) => setEditReturnFormData({ ...editReturnFormData, returnDate: e.target.value })}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="editAmountReturned">Amount Returned (₹)*</Label>
+                  <Input
+                    id="editAmountReturned"
+                    type="number"
+                    value={editReturnFormData.amountReturned}
+                    onChange={(e) => setEditReturnFormData({ ...editReturnFormData, amountReturned: e.target.value })}
+                    placeholder="Enter amount"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="editPaymentMethod">Payment Method</Label>
+                  <Input
+                    id="editPaymentMethod"
+                    value={editReturnFormData.paymentMethod}
+                    onChange={(e) => setEditReturnFormData({ ...editReturnFormData, paymentMethod: e.target.value })}
+                    placeholder="e.g., Cash, Bank Transfer, UPI"
+                  />
+                </div>
+
+                <Button 
+                  onClick={handleEditReturn} 
+                  className="w-full"
+                  disabled={editReturnMutation.isPending}
+                >
+                  {editReturnMutation.isPending ? "Updating..." : "Update Return Payment"}
                 </Button>
               </div>
             </DialogContent>
