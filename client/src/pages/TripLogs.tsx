@@ -99,6 +99,21 @@ export default function TripLogs() {
     queryFn: () => api.getDrivers(),
   });
 
+  // Filter active vehicles (not dropped)
+  const activeVehicles = useMemo(() => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    return vehicles.filter((vehicle) => {
+      if (!vehicle.droppedDate) return true;
+      
+      const droppedDate = new Date(vehicle.droppedDate);
+      droppedDate.setHours(0, 0, 0, 0);
+      
+      return droppedDate > today;
+    });
+  }, [vehicles]);
+
   // Fetch all rent logs to show amounts even after payment
   const { data: allRentLogs = [], isLoading: allRentLogsLoading, refetch: refetchAllRentLogs } = useQuery({
     queryKey: ["/api/driver-rent-logs"],
@@ -734,7 +749,7 @@ export default function TripLogs() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">All vehicles</SelectItem>
-                    {vehicles.map((vehicle) => (
+                    {activeVehicles.map((vehicle) => (
                       <SelectItem key={vehicle.id} value={vehicle.vehicleNumber}>
                         {vehicle.vehicleNumber} ({vehicle.company})
                       </SelectItem>
@@ -920,7 +935,7 @@ export default function TripLogs() {
       <SubstituteDriverForm
         open={substituteModalOpen}
         onOpenChange={setSubstituteModalOpen}
-        vehicles={vehicles}
+        vehicles={activeVehicles}
       />
 
       {/* Delete Trip Confirmation Dialog */}

@@ -1,3 +1,4 @@
+import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { api, type Vehicle, type VehicleSummary } from "@/lib/api";
 import { Card, CardContent } from "@/components/ui/card";
@@ -29,6 +30,23 @@ export default function VehicleSelector({ selectedVehicleId, onVehicleSelect }: 
     onVehicleSelect(vehicleId);
   };
 
+  // Filter active vehicles (not dropped)
+  const activeVehicles = useMemo(() => {
+    if (!vehicles || !Array.isArray(vehicles)) return [];
+    
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    return vehicles.filter((vehicle: Vehicle) => {
+      if (!vehicle.droppedDate) return true;
+      
+      const droppedDate = new Date(vehicle.droppedDate);
+      droppedDate.setHours(0, 0, 0, 0);
+      
+      return droppedDate > today;
+    });
+  }, [vehicles]);
+
   if (vehiclesLoading) {
     return <div className="mb-6 animate-pulse h-48 bg-gray-200 rounded-xl"></div>;
   }
@@ -45,7 +63,7 @@ export default function VehicleSelector({ selectedVehicleId, onVehicleSelect }: 
                   <SelectValue placeholder="Select Vehicle" />
                 </SelectTrigger>
                 <SelectContent>
-                  {vehicles && Array.isArray(vehicles) && vehicles.map((vehicle: Vehicle) => (
+                  {activeVehicles.map((vehicle: Vehicle) => (
                     <SelectItem key={vehicle.id} value={vehicle.id.toString()}>
                       {vehicle.vehicleNumber} ({vehicle.company})
                     </SelectItem>

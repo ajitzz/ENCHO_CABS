@@ -132,6 +132,23 @@ export default function TripLogModal({ open, onOpenChange }: TripLogModalProps) 
     return drivers;
   };
 
+  const getActiveVehicles = () => {
+    if (!vehicles || !Array.isArray(vehicles)) return [];
+    
+    const today = new Date();
+    today.setHours(0, 0, 0, 0); // Reset to start of day for comparison
+    
+    // Filter out vehicles that have been dropped (droppedDate is set and is today or earlier)
+    return vehicles.filter((vehicle) => {
+      if (!vehicle.droppedDate) return true; // No droppedDate means active
+      
+      const droppedDate = new Date(vehicle.droppedDate);
+      droppedDate.setHours(0, 0, 0, 0);
+      
+      return droppedDate > today; // Keep if dropped date is in the future
+    });
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-md">
@@ -154,7 +171,7 @@ export default function TripLogModal({ open, onOpenChange }: TripLogModalProps) 
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      {vehicles?.map((vehicle) => (
+                      {getActiveVehicles().map((vehicle) => (
                         <SelectItem key={vehicle.id} value={vehicle.id.toString()}>
                           {vehicle.vehicleNumber} {vehicle.qrCode ? `(QR: ${vehicle.qrCode})` : ''} - {vehicle.company}
                         </SelectItem>
