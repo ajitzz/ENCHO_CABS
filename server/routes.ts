@@ -5,7 +5,7 @@ import { z } from "zod";
 import { 
   insertVehicleSchema, updateVehicleSchema, insertDriverSchema, updateDriverSchema, insertVehicleDriverAssignmentSchema,
   insertTripSchema, insertDriverRentLogSchema, insertSubstituteDriverSchema,
-  upsertWeeklySummarySchema
+  upsertWeeklySummarySchema, insertInvestmentSchema, updateInvestmentSchema
 } from "@shared/schema";
 import { getRentalInfo, getAllSlabs, getDriverRent, getRentalRate } from "./services/rentalCalculator";
 import { calculateWeeklySettlement, processWeeklySettlement, processAllVehicleSettlements, generateDailyRentLogs } from "./services/settlementProcessor";
@@ -799,6 +799,56 @@ export async function registerRoutes(app: Express): Promise<Server> {
       broadcast("weeklysummary:changed", { range: { start: startDate, end: endDate } });
     } catch (error: any) {
       res.status(500).json({ message: "Failed to clear weekly summary", error: error.message });
+    }
+  });
+
+  // Investment routes
+  app.get("/api/investments", async (req, res) => {
+    try {
+      const investments = await storage.getAllInvestments();
+      res.json(investments);
+    } catch (error: any) {
+      res.status(500).json({ message: "Failed to fetch investments", error: error.message });
+    }
+  });
+
+  app.post("/api/investments", async (req, res) => {
+    try {
+      const investmentData = insertInvestmentSchema.parse(req.body);
+      const investment = await storage.createInvestment(investmentData);
+      res.status(201).json(investment);
+      broadcast("investments:changed", {});
+    } catch (error: any) {
+      res.status(400).json({ message: "Failed to create investment", error: error.message });
+    }
+  });
+
+  app.put("/api/investments/:id", async (req, res) => {
+    try {
+      const id = Number(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ message: "Invalid investment ID" });
+      }
+      const investmentData = updateInvestmentSchema.parse(req.body);
+      const investment = await storage.updateInvestment(id, investmentData);
+      res.json(investment);
+      broadcast("investments:changed", {});
+    } catch (error: any) {
+      res.status(400).json({ message: "Failed to update investment", error: error.message });
+    }
+  });
+
+  app.delete("/api/investments/:id", async (req, res) => {
+    try {
+      const id = Number(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ message: "Invalid investment ID" });
+      }
+      await storage.deleteInvestment(id);
+      res.json({ message: "Investment deleted successfully" });
+      broadcast("investments:changed", {});
+    } catch (error: any) {
+      res.status(400).json({ message: "Failed to delete investment", error: error.message });
     }
   });
 
