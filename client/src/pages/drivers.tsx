@@ -8,6 +8,16 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Plus, Edit, Trash2, Home } from "lucide-react";
 import Sidebar from "@/components/Sidebar";
@@ -36,6 +46,10 @@ export default function DriversPage() {
     joinedDate: new Date().toISOString().split('T')[0],
     dismissDate: "",
   });
+  
+  // Confirmation dialog states
+  const [deleteConfirm, setDeleteConfirm] = useState<number | null>(null);
+  const [updateConfirm, setUpdateConfirm] = useState(false);
 
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -125,6 +139,12 @@ export default function DriversPage() {
 
   const handleUpdate = () => {
     if (editingDriver) {
+      setUpdateConfirm(true);
+    }
+  };
+
+  const confirmUpdate = () => {
+    if (editingDriver) {
       const dataToSend = {
         name: formData.name,
         phone: formData.phone,
@@ -137,13 +157,12 @@ export default function DriversPage() {
         id: editingDriver.id,
         data: dataToSend,
       });
+      setUpdateConfirm(false);
     }
   };
 
   const handleDelete = (id: number) => {
-    if (confirm("Are you sure you want to delete this driver?")) {
-      deleteMutation.mutate(id);
-    }
+    setDeleteConfirm(id);
   };
 
   return (
@@ -364,6 +383,49 @@ export default function DriversPage() {
               </div>
             </DialogContent>
           </Dialog>
+
+          {/* Confirmation Dialogs */}
+          <AlertDialog open={deleteConfirm !== null} onOpenChange={() => setDeleteConfirm(null)}>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Confirm Delete Driver</AlertDialogTitle>
+                <AlertDialogDescription>
+                  Are you sure you want to delete this driver? This action cannot be undone and will remove the driver from the database.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction
+                  onClick={() => {
+                    if (deleteConfirm) {
+                      deleteMutation.mutate(deleteConfirm);
+                      setDeleteConfirm(null);
+                    }
+                  }}
+                  className="bg-red-600 hover:bg-red-700"
+                >
+                  Delete
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+
+          <AlertDialog open={updateConfirm} onOpenChange={setUpdateConfirm}>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Confirm Update Driver</AlertDialogTitle>
+                <AlertDialogDescription>
+                  Are you sure you want to update this driver's information? This will modify the driver details in the database.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction onClick={confirmUpdate}>
+                  Update
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
         </div>
       </main>
     </div>

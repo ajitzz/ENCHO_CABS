@@ -16,12 +16,23 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { format } from "date-fns";
 
 export default function Trips() {
   const [isTripLogModalOpen, setIsTripLogModalOpen] = useState(false);
   const [editTrip, setEditTrip] = useState<any>(null);
   const [editModalOpen, setEditModalOpen] = useState(false);
+  const [deleteConfirm, setDeleteConfirm] = useState<{ id: number; driverName: string; vehicleNumber: string } | null>(null);
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
@@ -53,9 +64,7 @@ export default function Trips() {
   });
 
   const handleDeleteTrip = (tripId: number, driverName: string, vehicleNumber: string) => {
-    if (window.confirm(`Are you sure you want to delete the trip for ${driverName} (${vehicleNumber})?`)) {
-      deleteTripMutation.mutate(tripId);
-    }
+    setDeleteConfirm({ id: tripId, driverName, vehicleNumber });
   };
 
   const handleEditTrip = (trip: any) => {
@@ -211,6 +220,32 @@ export default function Trips() {
         open={editModalOpen}
         onOpenChange={setEditModalOpen}
       />
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={deleteConfirm !== null} onOpenChange={() => setDeleteConfirm(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirm Delete Trip</AlertDialogTitle>
+            <AlertDialogDescription>
+              {deleteConfirm && `Are you sure you want to delete the trip for ${deleteConfirm.driverName} (${deleteConfirm.vehicleNumber})? This action cannot be undone and will remove the trip from the database and update rent logs.`}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (deleteConfirm) {
+                  deleteTripMutation.mutate(deleteConfirm.id);
+                  setDeleteConfirm(null);
+                }
+              }}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

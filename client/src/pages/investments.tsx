@@ -6,6 +6,16 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Plus, ArrowLeftRight, Trash2, IndianRupee, Edit } from "lucide-react";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 
@@ -48,6 +58,12 @@ export default function InvestmentsPage() {
   const [selectedInvestorGroup, setSelectedInvestorGroup] = useState<InvestorGroup | null>(null);
   const [selectedReturn, setSelectedReturn] = useState<InvestmentReturn | null>(null);
   const [selectedInvestment, setSelectedInvestment] = useState<InvestmentRecord | null>(null);
+  
+  // Confirmation dialog states
+  const [deleteInvestmentConfirm, setDeleteInvestmentConfirm] = useState<number | null>(null);
+  const [deleteReturnConfirm, setDeleteReturnConfirm] = useState<number | null>(null);
+  const [editInvestmentConfirm, setEditInvestmentConfirm] = useState(false);
+  const [editReturnConfirm, setEditReturnConfirm] = useState(false);
   
   const [formData, setFormData] = useState({
     investorName: "",
@@ -280,13 +296,20 @@ export default function InvestmentsPage() {
       });
       return;
     }
+    
+    setEditReturnConfirm(true);
+  };
 
+  const confirmEditReturn = () => {
+    if (!selectedReturn) return;
+    
     const dataToSend = {
       returnDate: editReturnFormData.returnDate,
       amountReturned: parseInt(editReturnFormData.amountReturned),
       paymentMethod: editReturnFormData.paymentMethod.trim(),
     };
     editReturnMutation.mutate({ id: selectedReturn.id, data: dataToSend });
+    setEditReturnConfirm(false);
   };
 
   const formatCurrency = (amount: number) => {
@@ -350,12 +373,19 @@ export default function InvestmentsPage() {
       return;
     }
 
+    setEditInvestmentConfirm(true);
+  };
+
+  const confirmEditInvestment = () => {
+    if (!selectedInvestment) return;
+    
     const dataToSend = {
       paymentGivenDate: editInvestmentFormData.paymentGivenDate,
       amountInvested: parseInt(editInvestmentFormData.amountInvested),
       paymentMethod: editInvestmentFormData.paymentMethod.trim(),
     };
     editInvestmentMutation.mutate({ id: selectedInvestment.id, data: dataToSend });
+    setEditInvestmentConfirm(false);
   };
 
   const openEditInvestmentDialog = (inv: InvestmentRecord) => {
@@ -583,7 +613,7 @@ export default function InvestmentsPage() {
                                     <Button
                                       variant="ghost"
                                       size="sm"
-                                      onClick={() => deleteMutation.mutate(inv.id)}
+                                      onClick={() => setDeleteInvestmentConfirm(inv.id)}
                                       data-testid={`button-delete-investment-${inv.id}`}
                                     >
                                       <Trash2 className="w-4 h-4 text-red-600" />
@@ -635,7 +665,7 @@ export default function InvestmentsPage() {
                                       <Button
                                         variant="ghost"
                                         size="sm"
-                                        onClick={() => deleteReturnMutation.mutate(ret.id)}
+                                        onClick={() => setDeleteReturnConfirm(ret.id)}
                                         data-testid={`button-delete-return-${ret.id}`}
                                       >
                                         <Trash2 className="w-4 h-4 text-red-600" />
@@ -885,6 +915,91 @@ export default function InvestmentsPage() {
               </div>
             </DialogContent>
           </Dialog>
+
+          {/* Confirmation Dialogs */}
+          <AlertDialog open={deleteInvestmentConfirm !== null} onOpenChange={() => setDeleteInvestmentConfirm(null)}>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Confirm Delete Investment</AlertDialogTitle>
+                <AlertDialogDescription>
+                  Are you sure you want to delete this investment record? This action cannot be undone and will remove the investment from the database.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction
+                  onClick={() => {
+                    if (deleteInvestmentConfirm) {
+                      deleteMutation.mutate(deleteInvestmentConfirm);
+                      setDeleteInvestmentConfirm(null);
+                    }
+                  }}
+                  className="bg-red-600 hover:bg-red-700"
+                >
+                  Delete
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+
+          <AlertDialog open={deleteReturnConfirm !== null} onOpenChange={() => setDeleteReturnConfirm(null)}>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Confirm Delete Return Payment</AlertDialogTitle>
+                <AlertDialogDescription>
+                  Are you sure you want to delete this return payment record? This action cannot be undone and will remove the return payment from the database.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction
+                  onClick={() => {
+                    if (deleteReturnConfirm) {
+                      deleteReturnMutation.mutate(deleteReturnConfirm);
+                      setDeleteReturnConfirm(null);
+                    }
+                  }}
+                  className="bg-red-600 hover:bg-red-700"
+                >
+                  Delete
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+
+          <AlertDialog open={editInvestmentConfirm} onOpenChange={setEditInvestmentConfirm}>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Confirm Update Investment</AlertDialogTitle>
+                <AlertDialogDescription>
+                  Are you sure you want to update this investment record? This will modify the investment details in the database.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction onClick={confirmEditInvestment}>
+                  Update
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+
+          <AlertDialog open={editReturnConfirm} onOpenChange={setEditReturnConfirm}>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Confirm Update Return Payment</AlertDialogTitle>
+                <AlertDialogDescription>
+                  Are you sure you want to update this return payment record? This will modify the return payment details in the database.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction onClick={confirmEditReturn}>
+                  Update
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
         </div>
       </div>
   );

@@ -5,6 +5,16 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Table, TableHead, TableHeader, TableRow, TableBody, TableCell } from "@/components/ui/table";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 const inr = (n:number)=> new Intl.NumberFormat("en-IN",{style:"currency",currency:"INR",maximumFractionDigits:0}).format(n||0);
 const fmt = (iso:string)=> new Date(iso).toLocaleDateString("en-GB");
@@ -20,6 +30,10 @@ export default function SettlementsPage() {
   const [editingKey, setEditingKey] = useState<Key | null>(null);
   const [draftCR, setDraftCR] = useState<string>(""); // Company Rent
   const [draftCW, setDraftCW] = useState<string>(""); // Company Wallet
+  
+  // Confirmation dialog states
+  const [saveConfirm, setSaveConfirm] = useState<{ weekStart: string; weekEnd: string } | null>(null);
+  const [deleteConfirm, setDeleteConfirm] = useState<{ weekStart: string; weekEnd: string } | null>(null);
 
   const mSave = useMutation({
     mutationFn: api.saveSettlement,
@@ -46,12 +60,19 @@ export default function SettlementsPage() {
     setDraftCW("");
   };
   const onSave = (weekStart:string, weekEnd:string) => {
-    mSave.mutate({
-      weekStart,
-      weekEnd,
-      companyRent: draftCR==="" ? null : Number(draftCR),
-      companyWallet: draftCW==="" ? null : Number(draftCW),
-    });
+    setSaveConfirm({ weekStart, weekEnd });
+  };
+
+  const confirmSave = () => {
+    if (saveConfirm) {
+      mSave.mutate({
+        weekStart: saveConfirm.weekStart,
+        weekEnd: saveConfirm.weekEnd,
+        companyRent: draftCR==="" ? null : Number(draftCR),
+        companyWallet: draftCW==="" ? null : Number(draftCW),
+      });
+      setSaveConfirm(null);
+    }
   };
 
   return (
@@ -119,7 +140,7 @@ export default function SettlementsPage() {
                     {!editing ? (
                       <>
                         <Button size="sm" variant="outline" onClick={()=>onEdit(key, r.companyRent, r.companyWallet)}>✎ Edit</Button>
-                        <Button size="sm" variant="destructive" onClick={()=>mDel.mutate({ weekStart:r.weekStart, weekEnd:r.weekEnd })}>🗑 Delete</Button>
+                        <Button size="sm" variant="destructive" onClick={()=>setDeleteConfirm({ weekStart:r.weekStart, weekEnd:r.weekEnd })}>🗑 Delete</Button>
                       </>
                     ) : (
                       <>
@@ -134,6 +155,50 @@ export default function SettlementsPage() {
           </TableBody>
         </Table>
       </Card>
+
+      {/* Save Confirmation Dialog */}
+      <AlertDialog open={saveConfirm !== null} onOpenChange={() => setSaveConfirm(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirm Update Settlement</AlertDialogTitle>
+            <AlertDialogDescription>
+              {saveConfirm && `Are you sure you want to update the settlement for ${fmt(saveConfirm.weekStart)} – ${fmt(saveConfirm.weekEnd)}? This will modify the settlement details in the database.`}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmSave}>
+              Save
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={deleteConfirm !== null} onOpenChange={() => setDeleteConfirm(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirm Delete Settlement</AlertDialogTitle>
+            <AlertDialogDescription>
+              {deleteConfirm && `Are you sure you want to delete the settlement for ${fmt(deleteConfirm.weekStart)} – ${fmt(deleteConfirm.weekEnd)}? This action cannot be undone and will remove the settlement from the database.`}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (deleteConfirm) {
+                  mDel.mutate({ weekStart: deleteConfirm.weekStart, weekEnd: deleteConfirm.weekEnd });
+                  setDeleteConfirm(null);
+                }
+              }}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

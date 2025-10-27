@@ -12,6 +12,16 @@ import { format } from "date-fns";
 import { Trash2, Edit, Filter, X, Search, Plus, Check, ChevronsUpDown, RefreshCw, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import EditTripModal from "@/components/EditTripModal";
 import TripLogModal from "@/components/TripLogModal";
 import SubstituteDriverForm from "@/components/SubstituteDriverForm";
@@ -50,6 +60,10 @@ export default function TripLogs() {
   const [repairingData, setRepairingData] = useState(false);
   const [tripLogModalOpen, setTripLogModalOpen] = useState(false);
   const [substituteModalOpen, setSubstituteModalOpen] = useState(false);
+  
+  // Delete confirmation states
+  const [deleteTripConfirm, setDeleteTripConfirm] = useState<{ id: number; driverName: string; vehicleNumber: string } | null>(null);
+  const [deleteSubstituteConfirm, setDeleteSubstituteConfirm] = useState<{ id: number; name: string } | null>(null);
   
   // Filter states
   const [startDateFilter, setStartDateFilter] = useState("");
@@ -461,9 +475,7 @@ export default function TripLogs() {
   });
 
   const handleDeleteTrip = (tripId: number, driverName: string, vehicleNumber: string) => {
-    if (window.confirm(`Are you sure you want to delete the trip for ${driverName} (${vehicleNumber})?`)) {
-      deleteTripMutation.mutate(tripId);
-    }
+    setDeleteTripConfirm({ id: tripId, driverName, vehicleNumber });
   };
 
   const handleEditTrip = (trip: any) => {
@@ -527,9 +539,7 @@ export default function TripLogs() {
   };
 
   const handleDeleteSubstitute = (substituteId: number, substituteName: string) => {
-    if (window.confirm(`Are you sure you want to delete the substitute driver ${substituteName}?`)) {
-      deleteSubstituteMutation.mutate(substituteId);
-    }
+    setDeleteSubstituteConfirm({ id: substituteId, name: substituteName });
   };
 
   const clearFilters = () => {
@@ -912,6 +922,58 @@ export default function TripLogs() {
         onOpenChange={setSubstituteModalOpen}
         vehicles={vehicles}
       />
+
+      {/* Delete Trip Confirmation Dialog */}
+      <AlertDialog open={deleteTripConfirm !== null} onOpenChange={() => setDeleteTripConfirm(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirm Delete Trip</AlertDialogTitle>
+            <AlertDialogDescription>
+              {deleteTripConfirm && `Are you sure you want to delete the trip for ${deleteTripConfirm.driverName} (${deleteTripConfirm.vehicleNumber})? This action cannot be undone and will remove the trip from the database and update rent logs.`}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (deleteTripConfirm) {
+                  deleteTripMutation.mutate(deleteTripConfirm.id);
+                  setDeleteTripConfirm(null);
+                }
+              }}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Delete Substitute Driver Confirmation Dialog */}
+      <AlertDialog open={deleteSubstituteConfirm !== null} onOpenChange={() => setDeleteSubstituteConfirm(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirm Delete Substitute Driver</AlertDialogTitle>
+            <AlertDialogDescription>
+              {deleteSubstituteConfirm && `Are you sure you want to delete the substitute driver ${deleteSubstituteConfirm.name}? This action cannot be undone and will remove the record from the database.`}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (deleteSubstituteConfirm) {
+                  deleteSubstituteMutation.mutate(deleteSubstituteConfirm.id);
+                  setDeleteSubstituteConfirm(null);
+                }
+              }}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
