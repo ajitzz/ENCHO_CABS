@@ -39,6 +39,8 @@ The application uses the following core entities:
 - **Driver Rent Logs**: Record daily rent payments from drivers
 - **Weekly Settlements**: Calculate and store weekly rental costs
 - **Substitute Drivers**: Handle temporary driver replacements
+- **Investments**: Track investor payments with amount and date information
+- **Investment Returns**: Record multiple partial return payments per investment
 
 ### Business Logic Components
 - **Rental Calculator**: Implements complex slab-based pricing for PMV and Letzryd
@@ -182,6 +184,16 @@ Changelog:
   • Updated Trip Log modal and Trip Logs table to show QR codes for both vehicles and drivers
   • Added dedicated QR code validation API endpoint for real-time frontend validation
   • Complete data integrity protection ensuring no duplicate QR codes can be created or updated
+- October 27, 2025. Investment tracking with partial returns support:
+  • Removed single paymentReturnDate field from investments table
+  • Added investment_returns table to track multiple partial payments per investment
+  • Implemented complete CRUD API for investment returns with SSE broadcasting
+  • Created card-based Investment page UI with highlighted investors and amounts
+  • Shows total invested, total returned, and balance for each investment
+  • Prevents over-returns with validation ensuring amount doesn't exceed balance
+  • Color-coded UI: green for completed investments, orange for active ones
+  • Return dialog shows previous payment history for transparency
+  • All investment changes trigger real-time updates via SSE events
 ```
 
 ## User Preferences

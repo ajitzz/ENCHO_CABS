@@ -51,7 +51,7 @@ export default function InvestmentsPage() {
   });
 
   const { data: selectedReturns } = useQuery<InvestmentReturn[]>({
-    queryKey: ["/api/investments", selectedInvestment?.id, "returns"],
+    queryKey: selectedInvestment ? [`/api/investments/${selectedInvestment.id}/returns`] : [],
     enabled: !!selectedInvestment,
   });
 
@@ -92,7 +92,9 @@ export default function InvestmentsPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/investments"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/investments", selectedInvestment?.id, "returns"] });
+      if (selectedInvestment) {
+        queryClient.invalidateQueries({ queryKey: [`/api/investments/${selectedInvestment.id}/returns`] });
+      }
       setIsReturnOpen(false);
       setReturnFormData({ 
         returnDate: new Date().toISOString().split('T')[0], 
