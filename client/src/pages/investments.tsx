@@ -7,7 +7,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Plus, ArrowLeftRight, Trash2, IndianRupee } from "lucide-react";
-import Sidebar from "@/components/Sidebar";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 
 interface Investment {
@@ -57,11 +56,7 @@ export default function InvestmentsPage() {
 
   const createMutation = useMutation({
     mutationFn: async (data: any) => {
-      return apiRequest("/api/investments", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
-      });
+      return apiRequest("POST", "/api/investments", data);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/investments"] });
@@ -84,11 +79,7 @@ export default function InvestmentsPage() {
 
   const addReturnMutation = useMutation({
     mutationFn: async (data: any) => {
-      return apiRequest("/api/investment-returns", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
-      });
+      return apiRequest("POST", "/api/investment-returns", data);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/investments"] });
@@ -113,9 +104,7 @@ export default function InvestmentsPage() {
 
   const deleteMutation = useMutation({
     mutationFn: async (id: number) => {
-      return apiRequest(`/api/investments/${id}`, {
-        method: "DELETE",
-      });
+      return apiRequest("DELETE", `/api/investments/${id}`);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/investments"] });
@@ -196,10 +185,8 @@ export default function InvestmentsPage() {
   };
 
   return (
-    <div className="flex h-screen bg-gray-50">
-      <Sidebar />
-      <main className="flex-1 p-6 overflow-auto">
-        <div className="max-w-7xl mx-auto space-y-6">
+    <div className="p-6">
+      <div className="max-w-7xl mx-auto space-y-6">
           <div className="flex items-center justify-between">
             <div>
               <h1 className="text-3xl font-bold text-gray-900">Investment Tracking</h1>
@@ -419,7 +406,6 @@ export default function InvestmentsPage() {
             </DialogContent>
           </Dialog>
         </div>
-      </main>
-    </div>
+      </div>
   );
 }
