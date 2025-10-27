@@ -13,6 +13,7 @@ import TripLogs from "@/pages/TripLogs";
 import Settlements from "@/pages/settlements";
 import DriversPayments from "@/pages/drivers-payments";
 import WeeklySummary from "@/pages/WeeklySummary";
+import Investments from "@/pages/investments";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -31,6 +32,7 @@ function Router() {
         <Route path="/settlements" component={Settlements} />
         <Route path="/drivers-payments" component={DriversPayments} />
         <Route path="/weekly-summary" component={WeeklySummary} />
+        <Route path="/investments" component={Investments} />
         <Route component={NotFound} />
       </Switch>
     </Layout>
