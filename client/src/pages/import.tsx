@@ -46,11 +46,11 @@ export default function ImportPage() {
       const arrayBuffer = await uploadedFile.arrayBuffer();
       const workbook = XLSX.read(arrayBuffer, { type: 'array' });
       
-      const septemberSheet = workbook.Sheets['September'];
+      const septemberSheet = workbook.Sheets['September Driver Analysis'];
       if (!septemberSheet) {
         toast({
           title: "Error",
-          description: "Could not find 'September' sheet in the Excel file.",
+          description: "Could not find 'September Driver Analysis' sheet in the Excel file.",
           variant: "destructive",
         });
         return;
@@ -61,7 +61,7 @@ export default function ImportPage() {
       if (jsonData.length < 2) {
         toast({
           title: "Error",
-          description: "No data found in September sheet.",
+          description: "No data found in September Driver Analysis sheet.",
           variant: "destructive",
         });
         return;
@@ -116,7 +116,7 @@ export default function ImportPage() {
       setData(extractedData);
       toast({
         title: "Success",
-        description: `Extracted ${extractedData.length} rows from September sheet.`,
+        description: `Extracted ${extractedData.length} rows from September Driver Analysis sheet.`,
       });
     } catch (error) {
       console.error('Error reading Excel file:', error);
@@ -229,7 +229,7 @@ export default function ImportPage() {
       <div>
         <h1 className="text-3xl font-bold">Import from Excel</h1>
         <p className="text-muted-foreground mt-2">
-          Upload your Excel file to import drivers, vehicles, and trip logs from the September sheet.
+          Upload your Excel file to import drivers, vehicles, and trip logs from the September Driver Analysis sheet.
         </p>
       </div>
 
@@ -240,7 +240,7 @@ export default function ImportPage() {
             Upload Excel File
           </CardTitle>
           <CardDescription>
-            Select an Excel file containing the September sheet with your trip data.
+            Select an Excel file containing the September Driver Analysis sheet with your trip data.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -264,7 +264,7 @@ export default function ImportPage() {
               <div className="flex items-center gap-2">
                 <CheckCircle2 className="h-5 w-5 text-green-600" />
                 <span className="font-medium">
-                  {data.length} rows extracted from September sheet
+                  {data.length} rows extracted from September Driver Analysis sheet
                 </span>
               </div>
               <Button
