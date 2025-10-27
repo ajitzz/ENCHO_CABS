@@ -1,4 +1,4 @@
-import { Truck, BarChart3, Car, Users, Route, Calculator, Banknote, Calendar } from "lucide-react";
+import { Truck, BarChart3, Car, Users, Route, Calculator, Wallet, Calendar } from "lucide-react";
 import { Link, useLocation } from "wouter";
 
 export default function Sidebar() {
@@ -17,7 +17,7 @@ export default function Sidebar() {
     { icon: Route, label: "Trip Logs", href: "/trip-logs", active: location === "/trip-logs" },
     { icon: Calendar, label: "Weekly Summary", href: "/weekly-summary", active: location === "/weekly-summary" },
     { icon: Calculator, label: "Settlements", href: "/settlements", active: location === "/settlements" },
-    { icon: Banknote, label: "Rent Tracking", href: "/rent-tracking", active: location === "/rent-tracking" },
+    { icon: Wallet, label: "Drivers Payments", href: "/drivers-payments", active: location === "/drivers-payments" },
   ];
 
   return (
