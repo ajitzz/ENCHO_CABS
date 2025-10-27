@@ -514,10 +514,7 @@ export class DatabaseStorage implements IStorage {
       .from(driverRentLogs)
       .innerJoin(drivers, eq(driverRentLogs.driverId, drivers.id))
       .where(
-        and(
-          gte(sql`DATE(${driverRentLogs.date} AT TIME ZONE 'Asia/Kolkata')`, startDate),
-          lte(sql`DATE(${driverRentLogs.date} AT TIME ZONE 'Asia/Kolkata')`, endDate)
-        )
+        sql`DATE(${driverRentLogs.date}) BETWEEN ${startDate} AND ${endDate}`
       )
       .groupBy(driverRentLogs.driverId, drivers.name)
       .orderBy(asc(drivers.name));
