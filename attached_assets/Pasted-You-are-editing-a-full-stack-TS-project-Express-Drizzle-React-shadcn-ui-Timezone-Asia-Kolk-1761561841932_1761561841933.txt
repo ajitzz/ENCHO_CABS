@@ -1,5 +1,29 @@
+You are editing a full-stack TS project (Express + Drizzle + React + shadcn/ui).
+Timezone: Asia/Kolkata. Weekly ranges are Monday→Sunday, inclusive.
+
+=====================================
+TASK
+=====================================
+Update the **Settlements** page so that:
+- Rows are **read-only by default** (no inputs).
+- “Company Rent” and “Company Wallet” display as em-dash “—” when blank.
+- Clicking **Edit** switches only that row into edit mode (two inputs appear).
+- In edit mode, show **Save** and **Cancel** instead of Edit/Delete.
+- Profit appears **only when both Company fields are provided** (use edited values while editing, else saved values).
+- Keep Trip Log look: colored amounts (Rent green, Wallet purple), compact actions, INR integers.
+- All historical weeks must be present (already provided by server; no API changes).
+
+NO DB or server changes are required if weekly_settlements + /api/settlements are already implemented.
+
+=====================================
+CLIENT: replace the page
+=====================================
+File: client/src/pages/settlements.tsx
+Replace the component with this version (adjust import paths if needed):
+
+```tsx
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { api } from "@/lib/api";
+import { getSettlements, saveSettlement, deleteSettlement } from "../lib/api";
 import { useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -13,7 +37,7 @@ type Key = string; // `${weekStart}-${weekEnd}`
 
 export default function SettlementsPage() {
   const qc = useQueryClient();
-  const { data, isLoading, error } = useQuery({ queryKey:["settlements"], queryFn: () => api.getSettlements() });
+  const { data, isLoading, error } = useQuery({ queryKey:["settlements"], queryFn: getSettlements });
   const rows = data?.items ?? [];
 
   // which row is in edit mode + its drafts
@@ -22,7 +46,7 @@ export default function SettlementsPage() {
   const [draftCW, setDraftCW] = useState<string>(""); // Company Wallet
 
   const mSave = useMutation({
-    mutationFn: api.saveSettlement,
+    mutationFn: saveSettlement,
     onSuccess: () => {
       setEditingKey(null);
       setDraftCR("");
@@ -31,7 +55,7 @@ export default function SettlementsPage() {
     },
   });
   const mDel = useMutation({
-    mutationFn: ({weekStart, weekEnd}:{weekStart:string; weekEnd:string}) => api.deleteSettlement(weekStart, weekEnd),
+    mutationFn: ({weekStart, weekEnd}:{weekStart:string; weekEnd:string}) => deleteSettlement(weekStart, weekEnd),
     onSuccess: () => qc.invalidateQueries({ queryKey:["settlements"] }),
   });
 
@@ -60,18 +84,18 @@ export default function SettlementsPage() {
 
       <Card className="p-0 overflow-hidden">
         <Table>
-          <TableHeader>
+          <TableHead>
             <TableRow>
-              <TableHead>Week</TableHead>
-              <TableHead className="text-right">Rent</TableHead>
-              <TableHead className="text-right">Wallet</TableHead>
-              <TableHead className="text-right">Company Rent</TableHead>
-              <TableHead className="text-right">Company Wallet</TableHead>
-              <TableHead className="text-right">Room Rent</TableHead>
-              <TableHead className="text-right">Profit</TableHead>
-              <TableHead className="text-right">Actions</TableHead>
+              <TableHeader>Week</TableHeader>
+              <TableHeader className="text-right">Rent</TableHeader>
+              <TableHeader className="text-right">Wallet</TableHeader>
+              <TableHeader className="text-right">Company Rent</TableHeader>
+              <TableHeader className="text-right">Company Wallet</TableHeader>
+              <TableHeader className="text-right">Room Rent</TableHeader>
+              <TableHeader className="text-right">Profit</TableHeader>
+              <TableHeader className="text-right">Actions</TableHeader>
             </TableRow>
-          </TableHeader>
+          </TableHead>
           <TableBody>
             {isLoading && <TableRow><TableCell colSpan={8}>Loading…</TableCell></TableRow>}
             {error && <TableRow><TableCell colSpan={8}>Failed to load.</TableCell></TableRow>}
