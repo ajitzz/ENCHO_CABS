@@ -55,3 +55,23 @@ Preferred communication style: Simple, everyday language.
 ### Development Tools
 - **Replit Integration**: Runtime error overlay and cartographer.
 - **TypeScript**: Static type checking.
+
+## Recent Updates
+
+### October 27, 2025 - Investment Management Enhancements
+
+#### Add More Investment Feature
+- Added "Add Investment" button within each investor card in the Investment History section
+- Allows adding additional investments for existing investors without creating new investor cards
+- Pre-fills investor name and only requires date, amount, and optional payment method
+- Automatically updates totals (Total Invested, Total Returned, Balance) when new investments are added
+- Uses separate dialog and mutation for better UX and state management
+- Button located next to Investment History heading for easy access
+
+#### Investment Display Improvements
+- Grouped view shows all investments and returns per investor
+- Color-coded headers: green for completed investments (balance = 0), blue/orange for active
+- Comprehensive tables showing investment dates, amounts, payment methods
+- Complete return history with edit and delete capabilities
+- Totals section shows Total Invested, Total Returned, and Balance with color indicators
+

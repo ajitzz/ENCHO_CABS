@@ -41,6 +41,7 @@ interface InvestorGroup {
 
 export default function InvestmentsPage() {
   const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [isAddMoreOpen, setIsAddMoreOpen] = useState(false);
   const [isReturnOpen, setIsReturnOpen] = useState(false);
   const [isEditReturnOpen, setIsEditReturnOpen] = useState(false);
   const [selectedInvestorGroup, setSelectedInvestorGroup] = useState<InvestorGroup | null>(null);
@@ -53,6 +54,12 @@ export default function InvestmentsPage() {
     paymentMethod: "",
   });
   
+  const [addMoreFormData, setAddMoreFormData] = useState({
+    paymentGivenDate: new Date().toISOString().split('T')[0],
+    amountInvested: "",
+    paymentMethod: "",
+  });
+
   const [returnFormData, setReturnFormData] = useState({
     investmentId: "",
     returnDate: new Date().toISOString().split('T')[0],
@@ -91,6 +98,29 @@ export default function InvestmentsPage() {
       toast({ 
         title: "Error", 
         description: error.message || "Failed to create investment", 
+        variant: "destructive" 
+      });
+    },
+  });
+
+  const addMoreMutation = useMutation({
+    mutationFn: async (data: any) => {
+      return apiRequest("POST", "/api/investments", data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/investments/by-investor"] });
+      setIsAddMoreOpen(false);
+      setAddMoreFormData({ 
+        paymentGivenDate: new Date().toISOString().split('T')[0],
+        amountInvested: "",
+        paymentMethod: "",
+      });
+      toast({ title: "Success", description: "Investment added successfully" });
+    },
+    onError: (error: any) => {
+      toast({ 
+        title: "Error", 
+        description: error.message || "Failed to add investment", 
         variant: "destructive" 
       });
     },
@@ -218,6 +248,30 @@ export default function InvestmentsPage() {
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('en-IN');
+  };
+
+  const handleAddMore = () => {
+    if (!selectedInvestorGroup || !addMoreFormData.amountInvested) {
+      toast({ 
+        title: "Validation Error", 
+        description: "Please fill all required fields", 
+        variant: "destructive" 
+      });
+      return;
+    }
+
+    const dataToSend = {
+      investorName: selectedInvestorGroup.investorName,
+      amountInvested: parseInt(addMoreFormData.amountInvested),
+      paymentGivenDate: addMoreFormData.paymentGivenDate,
+      paymentMethod: addMoreFormData.paymentMethod || undefined,
+    };
+    addMoreMutation.mutate(dataToSend);
+  };
+
+  const openAddMoreDialog = (investorGroup: InvestorGroup) => {
+    setSelectedInvestorGroup(investorGroup);
+    setIsAddMoreOpen(true);
   };
 
   const openReturnDialog = (investorGroup: InvestorGroup) => {
@@ -372,12 +426,23 @@ export default function InvestmentsPage() {
                   <CardContent className="pt-6 space-y-6">
                     {/* Investment History */}
                     <div>
-                      <h3 className="text-lg font-semibold text-gray-900 mb-3 flex items-center">
-                        <span className="bg-blue-600 text-white px-3 py-1 rounded-full text-sm mr-2">
-                          {investor.investments.length}
-                        </span>
-                        Investment History
-                      </h3>
+                      <div className="flex items-center justify-between mb-3">
+                        <h3 className="text-lg font-semibold text-gray-900 flex items-center">
+                          <span className="bg-blue-600 text-white px-3 py-1 rounded-full text-sm mr-2">
+                            {investor.investments.length}
+                          </span>
+                          Investment History
+                        </h3>
+                        <Button
+                          variant="default"
+                          size="sm"
+                          onClick={() => openAddMoreDialog(investor)}
+                          data-testid={`button-add-more-investment-${investor.investorName}`}
+                        >
+                          <Plus className="w-4 h-4 mr-1" />
+                          Add Investment
+                        </Button>
+                      </div>
                       <div className="overflow-x-auto">
                         <table className="w-full">
                           <thead>
@@ -586,6 +651,58 @@ export default function InvestmentsPage() {
                   disabled={editReturnMutation.isPending}
                 >
                   {editReturnMutation.isPending ? "Updating..." : "Update Return Payment"}
+                </Button>
+              </div>
+            </DialogContent>
+          </Dialog>
+
+          {/* Add More Investment Dialog */}
+          <Dialog open={isAddMoreOpen} onOpenChange={setIsAddMoreOpen}>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Add More Investment</DialogTitle>
+                {selectedInvestorGroup && (
+                  <p className="text-sm text-gray-600">
+                    Investor: <span className="font-semibold">{selectedInvestorGroup.investorName}</span>
+                  </p>
+                )}
+              </DialogHeader>
+              <div className="space-y-4">
+                <div>
+                  <Label htmlFor="addMoreDate">Date of Investment*</Label>
+                  <Input
+                    id="addMoreDate"
+                    type="date"
+                    value={addMoreFormData.paymentGivenDate}
+                    onChange={(e) => setAddMoreFormData({ ...addMoreFormData, paymentGivenDate: e.target.value })}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="addMoreAmount">Investment Amount (₹)*</Label>
+                  <Input
+                    id="addMoreAmount"
+                    type="number"
+                    value={addMoreFormData.amountInvested}
+                    onChange={(e) => setAddMoreFormData({ ...addMoreFormData, amountInvested: e.target.value })}
+                    placeholder="Enter amount"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="addMorePaymentMethod">Payment Method</Label>
+                  <Input
+                    id="addMorePaymentMethod"
+                    value={addMoreFormData.paymentMethod}
+                    onChange={(e) => setAddMoreFormData({ ...addMoreFormData, paymentMethod: e.target.value })}
+                    placeholder="e.g., Cash, Bank Transfer, UPI"
+                  />
+                </div>
+
+                <Button 
+                  onClick={handleAddMore} 
+                  className="w-full"
+                  disabled={addMoreMutation.isPending}
+                >
+                  {addMoreMutation.isPending ? "Adding..." : "Add Investment"}
                 </Button>
               </div>
             </DialogContent>
