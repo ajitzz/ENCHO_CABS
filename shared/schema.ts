@@ -110,6 +110,7 @@ export const investments = pgTable("investments", {
   investorName: text("investor_name").notNull(),
   amountInvested: integer("amount_invested").notNull(),
   paymentGivenDate: date("payment_given_date").notNull(),
+  paymentMethod: text("payment_method"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
@@ -119,6 +120,7 @@ export const investmentReturns = pgTable("investment_returns", {
   investmentId: integer("investment_id").notNull(),
   returnDate: date("return_date").notNull(),
   amountReturned: integer("amount_returned").notNull(),
+  paymentMethod: text("payment_method"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
