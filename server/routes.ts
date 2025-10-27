@@ -813,6 +813,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.get("/api/investments/by-investor", async (req, res) => {
+    try {
+      const investors = await storage.getInvestmentsByInvestor();
+      res.json(investors);
+    } catch (error: any) {
+      res.status(500).json({ message: "Failed to fetch investments by investor", error: error.message });
+    }
+  });
+
   app.post("/api/investments", async (req, res) => {
     try {
       const investmentData = insertInvestmentSchema.parse(req.body);

@@ -9,14 +9,12 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Plus, ArrowLeftRight, Trash2, IndianRupee, Edit } from "lucide-react";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 
-interface Investment {
+interface InvestmentRecord {
   id: number;
   investorName: string;
   amountInvested: number;
   paymentGivenDate: string;
   paymentMethod?: string;
-  totalReturned: number;
-  balance: number;
   createdAt: string;
   updatedAt: string;
 }
@@ -27,15 +25,25 @@ interface InvestmentReturn {
   returnDate: string;
   amountReturned: number;
   paymentMethod?: string;
+  investmentDate: string;
   createdAt: string;
   updatedAt: string;
+}
+
+interface InvestorGroup {
+  investorName: string;
+  investments: InvestmentRecord[];
+  returns: InvestmentReturn[];
+  totalInvested: number;
+  totalReturned: number;
+  balance: number;
 }
 
 export default function InvestmentsPage() {
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [isReturnOpen, setIsReturnOpen] = useState(false);
   const [isEditReturnOpen, setIsEditReturnOpen] = useState(false);
-  const [selectedInvestment, setSelectedInvestment] = useState<Investment | null>(null);
+  const [selectedInvestorGroup, setSelectedInvestorGroup] = useState<InvestorGroup | null>(null);
   const [selectedReturn, setSelectedReturn] = useState<InvestmentReturn | null>(null);
   
   const [formData, setFormData] = useState({
@@ -46,6 +54,7 @@ export default function InvestmentsPage() {
   });
   
   const [returnFormData, setReturnFormData] = useState({
+    investmentId: "",
     returnDate: new Date().toISOString().split('T')[0],
     amountReturned: "",
     paymentMethod: "",
@@ -59,13 +68,8 @@ export default function InvestmentsPage() {
 
   const { toast } = useToast();
 
-  const { data: investments, isLoading } = useQuery<Investment[]>({
-    queryKey: ["/api/investments"],
-  });
-
-  const { data: selectedReturns } = useQuery<InvestmentReturn[]>({
-    queryKey: selectedInvestment ? [`/api/investments/${selectedInvestment.id}/returns`] : [],
-    enabled: !!selectedInvestment,
+  const { data: investors, isLoading } = useQuery<InvestorGroup[]>({
+    queryKey: ["/api/investments/by-investor"],
   });
 
   const createMutation = useMutation({
@@ -73,7 +77,7 @@ export default function InvestmentsPage() {
       return apiRequest("POST", "/api/investments", data);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/investments"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/investments/by-investor"] });
       setIsCreateOpen(false);
       setFormData({ 
         investorName: "", 
@@ -97,12 +101,10 @@ export default function InvestmentsPage() {
       return apiRequest("POST", "/api/investment-returns", data);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/investments"] });
-      if (selectedInvestment) {
-        queryClient.invalidateQueries({ queryKey: [`/api/investments/${selectedInvestment.id}/returns`] });
-      }
+      queryClient.invalidateQueries({ queryKey: ["/api/investments/by-investor"] });
       setIsReturnOpen(false);
       setReturnFormData({ 
+        investmentId: "",
         returnDate: new Date().toISOString().split('T')[0], 
         amountReturned: "",
         paymentMethod: "",
@@ -123,10 +125,7 @@ export default function InvestmentsPage() {
       return apiRequest("PUT", `/api/investment-returns/${id}`, data);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/investments"] });
-      if (selectedInvestment) {
-        queryClient.invalidateQueries({ queryKey: [`/api/investments/${selectedInvestment.id}/returns`] });
-      }
+      queryClient.invalidateQueries({ queryKey: ["/api/investments/by-investor"] });
       setIsEditReturnOpen(false);
       setSelectedReturn(null);
       toast({ title: "Success", description: "Return payment updated successfully" });
@@ -145,7 +144,7 @@ export default function InvestmentsPage() {
       return apiRequest("DELETE", `/api/investments/${id}`);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/investments"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/investments/by-investor"] });
       toast({ title: "Success", description: "Investment deleted successfully" });
     },
     onError: () => {
@@ -173,29 +172,19 @@ export default function InvestmentsPage() {
   };
 
   const handleAddReturn = () => {
-    if (!selectedInvestment || !returnFormData.amountReturned) {
+    if (!returnFormData.investmentId || !returnFormData.amountReturned) {
       toast({ 
         title: "Validation Error", 
-        description: "Please enter return amount", 
-        variant: "destructive" 
-      });
-      return;
-    }
-
-    const amount = parseInt(returnFormData.amountReturned);
-    if (amount > selectedInvestment.balance) {
-      toast({ 
-        title: "Validation Error", 
-        description: "Return amount cannot be greater than balance", 
+        description: "Please select an investment and enter return amount", 
         variant: "destructive" 
       });
       return;
     }
 
     const dataToSend = {
-      investmentId: selectedInvestment.id,
+      investmentId: parseInt(returnFormData.investmentId),
       returnDate: returnFormData.returnDate,
-      amountReturned: amount,
+      amountReturned: parseInt(returnFormData.amountReturned),
       paymentMethod: returnFormData.paymentMethod || undefined,
     };
     addReturnMutation.mutate(dataToSend);
@@ -211,20 +200,12 @@ export default function InvestmentsPage() {
       return;
     }
 
-    const amount = parseInt(editReturnFormData.amountReturned);
-    
     const dataToSend = {
       returnDate: editReturnFormData.returnDate,
-      amountReturned: amount,
+      amountReturned: parseInt(editReturnFormData.amountReturned),
       paymentMethod: editReturnFormData.paymentMethod || undefined,
     };
     editReturnMutation.mutate({ id: selectedReturn.id, data: dataToSend });
-  };
-
-  const handleDelete = (id: number) => {
-    if (confirm("Are you sure you want to delete this investment?")) {
-      deleteMutation.mutate(id);
-    }
   };
 
   const formatCurrency = (amount: number) => {
@@ -239,8 +220,8 @@ export default function InvestmentsPage() {
     return new Date(dateString).toLocaleDateString('en-IN');
   };
 
-  const openReturnDialog = (investment: Investment) => {
-    setSelectedInvestment(investment);
+  const openReturnDialog = (investorGroup: InvestorGroup) => {
+    setSelectedInvestorGroup(investorGroup);
     setIsReturnOpen(true);
   };
 
@@ -260,7 +241,7 @@ export default function InvestmentsPage() {
           <div className="flex items-center justify-between">
             <div>
               <h1 className="text-3xl font-bold text-gray-900">Investment Tracking</h1>
-              <p className="text-gray-600 mt-1">Track investments and partial returns</p>
+              <p className="text-gray-600 mt-1">Track investments grouped by investor</p>
             </div>
             
             <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
@@ -333,7 +314,7 @@ export default function InvestmentsPage() {
             <div className="text-center py-12">
               <div className="text-lg text-gray-600">Loading investments...</div>
             </div>
-          ) : !investments || investments.length === 0 ? (
+          ) : !investors || investors.length === 0 ? (
             <Card className="text-center py-12">
               <CardContent>
                 <IndianRupee className="w-16 h-16 text-gray-400 mx-auto mb-4" />
@@ -342,87 +323,152 @@ export default function InvestmentsPage() {
               </CardContent>
             </Card>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {investments.map((investment) => (
+            <div className="space-y-6">
+              {investors.map((investor) => (
                 <Card 
-                  key={investment.id} 
-                  className={`border-2 ${investment.balance === 0 ? 'border-green-200 bg-green-50' : 'border-orange-200 bg-white hover:shadow-lg'} transition-all duration-200`}
-                  data-testid={`card-investment-${investment.id}`}
+                  key={investor.investorName} 
+                  className={`border-2 ${investor.balance === 0 ? 'border-green-300 bg-gradient-to-br from-green-50 to-white' : 'border-blue-300 bg-gradient-to-br from-blue-50 to-white'} shadow-lg`}
+                  data-testid={`card-investor-${investor.investorName}`}
                 >
-                  <CardHeader className="pb-3">
+                  <CardHeader className="pb-4 bg-gradient-to-r from-indigo-600 to-blue-600 text-white rounded-t-lg">
                     <div className="flex items-start justify-between">
                       <div className="flex-1">
-                        <CardTitle className="text-2xl font-bold text-gray-900" data-testid={`text-investor-name-${investment.id}`}>
-                          {investment.investorName}
+                        <CardTitle className="text-3xl font-bold" data-testid={`text-investor-${investor.investorName}`}>
+                          {investor.investorName}
                         </CardTitle>
-                        <p className="text-sm text-gray-500 mt-1">
-                          Started: {formatDate(investment.paymentGivenDate)}
-                        </p>
-                        {investment.paymentMethod && (
-                          <p className="text-xs text-gray-500 mt-1">
-                            Method: {investment.paymentMethod}
-                          </p>
-                        )}
+                        <div className="grid grid-cols-3 gap-4 mt-4">
+                          <div className="bg-white/20 p-3 rounded-lg backdrop-blur-sm">
+                            <div className="text-xs opacity-90">Total Invested</div>
+                            <div className="text-2xl font-bold" data-testid={`text-total-invested-${investor.investorName}`}>
+                              {formatCurrency(investor.totalInvested)}
+                            </div>
+                          </div>
+                          <div className="bg-white/20 p-3 rounded-lg backdrop-blur-sm">
+                            <div className="text-xs opacity-90">Total Returned</div>
+                            <div className="text-2xl font-bold" data-testid={`text-total-returned-${investor.investorName}`}>
+                              {formatCurrency(investor.totalReturned)}
+                            </div>
+                          </div>
+                          <div className="bg-white/20 p-3 rounded-lg backdrop-blur-sm">
+                            <div className="text-xs opacity-90">Balance</div>
+                            <div className="text-2xl font-bold" data-testid={`text-balance-${investor.investorName}`}>
+                              {formatCurrency(investor.balance)}
+                            </div>
+                          </div>
+                        </div>
                       </div>
                       <span 
-                        className={`inline-flex px-3 py-1 text-xs font-semibold rounded-full ${
-                          investment.balance === 0
+                        className={`inline-flex px-4 py-2 text-sm font-semibold rounded-full ml-4 ${
+                          investor.balance === 0
                             ? "bg-green-500 text-white" 
                             : "bg-orange-500 text-white"
                         }`}
-                        data-testid={`status-${investment.id}`}
+                        data-testid={`status-${investor.investorName}`}
                       >
-                        {investment.balance === 0 ? "Completed" : "Active"}
+                        {investor.balance === 0 ? "Completed" : "Active"}
                       </span>
                     </div>
                   </CardHeader>
-                  <CardContent className="space-y-4">
-                    <div className="bg-gradient-to-r from-blue-50 to-indigo-50 p-4 rounded-lg border border-blue-200">
-                      <div className="flex items-center justify-between mb-1">
-                        <span className="text-sm text-gray-600">Total Investment</span>
-                      </div>
-                      <div className="text-3xl font-bold text-blue-900" data-testid={`text-amount-${investment.id}`}>
-                        {formatCurrency(investment.amountInvested)}
+                  <CardContent className="pt-6 space-y-6">
+                    {/* Investment History */}
+                    <div>
+                      <h3 className="text-lg font-semibold text-gray-900 mb-3 flex items-center">
+                        <span className="bg-blue-600 text-white px-3 py-1 rounded-full text-sm mr-2">
+                          {investor.investments.length}
+                        </span>
+                        Investment History
+                      </h3>
+                      <div className="overflow-x-auto">
+                        <table className="w-full">
+                          <thead>
+                            <tr className="border-b-2 border-gray-200 bg-gray-50">
+                              <th className="text-left p-3 text-sm font-semibold text-gray-700">Date</th>
+                              <th className="text-left p-3 text-sm font-semibold text-gray-700">Amount</th>
+                              <th className="text-left p-3 text-sm font-semibold text-gray-700">Payment Method</th>
+                              <th className="text-left p-3 text-sm font-semibold text-gray-700">Actions</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {investor.investments.map((inv) => (
+                              <tr key={inv.id} className="border-b border-gray-100 hover:bg-gray-50">
+                                <td className="p-3 text-sm text-gray-900">{formatDate(inv.paymentGivenDate)}</td>
+                                <td className="p-3 text-sm font-semibold text-blue-700">{formatCurrency(inv.amountInvested)}</td>
+                                <td className="p-3 text-sm text-gray-600">{inv.paymentMethod || '-'}</td>
+                                <td className="p-3">
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => deleteMutation.mutate(inv.id)}
+                                    data-testid={`button-delete-investment-${inv.id}`}
+                                  >
+                                    <Trash2 className="w-4 h-4 text-red-600" />
+                                  </Button>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
                       </div>
                     </div>
 
-                    <div className="grid grid-cols-2 gap-3">
-                      <div className="bg-green-50 p-3 rounded-lg border border-green-200">
-                        <div className="text-xs text-gray-600 mb-1">Returned</div>
-                        <div className="text-lg font-bold text-green-700" data-testid={`text-returned-${investment.id}`}>
-                          {formatCurrency(investment.totalReturned)}
+                    {/* Return History */}
+                    {investor.returns.length > 0 && (
+                      <div>
+                        <h3 className="text-lg font-semibold text-gray-900 mb-3 flex items-center">
+                          <span className="bg-green-600 text-white px-3 py-1 rounded-full text-sm mr-2">
+                            {investor.returns.length}
+                          </span>
+                          Return History
+                        </h3>
+                        <div className="overflow-x-auto">
+                          <table className="w-full">
+                            <thead>
+                              <tr className="border-b-2 border-gray-200 bg-gray-50">
+                                <th className="text-left p-3 text-sm font-semibold text-gray-700">Return Date</th>
+                                <th className="text-left p-3 text-sm font-semibold text-gray-700">Amount Returned</th>
+                                <th className="text-left p-3 text-sm font-semibold text-gray-700">Payment Method</th>
+                                <th className="text-left p-3 text-sm font-semibold text-gray-700">Actions</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {investor.returns.map((ret) => (
+                                <tr key={ret.id} className="border-b border-gray-100 hover:bg-gray-50">
+                                  <td className="p-3 text-sm text-gray-900">{formatDate(ret.returnDate)}</td>
+                                  <td className="p-3 text-sm font-semibold text-green-700">{formatCurrency(ret.amountReturned)}</td>
+                                  <td className="p-3 text-sm text-gray-600">{ret.paymentMethod || '-'}</td>
+                                  <td className="p-3">
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      onClick={() => openEditReturnDialog(ret)}
+                                      data-testid={`button-edit-return-${ret.id}`}
+                                    >
+                                      <Edit className="w-4 h-4 text-blue-600" />
+                                    </Button>
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
                         </div>
                       </div>
-                      <div className={`p-3 rounded-lg border ${investment.balance > 0 ? 'bg-orange-50 border-orange-200' : 'bg-gray-50 border-gray-200'}`}>
-                        <div className="text-xs text-gray-600 mb-1">Balance</div>
-                        <div className={`text-lg font-bold ${investment.balance > 0 ? 'text-orange-700' : 'text-gray-500'}`} data-testid={`text-balance-${investment.id}`}>
-                          {formatCurrency(investment.balance)}
-                        </div>
-                      </div>
-                    </div>
+                    )}
 
-                    <div className="flex gap-2 pt-2">
-                      {investment.balance > 0 && (
+                    {/* Add Return Button */}
+                    {investor.balance > 0 && (
+                      <div className="pt-4 border-t">
                         <Button
                           variant="default"
-                          size="sm"
-                          className="flex-1"
-                          onClick={() => openReturnDialog(investment)}
-                          data-testid={`button-add-return-${investment.id}`}
+                          size="lg"
+                          className="w-full"
+                          onClick={() => openReturnDialog(investor)}
+                          data-testid={`button-add-return-${investor.investorName}`}
                         >
-                          <ArrowLeftRight className="w-4 h-4 mr-1" />
-                          Add Return
+                          <ArrowLeftRight className="w-5 h-5 mr-2" />
+                          Add Return Payment
                         </Button>
-                      )}
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleDelete(investment.id)}
-                        data-testid={`button-delete-${investment.id}`}
-                      >
-                        <Trash2 className="w-4 h-4 text-red-600" />
-                      </Button>
-                    </div>
+                      </div>
+                    )}
                   </CardContent>
                 </Card>
               ))}
@@ -434,14 +480,30 @@ export default function InvestmentsPage() {
             <DialogContent>
               <DialogHeader>
                 <DialogTitle>Add Return Payment</DialogTitle>
-                {selectedInvestment && (
+                {selectedInvestorGroup && (
                   <p className="text-sm text-gray-600">
-                    Investor: <span className="font-semibold">{selectedInvestment.investorName}</span> | 
-                    Balance: <span className="font-semibold">{formatCurrency(selectedInvestment.balance)}</span>
+                    Investor: <span className="font-semibold">{selectedInvestorGroup.investorName}</span> | 
+                    Balance: <span className="font-semibold">{formatCurrency(selectedInvestorGroup.balance)}</span>
                   </p>
                 )}
               </DialogHeader>
               <div className="space-y-4">
+                <div>
+                  <Label htmlFor="investmentId">Select Investment*</Label>
+                  <select
+                    id="investmentId"
+                    className="w-full border rounded-md p-2"
+                    value={returnFormData.investmentId}
+                    onChange={(e) => setReturnFormData({ ...returnFormData, investmentId: e.target.value })}
+                  >
+                    <option value="">Select an investment</option>
+                    {selectedInvestorGroup?.investments.map((inv) => (
+                      <option key={inv.id} value={inv.id}>
+                        {formatDate(inv.paymentGivenDate)} - {formatCurrency(inv.amountInvested)}
+                      </option>
+                    ))}
+                  </select>
+                </div>
                 <div>
                   <Label htmlFor="returnDate">Return Date*</Label>
                   <Input
@@ -460,11 +522,6 @@ export default function InvestmentsPage() {
                     onChange={(e) => setReturnFormData({ ...returnFormData, amountReturned: e.target.value })}
                     placeholder="Enter amount to return"
                   />
-                  {selectedInvestment && (
-                    <p className="text-xs text-gray-500 mt-1">
-                      Maximum: {formatCurrency(selectedInvestment.balance)}
-                    </p>
-                  )}
                 </div>
                 <div>
                   <Label htmlFor="returnPaymentMethod">Payment Method</Label>
@@ -475,35 +532,6 @@ export default function InvestmentsPage() {
                     placeholder="e.g., Cash, Bank Transfer, UPI"
                   />
                 </div>
-
-                {selectedReturns && selectedReturns.length > 0 && (
-                  <div className="border-t pt-4">
-                    <h4 className="text-sm font-semibold mb-2">Previous Returns</h4>
-                    <div className="space-y-2 max-h-40 overflow-y-auto">
-                      {selectedReturns.map((ret) => (
-                        <div key={ret.id} className="bg-gray-50 p-3 rounded-lg border border-gray-200">
-                          <div className="flex justify-between items-start">
-                            <div className="flex-1">
-                              <div className="font-semibold text-green-700 text-lg">{formatCurrency(ret.amountReturned)}</div>
-                              <div className="text-sm text-gray-600 mt-1">Date: {formatDate(ret.returnDate)}</div>
-                              {ret.paymentMethod && (
-                                <div className="text-xs text-gray-500 mt-1">Method: {ret.paymentMethod}</div>
-                              )}
-                            </div>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => openEditReturnDialog(ret)}
-                              className="ml-2"
-                            >
-                              <Edit className="w-4 h-4" />
-                            </Button>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
 
                 <Button 
                   onClick={handleAddReturn} 

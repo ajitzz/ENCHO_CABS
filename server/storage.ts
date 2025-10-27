@@ -103,6 +103,7 @@ export interface IStorage {
   createInvestment(investment: InsertInvestment): Promise<Investment>;
   getInvestment(id: number): Promise<Investment | undefined>;
   getAllInvestments(): Promise<Array<Investment & { totalReturned: number; balance: number }>>;
+  getInvestmentsByInvestor(): Promise<any[]>;
   updateInvestment(id: number, investment: UpdateInvestment): Promise<Investment>;
   deleteInvestment(id: number): Promise<void>;
   
@@ -725,6 +726,58 @@ export class DatabaseStorage implements IStorage {
     );
     
     return investmentsWithReturns;
+  }
+
+  async getInvestmentsByInvestor(): Promise<any[]> {
+    // Get all investments
+    const allInvestments = await db.select().from(investments).orderBy(investments.investorName, desc(investments.paymentGivenDate));
+    
+    // Get all returns
+    const allReturns = await db.select().from(investmentReturns).orderBy(desc(investmentReturns.returnDate));
+    
+    // Group by investor name
+    const investorMap = new Map<string, any>();
+    
+    for (const investment of allInvestments) {
+      if (!investorMap.has(investment.investorName)) {
+        investorMap.set(investment.investorName, {
+          investorName: investment.investorName,
+          investments: [],
+          returns: [],
+          totalInvested: 0,
+          totalReturned: 0,
+          balance: 0,
+        });
+      }
+      
+      const investor = investorMap.get(investment.investorName)!;
+      investor.investments.push(investment);
+      investor.totalInvested += investment.amountInvested;
+    }
+    
+    // Add returns to each investor
+    for (const ret of allReturns) {
+      // Find which investment this return belongs to
+      const investment = allInvestments.find(inv => inv.id === ret.investmentId);
+      if (investment) {
+        const investor = investorMap.get(investment.investorName);
+        if (investor) {
+          investor.returns.push({
+            ...ret,
+            investmentId: ret.investmentId,
+            investmentDate: investment.paymentGivenDate,
+          });
+          investor.totalReturned += ret.amountReturned;
+        }
+      }
+    }
+    
+    // Calculate balance for each investor
+    for (const investor of investorMap.values()) {
+      investor.balance = investor.totalInvested - investor.totalReturned;
+    }
+    
+    return Array.from(investorMap.values());
   }
 
   async updateInvestment(id: number, investment: UpdateInvestment): Promise<Investment> {
