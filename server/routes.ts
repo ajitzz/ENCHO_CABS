@@ -1091,10 +1091,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const trip = await storage.createTrip({
             driverId: driver.id,
             vehicleId: vehicle.id,
-            tripDate: tripDate.toISOString(),
+            tripDate: tripDate,
             shift,
-            weekStart: weekStart.toISOString(),
-            weekEnd: weekEnd.toISOString(),
+            weekStart: weekStart,
+            weekEnd: weekEnd,
           });
           results.details.tripsCreated++;
 
@@ -1102,13 +1102,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const rentLog = await storage.createDriverRentLog({
             driverId: driver.id,
             vehicleId: vehicle.id,
-            date: tripDate.toISOString(),
+            date: tripDate,
             shift,
             rent: Math.round(rent),
             amountCollected: Math.round(amountCollected),
             fuel: Math.round(fuel),
-            weekStart: weekStart.toISOString(),
-            weekEnd: weekEnd.toISOString(),
+            weekStart: weekStart,
+            weekEnd: weekEnd,
           });
           results.details.rentLogsCreated++;
 
