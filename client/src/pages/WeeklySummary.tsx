@@ -17,6 +17,7 @@ interface WeeklySummaryRow {
   rent: number;
   collection: number;
   fuel: number;
+  trips: number;
   totalEarnings: number;
   cash: number;
   refund: number;
@@ -26,6 +27,7 @@ interface WeeklySummaryRow {
 }
 
 interface EditableFields {
+  trips: number;
   totalEarnings: number;
   cash: number;
   refund: number;
@@ -83,6 +85,7 @@ export default function WeeklySummary() {
       const initialData: Record<number, EditableFields> = {};
       summaries.forEach((row) => {
         initialData[row.driverId] = {
+          trips: row.trips,
           totalEarnings: row.totalEarnings,
           cash: row.cash,
           refund: row.refund,
@@ -101,6 +104,7 @@ export default function WeeklySummary() {
         driverId: data.driverId,
         startDate: startDateStr,
         endDate: endDateStr,
+        trips: data.trips,
         totalEarnings: data.totalEarnings,
         cash: data.cash,
         refund: data.refund,
@@ -281,6 +285,7 @@ export default function WeeklySummary() {
                     <th className="text-right py-3 px-2 text-gray-700 font-semibold">Rent</th>
                     <th className="text-right py-3 px-2 text-gray-700 font-semibold">Collection</th>
                     <th className="text-right py-3 px-2 text-gray-700 font-semibold">Fuel</th>
+                    <th className="text-right py-3 px-2 text-gray-700 font-semibold bg-blue-50">Trips*</th>
                     <th className="text-right py-3 px-2 text-gray-700 font-semibold bg-blue-50">Total Earnings*</th>
                     <th className="text-right py-3 px-2 text-gray-700 font-semibold bg-blue-50">Cash*</th>
                     <th className="text-right py-3 px-2 text-gray-700 font-semibold bg-blue-50">Refund*</th>
@@ -305,6 +310,15 @@ export default function WeeklySummary() {
                         <td className="py-3 px-2 text-right text-gray-900" data-testid={`text-rent-${row.driverId}`}>₹{row.rent.toLocaleString()}</td>
                         <td className="py-3 px-2 text-right text-gray-900" data-testid={`text-collection-${row.driverId}`}>₹{row.collection.toLocaleString()}</td>
                         <td className="py-3 px-2 text-right text-gray-900" data-testid={`text-fuel-${row.driverId}`}>₹{row.fuel.toLocaleString()}</td>
+                        <td className="py-3 px-2 bg-blue-50">
+                          <Input
+                            type="number"
+                            value={data.trips}
+                            onChange={(e) => handleFieldChange(row.driverId, "trips", parseInt(e.target.value) || 0)}
+                            className="w-24 text-right"
+                            data-testid={`input-trips-${row.driverId}`}
+                          />
+                        </td>
                         <td className="py-3 px-2 bg-blue-50">
                           <Input
                             type="number"

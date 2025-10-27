@@ -92,6 +92,7 @@ export const weeklySummaries = pgTable("weekly_summaries", {
   driverId: integer("driver_id").notNull(),
   startDate: date("start_date").notNull(), // inclusive
   endDate: date("end_date").notNull(),     // inclusive
+  trips: integer("trips").notNull().default(0),
   totalEarnings: integer("total_earnings").notNull().default(0),
   cash: integer("cash").notNull().default(0),
   refund: integer("refund").notNull().default(0),
@@ -265,6 +266,7 @@ export const upsertWeeklySummarySchema = z.object({
   driverId: z.number().int().positive(),
   startDate: z.string(),
   endDate: z.string(),
+  trips: z.number().int().min(0).default(0),
   totalEarnings: z.number().int().min(0).default(0),
   cash: z.number().int().min(0).default(0),
   refund: z.number().int().min(0).default(0),

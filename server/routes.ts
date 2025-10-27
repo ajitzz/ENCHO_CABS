@@ -755,6 +755,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             rent: aggregate.totalRent,
             collection: aggregate.totalCollection,
             fuel: aggregate.totalFuel,
+            trips: aggregate.tripCount,
             totalEarnings: savedSummary?.totalEarnings || 0,
             cash: savedSummary?.cash || 0,
             refund: savedSummary?.refund || 0,

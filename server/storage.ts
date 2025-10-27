@@ -94,6 +94,7 @@ export interface IStorage {
     totalRent: number;
     totalCollection: number;
     totalFuel: number;
+    tripCount: number;
   }>>;
   upsertWeeklySummary(summary: UpsertWeeklySummary): Promise<WeeklySummary>;
   getWeeklySummary(driverId: number, startDate: string, endDate: string): Promise<WeeklySummary | undefined>;
@@ -618,6 +619,7 @@ export class DatabaseStorage implements IStorage {
     totalRent: number;
     totalCollection: number;
     totalFuel: number;
+    tripCount: number;
   }>> {
     const result = await db.select({
       driverId: driverRentLogs.driverId,
@@ -625,6 +627,7 @@ export class DatabaseStorage implements IStorage {
       totalRent: sql<number>`CAST(COALESCE(SUM(${driverRentLogs.rent}), 0) AS INTEGER)`,
       totalCollection: sql<number>`CAST(COALESCE(SUM(${driverRentLogs.amountCollected}), 0) AS INTEGER)`,
       totalFuel: sql<number>`CAST(COALESCE(SUM(${driverRentLogs.fuel}), 0) AS INTEGER)`,
+      tripCount: sql<number>`CAST(COUNT(*) AS INTEGER)`,
     })
       .from(driverRentLogs)
       .innerJoin(drivers, eq(driverRentLogs.driverId, drivers.id))
@@ -643,6 +646,7 @@ export class DatabaseStorage implements IStorage {
         driverId: summary.driverId,
         startDate: summary.startDate,
         endDate: summary.endDate,
+        trips: summary.trips || 0,
         totalEarnings: summary.totalEarnings || 0,
         cash: summary.cash || 0,
         refund: summary.refund || 0,
@@ -654,6 +658,7 @@ export class DatabaseStorage implements IStorage {
       .onConflictDoUpdate({
         target: [weeklySummaries.driverId, weeklySummaries.startDate, weeklySummaries.endDate],
         set: {
+          trips: summary.trips || 0,
           totalEarnings: summary.totalEarnings || 0,
           cash: summary.cash || 0,
           refund: summary.refund || 0,

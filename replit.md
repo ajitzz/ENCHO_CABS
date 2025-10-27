@@ -60,6 +60,13 @@ Preferred communication style: Simple, everyday language.
 
 ### October 27, 2025 - Data Import & Vehicle Filtering
 
+#### Trips Column in Weekly Summary
+- Added editable "Trips" column between Fuel and Total Earnings
+- Automatically populated with actual trip count from database
+- Editable like other financial fields with auto-save functionality
+- Stored in weekly_summaries table for record keeping
+- Blue highlighted background for easy identification
+
 #### CSV Data Import
 - Added bulk import functionality for trip logs via CSV files
 - New "Import Data" page in navigation with upload interface
