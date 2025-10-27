@@ -3,6 +3,8 @@
 ## Overview
 This full-stack web application is designed for managing vehicle rental operations, encompassing vehicle leasing, driver assignments, trip tracking, and complex rental calculations. It supports integrations with providers like PMV and Letzryd, manages driver activities, and handles financial aspects such as rent logs, weekly settlements, and investment tracking with partial returns. The system aims to streamline fleet management, optimize rental income through performance-based pricing, and provide comprehensive financial oversight.
 
+**Data Integrity**: Prevents duplicate driver entries on the same day - a driver can only have one trip log per date, regardless of entry method (manual or CSV import).
+
 ## User Preferences
 Preferred communication style: Simple, everyday language.
 
@@ -111,6 +113,14 @@ Preferred communication style: Simple, everyday language.
 - Replaced all native window.confirm() with proper dialog components
 - Covers: Investments, Vehicles, Drivers, Trips, Trip Logs, Settlements
 - Clear messaging with contextual information and destructive styling for delete actions
+
+#### Duplicate Driver Prevention
+- Enforces unique driver per day constraint across all entry methods
+- Prevents duplicate entries when adding trip logs manually through the form
+- Prevents duplicate entries when importing data via CSV
+- Validates during edit operations - prevents changing to a date where driver already has an entry
+- Clear error messages indicating which driver and date has a conflict
+- Maintains data integrity by ensuring one trip log per driver per day
 
 ### October 27, 2025 - Investment Management Enhancements
 

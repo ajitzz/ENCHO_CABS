@@ -263,6 +263,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
         weekEnd: weekEnd
       };
       const tripData = insertTripSchema.parse(body);
+      
+      // Check if driver already has an entry for this date
+      const startOfDay = new Date(tripDate.getFullYear(), tripDate.getMonth(), tripDate.getDate());
+      const endOfDay = new Date(tripDate.getFullYear(), tripDate.getMonth(), tripDate.getDate() + 1);
+      const existingLogs = await storage.getDriverRentLogsByDateRange(tripData.driverId, startOfDay, endOfDay);
+      
+      if (existingLogs.length > 0) {
+        const driver = await storage.getDriver(tripData.driverId);
+        return res.status(400).json({ 
+          message: `Driver ${driver?.name || 'this driver'} already has an entry for ${tripDate.toLocaleDateString('en-GB')}. A driver cannot have duplicate entries on the same day.` 
+        });
+      }
+      
       const trip = await storage.createTrip(tripData);
       
       // Automatically generate rent log for the driver with money details
@@ -289,6 +302,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (isNaN(id)) {
         return res.status(400).json({ message: "Invalid trip ID" });
       }
+      
+      // Get existing trip to check if driver or date is changing
+      const existingTrip = await storage.getTrip(id);
+      if (!existingTrip) {
+        return res.status(404).json({ message: "Trip not found" });
+      }
+      
       // Convert tripDate string to Date object before validation
       const tripDate = new Date(req.body.tripDate);
       const weekStart = getWeekStart(tripDate);
@@ -302,6 +322,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
         weekEnd: weekEnd
       };
       const tripData = insertTripSchema.parse(body);
+      
+      // Check if driver or date is changing
+      const existingDate = new Date(existingTrip.tripDate);
+      const existingDateStr = existingDate.toISOString().split('T')[0];
+      const newDateStr = tripDate.toISOString().split('T')[0];
+      const isDriverChanging = existingTrip.driverId !== tripData.driverId;
+      const isDateChanging = existingDateStr !== newDateStr;
+      
+      // If driver or date is changing, check for conflicts
+      if (isDriverChanging || isDateChanging) {
+        const startOfDay = new Date(tripDate.getFullYear(), tripDate.getMonth(), tripDate.getDate());
+        const endOfDay = new Date(tripDate.getFullYear(), tripDate.getMonth(), tripDate.getDate() + 1);
+        const existingLogs = await storage.getDriverRentLogsByDateRange(tripData.driverId, startOfDay, endOfDay);
+        
+        // Filter out the current trip's rent log from the check
+        const conflictingLogs = existingLogs.filter(log => {
+          const logDate = new Date(log.date);
+          const logDateStr = logDate.toISOString().split('T')[0];
+          // A log is conflicting if it's for the same date but not from this trip
+          return logDateStr === newDateStr && log.driverId === tripData.driverId;
+        });
+        
+        if (conflictingLogs.length > 0) {
+          const driver = await storage.getDriver(tripData.driverId);
+          return res.status(400).json({ 
+            message: `Driver ${driver?.name || 'this driver'} already has an entry for ${tripDate.toLocaleDateString('en-GB')}. A driver cannot have duplicate entries on the same day.` 
+          });
+        }
+      }
+      
       const trip = await storage.updateTrip(id, tripData);
       
       // Ensure rent log exists for the updated trip date and driver
@@ -1211,6 +1261,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const weekEnd = new Date(weekStart);
           weekEnd.setDate(weekStart.getDate() + 6);
           weekEnd.setHours(23, 59, 59, 999);
+
+          // Check if driver already has an entry for this date
+          const startOfDay = new Date(tripDate.getFullYear(), tripDate.getMonth(), tripDate.getDate());
+          const endOfDay = new Date(tripDate.getFullYear(), tripDate.getMonth(), tripDate.getDate() + 1);
+          const existingLogs = await storage.getDriverRentLogsByDateRange(driver.id, startOfDay, endOfDay);
+          
+          if (existingLogs.length > 0) {
+            // Skip this entry - driver already has a trip for this date
+            results.skipped++;
+            continue;
+          }
 
           // Create trip
           const trip = await storage.createTrip({
