@@ -20,16 +20,6 @@ export interface Driver {
   updatedAt: string;
 }
 
-export interface Trip {
-  id: number;
-  driverId: number;
-  vehicleId: number;
-  tripDate: string;
-  shift: "morning" | "evening";
-  createdAt: string;
-  updatedAt: string;
-}
-
 export interface DriverRentLog {
   id: number;
   driverId: number;
@@ -77,11 +67,6 @@ export interface VehicleSummary {
   };
   morningDriver: Driver | null;
   eveningDriver: Driver | null;
-}
-
-export interface RecentTrip extends Trip {
-  driverName: string;
-  vehicleNumber: string;
 }
 
 export interface ProfitBreakdown {
