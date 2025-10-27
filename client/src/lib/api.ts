@@ -105,17 +105,14 @@ export interface ProfitBreakdown {
 }
 
 export interface ProfitData {
-  vehicleNumber: string;
-  vehicleId: number;
-  profit: number;
-  totalTrips: number;
   weekStart: string;
   weekEnd: string;
-  breakdown: ProfitBreakdown;
-}
-
-export interface SettlementWithVehicle extends WeeklySettlement {
-  vehicleNumber: string;
+  profit: number | null;
+  rent: number;
+  wallet: number;
+  companyRent: number | null;
+  companyWallet: number | null;
+  roomRent: number;
 }
 
 // API functions
@@ -276,30 +273,6 @@ export const api = {
     return response.json();
   },
 
-  // Settlement APIs
-  processSettlement: async (vehicleId: number, weekStartDate: string): Promise<void> => {
-    const response = await fetch("/api/settlements", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ vehicleId, weekStartDate }),
-    });
-    if (!response.ok) throw new Error("Failed to process settlement");
-  },
-
-  processAllSettlements: async (weekStartDate?: string): Promise<void> => {
-    const response = await fetch("/api/settlements/process-all", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ weekStartDate: weekStartDate || new Date().toISOString() }),
-    });
-    if (!response.ok) throw new Error("Failed to process all settlements");
-  },
-
-  getSettlements: async (): Promise<SettlementWithVehicle[]> => {
-    const response = await fetch("/api/settlements");
-    if (!response.ok) throw new Error("Failed to fetch settlements");
-    return response.json();
-  },
 
   // Dashboard APIs
   getProfitGraphData: async (): Promise<ProfitData[]> => {

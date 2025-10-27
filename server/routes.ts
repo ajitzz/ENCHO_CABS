@@ -325,43 +325,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Delete the trip
       await storage.deleteTrip(id);
 
-      // Recalculate weekly settlement for the affected vehicle
-      const weekStart = getWeekStart(tripDate);
-      try {
-        // Calculate new settlement data
-        const settlementData = await calculateWeeklySettlement(trip.vehicleId, weekStart);
-        if (settlementData) {
-          // Check if settlement already exists and update it
-          const existingSettlement = await storage.getWeeklySettlementByVehicleAndWeek(
-            trip.vehicleId, 
-            weekStart, 
-            new Date(weekStart.getTime() + 6 * 24 * 60 * 60 * 1000)
-          );
-          
-          if (existingSettlement) {
-            // Create backward compatibility fields
-            const driver1Data = settlementData.drivers.length > 0 ? 
-              { id: settlementData.drivers[0].id, rent: settlementData.drivers[0].rent } : null;
-            const driver2Data = settlementData.drivers.length > 1 ? 
-              { id: settlementData.drivers[1].id, rent: settlementData.drivers[1].rent } : null;
-
-            // Update existing settlement
-            await storage.updateWeeklySettlement(existingSettlement.id, {
-              totalTrips: settlementData.totalTrips,
-              rentalRate: settlementData.rentalRate,
-              totalRentToCompany: settlementData.totalRentToCompany,
-              driver1Data,
-              driver2Data,
-              totalDriverRent: settlementData.totalDriverRent,
-              profit: settlementData.profit,
-            });
-          }
-        }
-      } catch (settlementError) {
-        console.error("Failed to recalculate settlement after trip deletion:", settlementError);
-        // Don't fail the deletion if settlement calculation fails
-      }
-
       res.json({ message: "Trip deleted successfully" });
     } catch (error) {
       res.status(400).json({ message: "Failed to delete trip", error: error.message });
@@ -629,57 +592,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Dashboard profit graph data
   app.get("/api/dashboard/profit-graph", async (req, res) => {
     try {
-      const settlements = await storage.getAllWeeklySettlements();
+      const settlements = await storage.listWeeklySettlements();
       
-      const profitData = await Promise.all(settlements.map(async (settlement) => {
-        // Get vehicle details for company info
-        const vehicle = await storage.getVehicle(settlement.vehicleId);
-        
-        // Recalculate settlement data to get the new driver structure
-        const settlementData = await calculateWeeklySettlement(settlement.vehicleId, settlement.weekStart);
-        
-        if (!settlementData) {
-          return null;
-        }
-        
-        // Calculate breakdown components
-        const slabRentPerDay = settlement.rentalRate;
-        const totalCompanyRent = settlement.totalRentToCompany;
-        const totalDriverRent = settlement.totalDriverRent;
-        
+      // Map to the format expected by the dashboard
+      const profitData = settlements.map((settlement) => {
         return {
-          vehicleNumber: settlement.vehicleNumber,
-          vehicleId: settlement.vehicleId,
-          profit: settlement.profit,
-          totalTrips: settlement.totalTrips,
           weekStart: settlement.weekStart,
           weekEnd: settlement.weekEnd,
-          // Breakdown components with actual driver names
-          breakdown: {
-            revenue: {
-              drivers: settlementData.drivers,
-              substitutes: settlementData.substitutes,
-              totalDriverRent: settlementData.totalDriverRent,
-              totalSubstituteCharges: settlementData.totalSubstituteCharges
-            },
-            expenses: {
-              slabRentPerDay: slabRentPerDay,
-              totalDays: 7,
-              totalCompanyRent: totalCompanyRent,
-              company: vehicle?.company || 'Unknown'
-            },
-            calculation: {
-              totalRevenue: settlementData.totalDriverRent + settlementData.totalSubstituteCharges,
-              totalExpenses: totalCompanyRent,
-              netProfit: settlement.profit
-            }
-          }
+          profit: settlement.profit,
+          rent: settlement.rent,
+          wallet: settlement.wallet,
+          companyRent: settlement.companyRent,
+          companyWallet: settlement.companyWallet,
+          roomRent: settlement.roomRent,
         };
-      }));
+      });
 
-      // Filter out null results and send response
-      const validProfitData = profitData.filter(data => data !== null);
-      res.json(validProfitData);
+      res.json(profitData);
     } catch (error) {
       res.status(500).json({ message: "Failed to fetch profit graph data", error: error.message });
     }
@@ -865,7 +794,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       switch (type) {
         case "settlements":
-          data = await storage.getAllWeeklySettlements();
+          data = await storage.listWeeklySettlements();
           filename = "settlements_export.json";
           break;
         case "trips":

@@ -1,206 +1,211 @@
-import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Plus, Calendar, DollarSign, TrendingUp, RefreshCw } from "lucide-react";
+import { api, type SettlementRow } from "@/lib/api";
+import { useState } from "react";
+import { Card } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { api, type SettlementWithVehicle } from "@/lib/api";
+import { Table, TableHead, TableHeader, TableRow, TableBody, TableCell } from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import { format } from "date-fns";
+import { Trash2, Save } from "lucide-react";
 
-export default function Settlements() {
+const inr = (n: number | null) => {
+  if (n === null) return "-";
+  return new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 }).format(n || 0);
+};
+
+const fmt = (iso: string) => new Date(iso).toLocaleDateString("en-GB");
+
+interface EditState {
+  weekStart: string;
+  weekEnd: string;
+  companyRent: string;
+  companyWallet: string;
+}
+
+export default function SettlementsPage() {
+  const qc = useQueryClient();
   const { toast } = useToast();
-  const queryClient = useQueryClient();
-
-  const { data: settlements, isLoading } = useQuery({
-    queryKey: ["/api/settlements"],
-    queryFn: () => api.getSettlements(),
+  const { data, isLoading, error } = useQuery({ 
+    queryKey: ["settlements"], 
+    queryFn: () => api.getSettlements() 
   });
+  const rows = data?.items ?? [];
 
-  const processAllSettlementsMutation = useMutation({
-    mutationFn: () => api.processAllSettlements(),
+  const [edits, setEdits] = useState<Record<string, EditState>>({});
+
+  const mSave = useMutation({
+    mutationFn: api.saveSettlement,
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/settlements"] });
-      toast({
-        title: "Success",
-        description: "All settlements processed successfully",
-      });
+      qc.invalidateQueries({ queryKey: ["settlements"] });
+      setEdits({});
+      toast({ title: "Saved", description: "Settlement updated successfully" });
     },
-    onError: (error) => {
-      toast({
-        title: "Error",
-        description: "Failed to process settlements",
-        variant: "destructive",
-      });
+    onError: () => {
+      toast({ title: "Error", description: "Failed to save settlement", variant: "destructive" });
     },
   });
 
-  if (isLoading) {
-    return (
-      <div className="flex-1 p-8">
-        <div className="animate-pulse">
-          <div className="h-8 bg-gray-200 rounded w-48 mb-6"></div>
-          <div className="h-96 bg-gray-200 rounded-lg"></div>
-        </div>
-      </div>
-    );
-  }
+  const mDel = useMutation({
+    mutationFn: ({ weekStart, weekEnd }: { weekStart: string; weekEnd: string }) => api.deleteSettlement(weekStart, weekEnd),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["settlements"] });
+      setEdits({});
+      toast({ title: "Deleted", description: "Settlement cleared successfully" });
+    },
+    onError: () => {
+      toast({ title: "Error", description: "Failed to delete settlement", variant: "destructive" });
+    },
+  });
 
-  const totalProfit = settlements?.reduce((sum, settlement) => sum + settlement.profit, 0) || 0;
-  const totalRevenue = settlements?.reduce((sum, settlement) => sum + settlement.totalRentToCompany, 0) || 0;
-  const paidSettlements = settlements?.filter(s => s.paid).length || 0;
-  const unpaidSettlements = settlements?.filter(s => !s.paid).length || 0;
+  const getEditKey = (weekStart: string, weekEnd: string) => `${weekStart}_${weekEnd}`;
+
+  const getEditValue = (row: SettlementRow, field: "companyRent" | "companyWallet") => {
+    const key = getEditKey(row.weekStart, row.weekEnd);
+    if (edits[key]) {
+      return edits[key][field];
+    }
+    return row[field] === null ? "" : String(row[field]);
+  };
+
+  const setEditValue = (row: SettlementRow, field: "companyRent" | "companyWallet", value: string) => {
+    const key = getEditKey(row.weekStart, row.weekEnd);
+    setEdits(prev => ({
+      ...prev,
+      [key]: {
+        weekStart: row.weekStart,
+        weekEnd: row.weekEnd,
+        companyRent: field === "companyRent" ? value : getEditValue(row, "companyRent"),
+        companyWallet: field === "companyWallet" ? value : getEditValue(row, "companyWallet"),
+      },
+    }));
+  };
+
+  const handleSave = (row: SettlementRow) => {
+    const key = getEditKey(row.weekStart, row.weekEnd);
+    const edit = edits[key];
+    if (!edit) return;
+
+    const companyRent = edit.companyRent.trim() === "" ? null : parseInt(edit.companyRent, 10);
+    const companyWallet = edit.companyWallet.trim() === "" ? null : parseInt(edit.companyWallet, 10);
+
+    mSave.mutate({
+      weekStart: row.weekStart,
+      weekEnd: row.weekEnd,
+      companyRent,
+      companyWallet,
+    });
+  };
+
+  const handleDelete = (row: SettlementRow) => {
+    if (!confirm("Clear company fields for this week?")) return;
+    mDel.mutate({ weekStart: row.weekStart, weekEnd: row.weekEnd });
+  };
+
+  const hasEdits = (row: SettlementRow) => {
+    const key = getEditKey(row.weekStart, row.weekEnd);
+    return !!edits[key];
+  };
 
   return (
-    <div className="flex-1 p-8">
-      <div className="flex justify-between items-center mb-8">
+    <div className="p-6">
+      <div className="max-w-7xl mx-auto space-y-6">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Weekly Settlements</h1>
-          <p className="text-gray-600 mt-1">Track weekly rental calculations and profits</p>
+          <h1 className="text-2xl font-bold text-gray-900">Settlements</h1>
+          <p className="text-sm text-gray-600 mt-1">Weekly profit calculations (Monday to Sunday)</p>
         </div>
-        <Button
-          onClick={() => processAllSettlementsMutation.mutate()}
-          disabled={processAllSettlementsMutation.isPending}
-        >
-          <RefreshCw className="w-4 h-4 mr-2" />
-          {processAllSettlementsMutation.isPending ? "Processing..." : "Process All"}
-        </Button>
-      </div>
 
-      {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium text-gray-500">Total Revenue</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-gray-900">₹{totalRevenue.toLocaleString()}</div>
-            <div className="text-sm text-gray-600">Company rentals</div>
-          </CardContent>
-        </Card>
-        
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium text-gray-500">Total Profit</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className={`text-2xl font-bold ${totalProfit >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-              ₹{totalProfit.toLocaleString()}
-            </div>
-            <div className="text-sm text-gray-600">Net profit/loss</div>
-          </CardContent>
-        </Card>
-        
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium text-gray-500">Paid Settlements</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-green-600">{paidSettlements}</div>
-            <div className="text-sm text-gray-600">Completed</div>
-          </CardContent>
-        </Card>
-        
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium text-gray-500">Pending Settlements</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-orange-600">{unpaidSettlements}</div>
-            <div className="text-sm text-gray-600">Awaiting payment</div>
-          </CardContent>
-        </Card>
-      </div>
+        {isLoading && (
+          <Card className="p-8 text-center text-gray-500">Loading settlements...</Card>
+        )}
 
-      {/* Settlements Table */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Settlement History</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Week Period</TableHead>
-                <TableHead>Vehicle</TableHead>
-                <TableHead>Total Trips</TableHead>
-                <TableHead>Company Rental</TableHead>
-                <TableHead>Driver Rent</TableHead>
-                <TableHead>Profit/Loss</TableHead>
-                <TableHead>Status</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {settlements?.map((settlement: SettlementWithVehicle) => (
-                <TableRow key={settlement.id}>
-                  <TableCell>
-                    <div className="flex items-center space-x-2">
-                      <Calendar className="w-4 h-4 text-gray-400" />
-                      <div>
-                        <div className="font-medium">
-                          {format(new Date(settlement.weekStart), 'MMM dd')} - {format(new Date(settlement.weekEnd), 'MMM dd')}
+        {error && (
+          <Card className="p-8 text-center text-red-500">Failed to load settlements</Card>
+        )}
+
+        {!isLoading && rows.length === 0 && (
+          <Card className="p-8 text-center text-gray-500">No settlements found</Card>
+        )}
+
+        {!isLoading && rows.length > 0 && (
+          <Card>
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="min-w-[180px]">Week (Mon–Sun)</TableHead>
+                    <TableHead className="text-right min-w-[120px]">Rent</TableHead>
+                    <TableHead className="text-right min-w-[120px]">Wallet</TableHead>
+                    <TableHead className="text-right min-w-[140px]">Company Rent</TableHead>
+                    <TableHead className="text-right min-w-[140px]">Company Wallet</TableHead>
+                    <TableHead className="text-right min-w-[120px]">Room Rent</TableHead>
+                    <TableHead className="text-right min-w-[120px]">Profit</TableHead>
+                    <TableHead className="text-center min-w-[140px]">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {rows.map((row) => (
+                    <TableRow key={`${row.weekStart}_${row.weekEnd}`}>
+                      <TableCell className="font-medium whitespace-nowrap">
+                        {fmt(row.weekStart)} – {fmt(row.weekEnd)}
+                      </TableCell>
+                      <TableCell className="text-right">{inr(row.rent)}</TableCell>
+                      <TableCell className="text-right">{inr(row.wallet)}</TableCell>
+                      <TableCell className="text-right">
+                        <Input
+                          type="number"
+                          min="0"
+                          placeholder="Enter amount"
+                          value={getEditValue(row, "companyRent")}
+                          onChange={(e) => setEditValue(row, "companyRent", e.target.value)}
+                          className="w-32 text-right"
+                          data-testid={`input-company-rent-${row.weekStart}`}
+                        />
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <Input
+                          type="number"
+                          min="0"
+                          placeholder="Enter amount"
+                          value={getEditValue(row, "companyWallet")}
+                          onChange={(e) => setEditValue(row, "companyWallet", e.target.value)}
+                          className="w-32 text-right"
+                          data-testid={`input-company-wallet-${row.weekStart}`}
+                        />
+                      </TableCell>
+                      <TableCell className="text-right">{inr(row.roomRent)}</TableCell>
+                      <TableCell className={`text-right font-semibold ${row.profit !== null && row.profit < 0 ? 'text-red-600' : 'text-green-600'}`}>
+                        {inr(row.profit)}
+                      </TableCell>
+                      <TableCell className="text-center">
+                        <div className="flex gap-2 justify-center">
+                          <Button
+                            size="sm"
+                            onClick={() => handleSave(row)}
+                            disabled={!hasEdits(row) || mSave.isPending}
+                            data-testid={`button-save-${row.weekStart}`}
+                          >
+                            <Save className="w-4 h-4 mr-1" />
+                            Save
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="destructive"
+                            onClick={() => handleDelete(row)}
+                            disabled={mDel.isPending}
+                            data-testid={`button-delete-${row.weekStart}`}
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
                         </div>
-                        <div className="text-sm text-gray-500">
-                          {format(new Date(settlement.weekStart), 'yyyy')}
-                        </div>
-                      </div>
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <div className="font-medium">{settlement.vehicleNumber}</div>
-                  </TableCell>
-                  <TableCell>
-                    <div className="font-semibold">{settlement.totalTrips}</div>
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex items-center space-x-1">
-                      <DollarSign className="w-4 h-4 text-gray-400" />
-                      <span>₹{settlement.totalRentToCompany.toLocaleString()}</span>
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex items-center space-x-1">
-                      <DollarSign className="w-4 h-4 text-gray-400" />
-                      <span>₹{settlement.totalDriverRent.toLocaleString()}</span>
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <div className={`flex items-center space-x-1 font-semibold ${settlement.profit >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                      <TrendingUp className="w-4 h-4" />
-                      <span>₹{settlement.profit.toLocaleString()}</span>
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant={settlement.paid ? "default" : "destructive"}>
-                      {settlement.paid ? "Paid" : "Pending"}
-                    </Badge>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-          
-          {settlements?.length === 0 && (
-            <div className="text-center py-12">
-              <Calendar className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-              <h3 className="text-lg font-medium text-gray-900 mb-2">No settlements yet</h3>
-              <p className="text-gray-600 mb-4">Process settlements to see weekly calculations</p>
-              <Button onClick={() => processAllSettlementsMutation.mutate()}>
-                <Plus className="w-4 h-4 mr-2" />
-                Process Settlements
-              </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
             </div>
-          )}
-        </CardContent>
-      </Card>
+          </Card>
+        )}
+      </div>
     </div>
   );
 }
