@@ -367,4 +367,19 @@ export const api = {
     });
     if (!response.ok) throw new Error("Failed to delete substitute driver");
   },
+
+  // Meta APIs
+  getFirstTripDate: async (): Promise<string | null> => {
+    const response = await fetch("/api/meta/first-trip-date");
+    if (!response.ok) throw new Error("Failed to fetch first trip date");
+    const data = await response.json();
+    return data.firstTripDate;
+  },
+
+  // Weekly Summary APIs
+  getWeeklySummary: async (startDate: string, endDate: string): Promise<any> => {
+    const response = await fetch(`/api/weekly-summary/aggregates?startDate=${startDate}&endDate=${endDate}`);
+    if (!response.ok) throw new Error("Failed to fetch weekly summary");
+    return response.json();
+  },
 };
