@@ -526,8 +526,8 @@ export class DatabaseStorage implements IStorage {
     const [result] = await db.insert(weeklySummaries)
       .values({
         driverId: summary.driverId,
-        startDate: summary.startDate.toISOString().split('T')[0],
-        endDate: summary.endDate.toISOString().split('T')[0],
+        startDate: summary.startDate,
+        endDate: summary.endDate,
         totalEarnings: summary.totalEarnings || 0,
         cash: summary.cash || 0,
         refund: summary.refund || 0,

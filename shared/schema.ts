@@ -244,8 +244,8 @@ export const insertSubstituteDriverSchema = createInsertSchema(substituteDrivers
 
 export const upsertWeeklySummarySchema = z.object({
   driverId: z.number().int().positive(),
-  startDate: z.coerce.date(),
-  endDate: z.coerce.date(),
+  startDate: z.string(),
+  endDate: z.string(),
   totalEarnings: z.number().int().min(0).default(0),
   cash: z.number().int().min(0).default(0),
   refund: z.number().int().min(0).default(0),
