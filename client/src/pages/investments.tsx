@@ -44,8 +44,10 @@ export default function InvestmentsPage() {
   const [isAddMoreOpen, setIsAddMoreOpen] = useState(false);
   const [isReturnOpen, setIsReturnOpen] = useState(false);
   const [isEditReturnOpen, setIsEditReturnOpen] = useState(false);
+  const [isEditInvestmentOpen, setIsEditInvestmentOpen] = useState(false);
   const [selectedInvestorGroup, setSelectedInvestorGroup] = useState<InvestorGroup | null>(null);
   const [selectedReturn, setSelectedReturn] = useState<InvestmentReturn | null>(null);
+  const [selectedInvestment, setSelectedInvestment] = useState<InvestmentRecord | null>(null);
   
   const [formData, setFormData] = useState({
     investorName: "",
@@ -70,6 +72,12 @@ export default function InvestmentsPage() {
   const [editReturnFormData, setEditReturnFormData] = useState({
     returnDate: "",
     amountReturned: "",
+    paymentMethod: "",
+  });
+
+  const [editInvestmentFormData, setEditInvestmentFormData] = useState({
+    paymentGivenDate: "",
+    amountInvested: "",
     paymentMethod: "",
   });
 
@@ -169,6 +177,25 @@ export default function InvestmentsPage() {
     },
   });
 
+  const editInvestmentMutation = useMutation({
+    mutationFn: async ({ id, data }: { id: number; data: any }) => {
+      return apiRequest("PUT", `/api/investments/${id}`, data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/investments/by-investor"] });
+      setIsEditInvestmentOpen(false);
+      setSelectedInvestment(null);
+      toast({ title: "Success", description: "Investment updated successfully" });
+    },
+    onError: (error: any) => {
+      toast({ 
+        title: "Error", 
+        description: error.message || "Failed to update investment", 
+        variant: "destructive" 
+      });
+    },
+  });
+
   const deleteMutation = useMutation({
     mutationFn: async (id: number) => {
       return apiRequest("DELETE", `/api/investments/${id}`);
@@ -182,40 +209,54 @@ export default function InvestmentsPage() {
     },
   });
 
+  const deleteReturnMutation = useMutation({
+    mutationFn: async (id: number) => {
+      return apiRequest("DELETE", `/api/investment-returns/${id}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/investments/by-investor"] });
+      toast({ title: "Success", description: "Return payment deleted successfully" });
+    },
+    onError: () => {
+      toast({ title: "Error", description: "Failed to delete return payment", variant: "destructive" });
+    },
+  });
+
   const handleCreate = () => {
-    if (!formData.investorName || !formData.amountInvested || !formData.paymentGivenDate) {
+    if (!formData.investorName || formData.investorName.trim() === "" || !formData.amountInvested || !formData.paymentGivenDate || !formData.paymentMethod || formData.paymentMethod.trim() === "") {
       toast({ 
         title: "Validation Error", 
-        description: "Please fill all required fields", 
+        description: "Please fill all required fields (Name, Amount, Date, and Payment Method)", 
         variant: "destructive" 
       });
       return;
     }
 
-    // Check if investor name already exists
-    if (investors && investors.some(inv => inv.investorName.toLowerCase() === formData.investorName.toLowerCase())) {
+    // Check if investor name already exists (use trimmed name)
+    const trimmedName = formData.investorName.trim();
+    if (investors && investors.some(inv => inv.investorName.toLowerCase() === trimmedName.toLowerCase())) {
       toast({ 
         title: "Investor Already Exists", 
-        description: `An investor named "${formData.investorName}" already exists. Please use the "Add Investment" button in their card to add more investments.`, 
+        description: `An investor named "${trimmedName}" already exists. Please use the "Add Investment" button in their card to add more investments.`, 
         variant: "destructive" 
       });
       return;
     }
 
     const dataToSend = {
-      investorName: formData.investorName,
+      investorName: trimmedName,
       amountInvested: parseInt(formData.amountInvested),
       paymentGivenDate: formData.paymentGivenDate,
-      paymentMethod: formData.paymentMethod || undefined,
+      paymentMethod: formData.paymentMethod.trim(),
     };
     createMutation.mutate(dataToSend);
   };
 
   const handleAddReturn = () => {
-    if (!returnFormData.investmentId || !returnFormData.amountReturned || !returnFormData.returnDate) {
+    if (!returnFormData.investmentId || !returnFormData.amountReturned || !returnFormData.returnDate || !returnFormData.paymentMethod || returnFormData.paymentMethod.trim() === "") {
       toast({ 
         title: "Validation Error", 
-        description: "Please fill all required fields (Investment, Date, and Amount)", 
+        description: "Please fill all required fields (Investment, Date, Amount, and Payment Method)", 
         variant: "destructive" 
       });
       return;
@@ -225,16 +266,16 @@ export default function InvestmentsPage() {
       investmentId: parseInt(returnFormData.investmentId),
       returnDate: returnFormData.returnDate,
       amountReturned: parseInt(returnFormData.amountReturned),
-      paymentMethod: returnFormData.paymentMethod || undefined,
+      paymentMethod: returnFormData.paymentMethod.trim(),
     };
     addReturnMutation.mutate(dataToSend);
   };
 
   const handleEditReturn = () => {
-    if (!selectedReturn || !editReturnFormData.amountReturned || !editReturnFormData.returnDate) {
+    if (!selectedReturn || !editReturnFormData.amountReturned || !editReturnFormData.returnDate || !editReturnFormData.paymentMethod || editReturnFormData.paymentMethod.trim() === "") {
       toast({ 
         title: "Validation Error", 
-        description: "Please fill all required fields (Date and Amount)", 
+        description: "Please fill all required fields (Date, Amount, and Payment Method)", 
         variant: "destructive" 
       });
       return;
@@ -243,7 +284,7 @@ export default function InvestmentsPage() {
     const dataToSend = {
       returnDate: editReturnFormData.returnDate,
       amountReturned: parseInt(editReturnFormData.amountReturned),
-      paymentMethod: editReturnFormData.paymentMethod || undefined,
+      paymentMethod: editReturnFormData.paymentMethod.trim(),
     };
     editReturnMutation.mutate({ id: selectedReturn.id, data: dataToSend });
   };
@@ -261,10 +302,10 @@ export default function InvestmentsPage() {
   };
 
   const handleAddMore = () => {
-    if (!selectedInvestorGroup || !addMoreFormData.amountInvested || !addMoreFormData.paymentGivenDate) {
+    if (!selectedInvestorGroup || !addMoreFormData.amountInvested || !addMoreFormData.paymentGivenDate || !addMoreFormData.paymentMethod || addMoreFormData.paymentMethod.trim() === "") {
       toast({ 
         title: "Validation Error", 
-        description: "Please fill all required fields (Date and Amount)", 
+        description: "Please fill all required fields (Date, Amount, and Payment Method)", 
         variant: "destructive" 
       });
       return;
@@ -274,7 +315,7 @@ export default function InvestmentsPage() {
       investorName: selectedInvestorGroup.investorName,
       amountInvested: parseInt(addMoreFormData.amountInvested),
       paymentGivenDate: addMoreFormData.paymentGivenDate,
-      paymentMethod: addMoreFormData.paymentMethod || undefined,
+      paymentMethod: addMoreFormData.paymentMethod.trim(),
     };
     addMoreMutation.mutate(dataToSend);
   };
@@ -297,6 +338,34 @@ export default function InvestmentsPage() {
       paymentMethod: ret.paymentMethod || "",
     });
     setIsEditReturnOpen(true);
+  };
+
+  const handleEditInvestment = () => {
+    if (!selectedInvestment || !editInvestmentFormData.amountInvested || !editInvestmentFormData.paymentGivenDate || !editInvestmentFormData.paymentMethod || editInvestmentFormData.paymentMethod.trim() === "") {
+      toast({ 
+        title: "Validation Error", 
+        description: "Please fill all required fields (Date, Amount, and Payment Method)", 
+        variant: "destructive" 
+      });
+      return;
+    }
+
+    const dataToSend = {
+      paymentGivenDate: editInvestmentFormData.paymentGivenDate,
+      amountInvested: parseInt(editInvestmentFormData.amountInvested),
+      paymentMethod: editInvestmentFormData.paymentMethod.trim(),
+    };
+    editInvestmentMutation.mutate({ id: selectedInvestment.id, data: dataToSend });
+  };
+
+  const openEditInvestmentDialog = (inv: InvestmentRecord) => {
+    setSelectedInvestment(inv);
+    setEditInvestmentFormData({
+      paymentGivenDate: inv.paymentGivenDate,
+      amountInvested: inv.amountInvested.toString(),
+      paymentMethod: inv.paymentMethod || "",
+    });
+    setIsEditInvestmentOpen(true);
   };
 
   return (
@@ -352,7 +421,7 @@ export default function InvestmentsPage() {
                     />
                   </div>
                   <div>
-                    <Label htmlFor="paymentMethod">Payment Method</Label>
+                    <Label htmlFor="paymentMethod">Payment Method*</Label>
                     <Input
                       id="paymentMethod"
                       data-testid="input-payment-method"
@@ -502,14 +571,24 @@ export default function InvestmentsPage() {
                                 <td className="p-3 text-sm font-semibold text-blue-700">{formatCurrency(inv.amountInvested)}</td>
                                 <td className="p-3 text-sm text-gray-600">{inv.paymentMethod || '-'}</td>
                                 <td className="p-3">
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    onClick={() => deleteMutation.mutate(inv.id)}
-                                    data-testid={`button-delete-investment-${inv.id}`}
-                                  >
-                                    <Trash2 className="w-4 h-4 text-red-600" />
-                                  </Button>
+                                  <div className="flex items-center gap-2">
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      onClick={() => openEditInvestmentDialog(inv)}
+                                      data-testid={`button-edit-investment-${inv.id}`}
+                                    >
+                                      <Edit className="w-4 h-4 text-blue-600" />
+                                    </Button>
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      onClick={() => deleteMutation.mutate(inv.id)}
+                                      data-testid={`button-delete-investment-${inv.id}`}
+                                    >
+                                      <Trash2 className="w-4 h-4 text-red-600" />
+                                    </Button>
+                                  </div>
                                 </td>
                               </tr>
                             ))}
@@ -544,14 +623,24 @@ export default function InvestmentsPage() {
                                   <td className="p-3 text-sm font-semibold text-green-700">{formatCurrency(ret.amountReturned)}</td>
                                   <td className="p-3 text-sm text-gray-600">{ret.paymentMethod || '-'}</td>
                                   <td className="p-3">
-                                    <Button
-                                      variant="ghost"
-                                      size="sm"
-                                      onClick={() => openEditReturnDialog(ret)}
-                                      data-testid={`button-edit-return-${ret.id}`}
-                                    >
-                                      <Edit className="w-4 h-4 text-blue-600" />
-                                    </Button>
+                                    <div className="flex items-center gap-2">
+                                      <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={() => openEditReturnDialog(ret)}
+                                        data-testid={`button-edit-return-${ret.id}`}
+                                      >
+                                        <Edit className="w-4 h-4 text-blue-600" />
+                                      </Button>
+                                      <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={() => deleteReturnMutation.mutate(ret.id)}
+                                        data-testid={`button-delete-return-${ret.id}`}
+                                      >
+                                        <Trash2 className="w-4 h-4 text-red-600" />
+                                      </Button>
+                                    </div>
                                   </td>
                                 </tr>
                               ))}
@@ -631,7 +720,7 @@ export default function InvestmentsPage() {
                   />
                 </div>
                 <div>
-                  <Label htmlFor="returnPaymentMethod">Payment Method</Label>
+                  <Label htmlFor="returnPaymentMethod">Payment Method*</Label>
                   <Input
                     id="returnPaymentMethod"
                     value={returnFormData.paymentMethod}
@@ -678,7 +767,7 @@ export default function InvestmentsPage() {
                   />
                 </div>
                 <div>
-                  <Label htmlFor="editPaymentMethod">Payment Method</Label>
+                  <Label htmlFor="editPaymentMethod">Payment Method*</Label>
                   <Input
                     id="editPaymentMethod"
                     value={editReturnFormData.paymentMethod}
@@ -730,7 +819,7 @@ export default function InvestmentsPage() {
                   />
                 </div>
                 <div>
-                  <Label htmlFor="addMorePaymentMethod">Payment Method</Label>
+                  <Label htmlFor="addMorePaymentMethod">Payment Method*</Label>
                   <Input
                     id="addMorePaymentMethod"
                     value={addMoreFormData.paymentMethod}
@@ -745,6 +834,53 @@ export default function InvestmentsPage() {
                   disabled={addMoreMutation.isPending}
                 >
                   {addMoreMutation.isPending ? "Adding..." : "Add Investment"}
+                </Button>
+              </div>
+            </DialogContent>
+          </Dialog>
+
+          {/* Edit Investment Dialog */}
+          <Dialog open={isEditInvestmentOpen} onOpenChange={setIsEditInvestmentOpen}>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Edit Investment</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-4">
+                <div>
+                  <Label htmlFor="editInvestmentDate">Date of Investment*</Label>
+                  <Input
+                    id="editInvestmentDate"
+                    type="date"
+                    value={editInvestmentFormData.paymentGivenDate}
+                    onChange={(e) => setEditInvestmentFormData({ ...editInvestmentFormData, paymentGivenDate: e.target.value })}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="editInvestmentAmount">Investment Amount (₹)*</Label>
+                  <Input
+                    id="editInvestmentAmount"
+                    type="number"
+                    value={editInvestmentFormData.amountInvested}
+                    onChange={(e) => setEditInvestmentFormData({ ...editInvestmentFormData, amountInvested: e.target.value })}
+                    placeholder="Enter amount"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="editInvestmentPaymentMethod">Payment Method*</Label>
+                  <Input
+                    id="editInvestmentPaymentMethod"
+                    value={editInvestmentFormData.paymentMethod}
+                    onChange={(e) => setEditInvestmentFormData({ ...editInvestmentFormData, paymentMethod: e.target.value })}
+                    placeholder="e.g., Cash, Bank Transfer, UPI"
+                  />
+                </div>
+
+                <Button 
+                  onClick={handleEditInvestment} 
+                  className="w-full"
+                  disabled={editInvestmentMutation.isPending}
+                >
+                  {editInvestmentMutation.isPending ? "Updating..." : "Update Investment"}
                 </Button>
               </div>
             </DialogContent>
