@@ -1094,9 +1094,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Process each row
       for (let i = 0; i < csvData.length; i++) {
-        const row = csvData[i];
+        const rawRow = csvData[i];
         
         try {
+          // Normalize field names to be case-insensitive
+          const row: any = {};
+          for (const [key, value] of Object.entries(rawRow)) {
+            const normalizedKey = key.trim().toLowerCase();
+            if (normalizedKey === 'date') row.Date = value;
+            else if (normalizedKey === 'vehicle') row.Vehicle = value;
+            else if (normalizedKey === 'driver') row.Driver = value;
+            else if (normalizedKey === 'shift') row.Shift = value;
+            else if (normalizedKey === 'rent') row.Rent = value;
+            else if (normalizedKey === 'fuel') row.Fuel = value;
+            // For Collection, take the first non-empty value
+            else if (normalizedKey === 'collection' && !row.Collection) row.Collection = value;
+          }
+          
           // Validate required fields exist
           if (!row.Date || typeof row.Date !== 'string' || !row.Date.trim()) {
             results.errors.push(`Row ${i + 2}: Missing or invalid date`);
@@ -1173,10 +1187,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
           // Parse shift
           const shift = row.Shift?.toLowerCase() === 'evening' ? 'evening' : 'morning';
 
-          // Parse rent, collection, fuel (default to 0 if empty)
-          const rent = row.Rent ? parseFloat(row.Rent.toString()) : 0;
-          const amountCollected = row.Collection ? parseFloat(row.Collection.toString()) : 0;
-          const fuel = row.Fuel ? parseFloat(row.Fuel.toString()) : 0;
+          // Parse rent, collection, fuel (default to 0 if empty or invalid)
+          const parseNumber = (value: any): number => {
+            if (!value || value === '') return 0;
+            const str = value.toString().trim();
+            // Handle non-numeric values like "X"
+            if (str.toLowerCase() === 'x' || str === '-') return 0;
+            const num = parseFloat(str);
+            return isNaN(num) ? 0 : num;
+          };
+          
+          const rent = parseNumber(row.Rent);
+          const amountCollected = parseNumber(row.Collection);
+          const fuel = parseNumber(row.Fuel);
 
           // Calculate week boundaries
           const weekStart = new Date(tripDate);
@@ -1216,7 +1239,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
           results.success++;
         } catch (error: any) {
-          results.errors.push(`Row ${i + 2}: ${error.message}`);
+          // Handle duplicate key errors more gracefully
+          if (error.message && error.message.includes('duplicate key value violates unique constraint')) {
+            results.skipped++;
+          } else {
+            results.errors.push(`Row ${i + 2}: ${error.message}`);
+          }
         }
       }
 

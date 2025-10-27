@@ -92,6 +92,10 @@ Preferred communication style: Simple, everyday language.
 - Skips invalid entries (No Vehicle, Leave status)
 - Comprehensive import results with success/error reporting
 - Validates and parses CSV format: Date (DD/MM/YYYY), Vehicle, Driver, Shift, Rent, Collection, Fuel
+- Case-insensitive field names (handles DATE, Date, date, etc.)
+- Handles duplicate Collection columns (uses first non-empty value)
+- Handles invalid numeric values (X, -, empty) by treating as 0
+- Skips duplicate entries (same driver, date, shift) automatically
 - API endpoint: POST /api/import/trip-logs
 
 #### Dropped Vehicle Filtering
