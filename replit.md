@@ -39,8 +39,6 @@ Preferred communication style: Simple, everyday language.
 - **Rent & Payment Tracking**: Manages driver rent payments, tracks outstanding amounts, and supports "Mark as Paid" functionality.
 - **Investment Tracking**: Comprehensive system for managing investments, including multiple partial returns, payment methods, and grouped views by investor.
 - **QR Code System**: Unique QR code validation and display for vehicles and drivers.
-- **Excel Import**: Bulk import of drivers, vehicles, and trip logs from Excel files with data preview and validation.
-- **Confirmation Dialogs**: All edit and delete operations require user confirmation via AlertDialog components for data safety.
 - **UI/UX**: Dashboard, performance charts (Recharts), rental slab cards, and payment tracking interfaces.
 
 ## External Dependencies
@@ -53,37 +51,12 @@ Preferred communication style: Simple, everyday language.
 - **Recharts**: Charting library.
 - **Lucide React**: Icon library.
 - **date-fns**: Date manipulation utilities.
-- **xlsx**: Excel file parsing and manipulation.
 
 ### Development Tools
 - **Replit Integration**: Runtime error overlay and cartographer.
 - **TypeScript**: Static type checking.
 
 ## Recent Updates
-
-### October 27, 2025 - Confirmation Dialogs & Excel Import
-
-#### Confirmation Dialogs for All Operations
-- Added AlertDialog confirmation for all edit and delete operations across the entire app
-- Replaced all native window.confirm() with shadcn/ui AlertDialog components
-- Implemented consistent pattern: state-managed confirmations with clear descriptions
-- Delete operations use destructive styling (red buttons)
-- All dialogs include contextual information (driver name, vehicle number, date ranges)
-- Database updates only occur after user confirms the action
-- Applied to: Investments, Vehicles, Drivers, Trips, TripLogs, Settlements pages
-
-#### Excel Import Feature
-- New Import page accessible from sidebar with Upload icon
-- Automatically detects and extracts data from "September" sheet in Excel files
-- Column mapping: Date, Car Reg (vehicle), Drivers, Rent, Amount Received/QR Amount, Fuel, Shift
-- Data preview table shows first 50 rows before import
-- Bulk creates unique drivers and vehicles from extracted data
-- Automatically generates QR codes for new drivers and vehicles
-- Creates trip logs with all financial data (rent, collection, fuel)
-- Import results dashboard shows counts of drivers, vehicles, and trips added
-- Error handling with detailed error messages for failed imports
-- Handles duplicate entries gracefully (skips already existing records)
-- Uses xlsx library for robust Excel file parsing
 
 ### October 27, 2025 - Investment Management Enhancements
 
