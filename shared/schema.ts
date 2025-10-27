@@ -105,6 +105,16 @@ export const weeklySummaries = pgTable("weekly_summaries", {
   byDriver: index("weekly_summaries_driver_idx").on(t.driverId),
 }));
 
+export const investments = pgTable("investments", {
+  id: serial("id").primaryKey(),
+  investorName: text("investor_name").notNull(),
+  amountInvested: integer("amount_invested").notNull(),
+  paymentGivenDate: date("payment_given_date").notNull(),
+  paymentReturnDate: date("payment_return_date"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
 // Relations
 export const vehiclesRelations = relations(vehicles, ({ many, one }) => ({
   trips: many(trips),
@@ -242,6 +252,18 @@ export const upsertWeeklySummarySchema = z.object({
   payout: z.number().int().min(0).default(0),
 });
 
+export const insertInvestmentSchema = createInsertSchema(investments).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const updateInvestmentSchema = createInsertSchema(investments).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+}).partial();
+
 // Types
 export type Vehicle = typeof vehicles.$inferSelect;
 export type Driver = typeof drivers.$inferSelect;
@@ -262,3 +284,6 @@ export type InsertDriverRentLog = z.infer<typeof insertDriverRentLogSchema>;
 export type UpsertWeeklySettlementInput = z.infer<typeof upsertWeeklySettlementSchema>;
 export type InsertSubstituteDriver = z.infer<typeof insertSubstituteDriverSchema>;
 export type UpsertWeeklySummary = z.infer<typeof upsertWeeklySummarySchema>;
+export type Investment = typeof investments.$inferSelect;
+export type InsertInvestment = z.infer<typeof insertInvestmentSchema>;
+export type UpdateInvestment = z.infer<typeof updateInvestmentSchema>;
