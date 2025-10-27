@@ -78,6 +78,9 @@ export interface IStorage {
   upsertWeeklySummary(summary: UpsertWeeklySummary): Promise<WeeklySummary>;
   getWeeklySummary(driverId: number, startDate: string, endDate: string): Promise<WeeklySummary | undefined>;
   clearWeeklySummary(driverId: number, startDate: string, endDate: string): Promise<void>;
+  
+  // Meta operations
+  getFirstTripDate(): Promise<string | null>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -576,6 +579,14 @@ export class DatabaseStorage implements IStorage {
           eq(weeklySummaries.endDate, endDate)
         )
       );
+  }
+
+  // Meta operations
+  async getFirstTripDate(): Promise<string | null> {
+    const result = await db.execute(sql`SELECT MIN(DATE(date)) AS min_date FROM driver_rent_logs`);
+    const rows = Array.isArray(result) ? result : result.rows;
+    const min = rows?.[0]?.min_date;
+    return min ? String(min) : null;
   }
 }
 
