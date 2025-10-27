@@ -563,32 +563,45 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Weekly settlement routes
-  app.post("/api/settlements", async (req, res) => {
-    try {
-      const { vehicleId, weekStartDate } = weeklySettlementSchema.parse(req.body);
-      await processWeeklySettlement(vehicleId, weekStartDate);
-      res.status(201).json({ message: "Settlement processed successfully" });
-    } catch (error) {
-      res.status(400).json({ message: "Failed to process settlement", error: error.message });
-    }
-  });
-
-  app.post("/api/settlements/process-all", async (req, res) => {
-    try {
-      const weekStartDate = req.body.weekStartDate ? new Date(req.body.weekStartDate) : new Date();
-      await processAllVehicleSettlements(weekStartDate);
-      res.status(201).json({ message: "All settlements processed successfully" });
-    } catch (error) {
-      res.status(500).json({ message: "Failed to process all settlements", error: error.message });
-    }
-  });
-
   app.get("/api/settlements", async (req, res) => {
     try {
-      const settlements = await storage.getAllWeeklySettlements();
-      res.json(settlements);
+      const items = await storage.listWeeklySettlements();
+      res.json({ items });
     } catch (error) {
       res.status(500).json({ message: "Failed to fetch settlements", error: error.message });
+    }
+  });
+
+  app.post("/api/settlements", async (req, res) => {
+    try {
+      const { weekStart, weekEnd, companyRent, companyWallet } = req.body;
+      if (!weekStart || !weekEnd) {
+        return res.status(400).json({ error: "weekStart and weekEnd required" });
+      }
+      await storage.upsertWeeklySettlement({
+        weekStart,
+        weekEnd,
+        companyRent: companyRent ?? null,
+        companyWallet: companyWallet ?? null,
+      });
+      const items = await storage.listWeeklySettlements();
+      res.json({ ok: true, items });
+    } catch (error) {
+      res.status(500).json({ message: "Failed to save settlement", error: error.message });
+    }
+  });
+
+  app.delete("/api/settlements", async (req, res) => {
+    try {
+      const { weekStart, weekEnd } = req.query as { weekStart?: string; weekEnd?: string };
+      if (!weekStart || !weekEnd) {
+        return res.status(400).json({ error: "weekStart and weekEnd required" });
+      }
+      await storage.deleteWeeklySettlement(weekStart, weekEnd);
+      const items = await storage.listWeeklySettlements();
+      res.json({ ok: true, items });
+    } catch (error) {
+      res.status(500).json({ message: "Failed to delete settlement", error: error.message });
     }
   });
 
