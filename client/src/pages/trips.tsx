@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Plus, Calendar, Users, Car, Clock, Edit, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -72,6 +72,32 @@ export default function Trips() {
     setEditModalOpen(true);
   };
 
+  // Keyboard shortcut: Press 'n' to open Add Trip Log modal
+  useEffect(() => {
+    const handleKeyPress = (event: KeyboardEvent) => {
+      // Don't trigger if user is typing in an input, textarea, or has a modal open
+      const target = event.target as HTMLElement;
+      if (
+        target.tagName === 'INPUT' ||
+        target.tagName === 'TEXTAREA' ||
+        target.isContentEditable ||
+        isTripLogModalOpen ||
+        editModalOpen ||
+        deleteConfirm !== null
+      ) {
+        return;
+      }
+
+      // Press 'n' to open Add Trip Log
+      if (event.key === 'n' || event.key === 'N') {
+        event.preventDefault();
+        setIsTripLogModalOpen(true);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyPress);
+    return () => window.removeEventListener('keydown', handleKeyPress);
+  }, [isTripLogModalOpen, editModalOpen, deleteConfirm]);
 
   if (isLoading) {
     return (
@@ -94,8 +120,9 @@ export default function Trips() {
         <div>
           <h1 className="text-3xl font-bold text-gray-900">Trip Logs</h1>
           <p className="text-gray-600 mt-1">Track daily trip counts and performance</p>
+          <p className="text-sm text-gray-500 mt-1">Press <kbd className="px-2 py-1 text-xs font-semibold text-gray-800 bg-gray-100 border border-gray-200 rounded">N</kbd> to add a trip log</p>
         </div>
-        <Button onClick={() => setIsTripLogModalOpen(true)}>
+        <Button onClick={() => setIsTripLogModalOpen(true)} data-testid="button-add-trip-log">
           <Plus className="w-4 h-4 mr-2" />
           Add Trip Log
         </Button>

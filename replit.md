@@ -58,6 +58,14 @@ Preferred communication style: Simple, everyday language.
 
 ## Recent Updates
 
+### October 27, 2025 - Keyboard Shortcuts & Data Import
+
+#### Keyboard Shortcut for Trip Logs
+- Added keyboard shortcut 'N' to open Add Trip Log modal on Trip Logs page
+- Prevents activation when typing in input fields or when modals are open
+- Visual hint displayed on page showing the keyboard shortcut
+- Improves workflow efficiency for frequent trip log entries
+
 ### October 27, 2025 - Data Import & Vehicle Filtering
 
 #### Trips Column in Weekly Summary
