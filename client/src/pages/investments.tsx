@@ -364,6 +364,38 @@ export default function InvestmentsPage() {
             </Dialog>
           </div>
 
+          {/* Summary Cards */}
+          {investors && investors.length > 0 && (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <Card className="border border-gray-200 shadow-sm">
+                <CardContent className="pt-6">
+                  <h3 className="text-lg font-semibold text-gray-700 mb-2">Total Investment</h3>
+                  <div className="text-4xl font-bold text-gray-900" data-testid="text-total-investment-all">
+                    {formatCurrency(investors.reduce((sum, inv) => sum + inv.totalInvested, 0))}
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card className="border border-gray-200 shadow-sm">
+                <CardContent className="pt-6">
+                  <h3 className="text-lg font-semibold text-gray-700 mb-2">Total Returned</h3>
+                  <div className="text-4xl font-bold text-gray-900" data-testid="text-total-returned-all">
+                    {formatCurrency(investors.reduce((sum, inv) => sum + inv.totalReturned, 0))}
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card className="border border-gray-200 shadow-sm">
+                <CardContent className="pt-6">
+                  <h3 className="text-lg font-semibold text-gray-700 mb-2">Remaining Amount</h3>
+                  <div className="text-4xl font-bold text-gray-900" data-testid="text-remaining-amount-all">
+                    {formatCurrency(investors.reduce((sum, inv) => sum + inv.balance, 0))}
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          )}
+
           {isLoading ? (
             <div className="text-center py-12">
               <div className="text-lg text-gray-600">Loading investments...</div>
