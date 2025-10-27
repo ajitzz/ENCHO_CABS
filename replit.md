@@ -194,6 +194,14 @@ Changelog:
   • Color-coded UI: green for completed investments, orange for active ones
   • Return dialog shows previous payment history for transparency
   • All investment changes trigger real-time updates via SSE events
+- October 27, 2025. Investment enhancements - payment methods and editing:
+  • Added payment method tracking for both investments and returns
+  • Implemented edit functionality for investment returns (amount, date, payment method)
+  • Return dates now displayed prominently in previous returns section
+  • Payment method shown in investment cards and return records
+  • Edit button added to each return record for easy updates
+  • All forms include optional payment method field (Cash, Bank Transfer, UPI, etc.)
+  • Edit dialog validates data and prevents invalid updates
 ```
 
 ## User Preferences
