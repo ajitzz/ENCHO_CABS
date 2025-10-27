@@ -4,7 +4,7 @@ import {
   type Vehicle, type Driver, type VehicleDriverAssignment, type Trip, 
   type DriverRentLog, type WeeklySettlement, type SubstituteDriver, type WeeklySummary,
   type InsertVehicle, type InsertDriver, type InsertVehicleDriverAssignment, 
-  type InsertTrip, type InsertDriverRentLog, type InsertWeeklySettlement, 
+  type InsertTrip, type InsertDriverRentLog, type UpsertWeeklySettlementInput, 
   type InsertSubstituteDriver, type UpsertWeeklySummary
 } from "@shared/schema";
 import { db } from "./db";
@@ -49,11 +49,30 @@ export interface IStorage {
   getAllDriverRentLogs(): Promise<Array<DriverRentLog & { driverName: string; vehicleNumber: string }>>;
 
   // Weekly settlement operations
-  createWeeklySettlement(settlement: InsertWeeklySettlement): Promise<WeeklySettlement>;
-  getWeeklySettlement(id: number): Promise<WeeklySettlement | undefined>;
-  getWeeklySettlementByVehicleAndWeek(vehicleId: number, weekStart: Date, weekEnd: Date): Promise<WeeklySettlement | undefined>;
-  updateWeeklySettlement(id: number, settlement: Partial<InsertWeeklySettlement>): Promise<WeeklySettlement>;
-  getAllWeeklySettlements(): Promise<Array<WeeklySettlement & { vehicleNumber: string }>>;
+  getTripDateBounds(): Promise<{min: string | null; max: string | null}>;
+  listWeeklyWindows(): Promise<Array<{weekStart: string; weekEnd: string}>>;
+  aggregateWeek(weekStart: string, weekEnd: string): Promise<{
+    weekStart: string;
+    weekEnd: string;
+    rent: number;
+    wallet: number;
+    companyRent: number | null;
+    companyWallet: number | null;
+    roomRent: number;
+    profit: number | null;
+  }>;
+  listWeeklySettlements(): Promise<Array<{
+    weekStart: string;
+    weekEnd: string;
+    rent: number;
+    wallet: number;
+    companyRent: number | null;
+    companyWallet: number | null;
+    roomRent: number;
+    profit: number | null;
+  }>>;
+  upsertWeeklySettlement(input: {weekStart: string; weekEnd: string; companyRent: number | null; companyWallet: number | null}): Promise<void>;
+  deleteWeeklySettlement(weekStart: string, weekEnd: string): Promise<void>;
 
   // Substitute driver operations
   createSubstituteDriver(substitute: InsertSubstituteDriver): Promise<SubstituteDriver>;
@@ -308,56 +327,133 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Weekly settlement operations
-  async createWeeklySettlement(settlement: InsertWeeklySettlement): Promise<WeeklySettlement> {
-    const [result] = await db.insert(weeklySettlements).values(settlement).returning();
-    return result;
+  async getTripDateBounds(): Promise<{min: string | null; max: string | null}> {
+    const result = await db.execute(sql`
+      SELECT 
+        MIN(DATE(date))::text AS min_date, 
+        MAX(DATE(date))::text AS max_date 
+      FROM driver_rent_logs
+    `);
+    const row = result.rows?.[0];
+    return { 
+      min: row?.min_date ? String(row.min_date) : null, 
+      max: row?.max_date ? String(row.max_date) : null 
+    };
   }
 
-  async getWeeklySettlement(id: number): Promise<WeeklySettlement | undefined> {
-    const [result] = await db.select().from(weeklySettlements).where(eq(weeklySettlements.id, id));
-    return result || undefined;
-  }
+  async listWeeklyWindows(): Promise<Array<{weekStart: string; weekEnd: string}>> {
+    const { min, max } = await this.getTripDateBounds();
+    if (!min || !max) return [];
 
-  async getWeeklySettlementByVehicleAndWeek(vehicleId: number, weekStart: Date, weekEnd: Date): Promise<WeeklySettlement | undefined> {
-    const [result] = await db.select().from(weeklySettlements)
-      .where(and(
-        eq(weeklySettlements.vehicleId, vehicleId),
-        eq(weeklySettlements.weekStart, weekStart),
-        eq(weeklySettlements.weekEnd, weekEnd)
-      ));
-    return result || undefined;
-  }
-
-  async updateWeeklySettlement(id: number, settlement: Partial<InsertWeeklySettlement>): Promise<WeeklySettlement> {
-    const [result] = await db.update(weeklySettlements)
-      .set({ ...settlement, updatedAt: new Date() })
-      .where(eq(weeklySettlements.id, id))
-      .returning();
-    return result;
-  }
-
-  async getAllWeeklySettlements(): Promise<Array<WeeklySettlement & { vehicleNumber: string }>> {
-    const result = await db.select({
-      id: weeklySettlements.id,
-      vehicleId: weeklySettlements.vehicleId,
-      weekStart: weeklySettlements.weekStart,
-      weekEnd: weeklySettlements.weekEnd,
-      totalTrips: weeklySettlements.totalTrips,
-      rentalRate: weeklySettlements.rentalRate,
-      totalRentToCompany: weeklySettlements.totalRentToCompany,
-      driver1Data: weeklySettlements.driver1Data,
-      driver2Data: weeklySettlements.driver2Data,
-      totalDriverRent: weeklySettlements.totalDriverRent,
-      profit: weeklySettlements.profit,
-      paid: weeklySettlements.paid,
-      createdAt: weeklySettlements.createdAt,
-      updatedAt: weeklySettlements.updatedAt,
-      vehicleNumber: vehicles.vehicleNumber,
-    }).from(weeklySettlements)
-      .innerJoin(vehicles, eq(weeklySettlements.vehicleId, vehicles.id))
-      .orderBy(desc(weeklySettlements.weekStart));
+    const result = await db.execute(sql`
+      WITH bounds AS (
+        SELECT
+          (${min}::date - (EXTRACT(ISODOW FROM ${min}::date)::int - 1))::date AS week_start,
+          (${max}::date - (EXTRACT(ISODOW FROM ${max}::date)::int - 1) + 6)::date AS week_end_all
+      ),
+      weeks AS (
+        SELECT generate_series(
+          (SELECT week_start FROM bounds),
+          (SELECT week_end_all FROM bounds),
+          interval '7 days'
+        )::date AS week_start
+      )
+      SELECT 
+        week_start::text, 
+        (week_start + 6)::text AS week_end 
+      FROM weeks 
+      ORDER BY week_start ASC
+    `);
     
-    return result;
+    return (result.rows || []).map((r: any) => ({ 
+      weekStart: String(r.week_start), 
+      weekEnd: String(r.week_end) 
+    }));
+  }
+
+  async aggregateWeek(weekStart: string, weekEnd: string): Promise<{
+    weekStart: string;
+    weekEnd: string;
+    rent: number;
+    wallet: number;
+    companyRent: number | null;
+    companyWallet: number | null;
+    roomRent: number;
+    profit: number | null;
+  }> {
+    // Get rent from driver_rent_logs
+    const rentResult = await db.execute(sql`
+      SELECT COALESCE(SUM(rent), 0)::int AS rent_sum
+      FROM driver_rent_logs
+      WHERE DATE(date) BETWEEN ${weekStart}::date AND ${weekEnd}::date
+    `);
+    const rent = Number(rentResult.rows?.[0]?.rent_sum) || 0;
+
+    // Get wallet sum from weekly_summaries
+    const walletResult = await db.execute(sql`
+      SELECT COALESCE(SUM(total_earnings - cash + refund - expenses - 100), 0)::int AS wallet_sum
+      FROM weekly_summaries
+      WHERE start_date = ${weekStart}::date AND end_date = ${weekEnd}::date
+    `);
+    const wallet = Number(walletResult.rows?.[0]?.wallet_sum) || 0;
+
+    // Get company fields from weekly_settlements
+    const compResult = await db.execute(sql`
+      SELECT company_rent, company_wallet
+      FROM weekly_settlements
+      WHERE week_start = ${weekStart}::date AND week_end = ${weekEnd}::date
+    `);
+    let companyRent: number | null = null;
+    let companyWallet: number | null = null;
+    const crow = compResult.rows?.[0];
+    if (crow) {
+      companyRent = crow.company_rent === null ? null : Number(crow.company_rent);
+      companyWallet = crow.company_wallet === null ? null : Number(crow.company_wallet);
+    }
+
+    const ROOM_RENT = 4666;
+    const canCalc = companyRent !== null && companyWallet !== null;
+    const profit = canCalc ? (rent - wallet - (companyRent || 0) + (companyWallet || 0) - ROOM_RENT) : null;
+
+    return { weekStart, weekEnd, rent, wallet, companyRent, companyWallet, roomRent: ROOM_RENT, profit };
+  }
+
+  async listWeeklySettlements(): Promise<Array<{
+    weekStart: string;
+    weekEnd: string;
+    rent: number;
+    wallet: number;
+    companyRent: number | null;
+    companyWallet: number | null;
+    roomRent: number;
+    profit: number | null;
+  }>> {
+    const weeks = await this.listWeeklyWindows();
+    const rows = [];
+    for (const w of weeks) {
+      rows.push(await this.aggregateWeek(w.weekStart, w.weekEnd));
+    }
+    return rows;
+  }
+
+  async upsertWeeklySettlement(input: {weekStart: string; weekEnd: string; companyRent: number | null; companyWallet: number | null}): Promise<void> {
+    const now = new Date();
+    await db.execute(sql`
+      INSERT INTO weekly_settlements (week_start, week_end, company_rent, company_wallet, created_at, updated_at)
+      VALUES (${input.weekStart}::date, ${input.weekEnd}::date, ${input.companyRent}, ${input.companyWallet}, ${now}, ${now})
+      ON CONFLICT (week_start, week_end) 
+      DO UPDATE SET 
+        company_rent = ${input.companyRent},
+        company_wallet = ${input.companyWallet},
+        updated_at = ${now}
+    `);
+  }
+
+  async deleteWeeklySettlement(weekStart: string, weekEnd: string): Promise<void> {
+    await db.execute(sql`
+      DELETE FROM weekly_settlements 
+      WHERE week_start = ${weekStart}::date AND week_end = ${weekEnd}::date
+    `);
   }
 
   // Substitute driver operations
