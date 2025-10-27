@@ -35,18 +35,6 @@ export const vehicleDriverAssignments = pgTable("vehicle_driver_assignments", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
-export const trips = pgTable("trips", {
-  id: serial("id").primaryKey(),
-  driverId: integer("driver_id").notNull(),
-  vehicleId: integer("vehicle_id").notNull(),
-  tripDate: timestamp("trip_date").notNull(),
-  shift: text("shift").notNull(), // "morning" or "evening"
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-  updatedAt: timestamp("updated_at").defaultNow().notNull(),
-  weekStart: timestamp("week_start").notNull(),
-  weekEnd: timestamp("week_end").notNull(),
-});
-
 export const driverRentLogs = pgTable("driver_rent_logs", {
   id: serial("id").primaryKey(),
   driverId: integer("driver_id").notNull(),
@@ -127,8 +115,7 @@ export const investmentReturns = pgTable("investment_returns", {
 });
 
 // Relations
-export const vehiclesRelations = relations(vehicles, ({ many, one }) => ({
-  trips: many(trips),
+export const vehiclesRelations = relations(vehicles, ({ one, many }) => ({
   assignments: one(vehicleDriverAssignments, {
     fields: [vehicles.id],
     references: [vehicleDriverAssignments.vehicleId],
@@ -137,7 +124,6 @@ export const vehiclesRelations = relations(vehicles, ({ many, one }) => ({
 }));
 
 export const driversRelations = relations(drivers, ({ many }) => ({
-  trips: many(trips),
   rentLogs: many(driverRentLogs),
 }));
 
@@ -153,17 +139,6 @@ export const vehicleDriverAssignmentsRelations = relations(vehicleDriverAssignme
   eveningDriver: one(drivers, {
     fields: [vehicleDriverAssignments.eveningDriverId],
     references: [drivers.id],
-  }),
-}));
-
-export const tripsRelations = relations(trips, ({ one }) => ({
-  driver: one(drivers, {
-    fields: [trips.driverId],
-    references: [drivers.id],
-  }),
-  vehicle: one(vehicles, {
-    fields: [trips.vehicleId],
-    references: [vehicles.id],
   }),
 }));
 
@@ -226,12 +201,6 @@ export const updateDriverSchema = createInsertSchema(drivers).omit({
 }).partial();
 
 export const insertVehicleDriverAssignmentSchema = createInsertSchema(vehicleDriverAssignments).omit({
-  id: true,
-  createdAt: true,
-  updatedAt: true,
-});
-
-export const insertTripSchema = createInsertSchema(trips).omit({
   id: true,
   createdAt: true,
   updatedAt: true,
@@ -303,7 +272,6 @@ export const updateInvestmentReturnSchema = createInsertSchema(investmentReturns
 export type Vehicle = typeof vehicles.$inferSelect;
 export type Driver = typeof drivers.$inferSelect;
 export type VehicleDriverAssignment = typeof vehicleDriverAssignments.$inferSelect;
-export type Trip = typeof trips.$inferSelect;
 export type DriverRentLog = typeof driverRentLogs.$inferSelect;
 export type WeeklySettlement = typeof weeklySettlements.$inferSelect;
 export type SubstituteDriver = typeof substituteDrivers.$inferSelect;
@@ -314,7 +282,6 @@ export type UpdateVehicle = z.infer<typeof updateVehicleSchema>;
 export type InsertDriver = z.infer<typeof insertDriverSchema>;
 export type UpdateDriver = z.infer<typeof updateDriverSchema>;
 export type InsertVehicleDriverAssignment = z.infer<typeof insertVehicleDriverAssignmentSchema>;
-export type InsertTrip = z.infer<typeof insertTripSchema>;
 export type InsertDriverRentLog = z.infer<typeof insertDriverRentLogSchema>;
 export type UpsertWeeklySettlementInput = z.infer<typeof upsertWeeklySettlementSchema>;
 export type InsertSubstituteDriver = z.infer<typeof insertSubstituteDriverSchema>;
