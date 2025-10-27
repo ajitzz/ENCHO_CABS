@@ -833,6 +833,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Meta routes
+  app.get("/api/meta/first-trip-date", async (req, res) => {
+    try {
+      const firstTripDate = await storage.getFirstTripDate();
+      res.json({ firstTripDate });
+    } catch (error: any) {
+      res.status(500).json({ message: "Failed to fetch first trip date", error: error.message });
+    }
+  });
+
   // Export routes
   app.get("/api/export/:type", async (req, res) => {
     try {
