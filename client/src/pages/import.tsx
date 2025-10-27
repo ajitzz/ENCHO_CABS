@@ -62,14 +62,23 @@ export default function ImportPage() {
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.message || 'Import failed');
+        // Check if this is a duplicate rejection
+        if (data.rejected && data.duplicates) {
+          setResult({
+            rejected: true,
+            message: data.message,
+            duplicates: data.duplicates,
+          });
+        } else {
+          throw new Error(data.message || 'Import failed');
+        }
+      } else {
+        setResult(data);
+        toast({
+          title: "Import Successful",
+          description: `Imported ${data.success} records successfully`,
+        });
       }
-
-      setResult(data);
-      toast({
-        title: "Import Successful",
-        description: `Imported ${data.success} records successfully`,
-      });
     } catch (error: any) {
       toast({
         title: "Import Failed",
@@ -135,49 +144,75 @@ export default function ImportPage() {
 
           {result && (
             <div className="space-y-4 mt-6">
-              <Alert className={result.errors?.length > 0 ? "border-yellow-500" : "border-green-500"}>
-                {result.errors?.length > 0 ? (
-                  <AlertCircle className="h-4 w-4 text-yellow-500" />
-                ) : (
-                  <CheckCircle className="h-4 w-4 text-green-500" />
-                )}
-                <AlertDescription>
-                  <div className="space-y-2">
-                    <p className="font-semibold">Import Results:</p>
-                    <ul className="list-disc list-inside space-y-1 text-sm">
-                      <li>Successfully imported: <span className="font-bold text-green-600">{result.success}</span> records</li>
-                      <li>Skipped: <span className="font-bold text-gray-600">{result.skipped}</span> records (No Vehicle/Leave entries)</li>
-                      {result.details?.tripsCreated > 0 && (
-                        <li>Trips created: <span className="font-bold">{result.details.tripsCreated}</span></li>
-                      )}
-                      {result.details?.rentLogsCreated > 0 && (
-                        <li>Rent logs created: <span className="font-bold">{result.details.rentLogsCreated}</span></li>
-                      )}
-                      {result.details?.vehiclesCreated?.length > 0 && (
-                        <li>New vehicles created: <span className="font-bold">{result.details.vehiclesCreated.join(', ')}</span></li>
-                      )}
-                      {result.details?.driversCreated?.length > 0 && (
-                        <li>New drivers created: <span className="font-bold">{result.details.driversCreated.join(', ')}</span></li>
-                      )}
-                    </ul>
-                  </div>
-                </AlertDescription>
-              </Alert>
-
-              {result.errors?.length > 0 && (
-                <Alert className="border-red-500">
+              {result.rejected ? (
+                <Alert className="border-red-500 bg-red-50">
                   <AlertCircle className="h-4 w-4 text-red-500" />
                   <AlertDescription>
-                    <div className="space-y-2">
-                      <p className="font-semibold text-red-700">Errors ({result.errors.length}):</p>
-                      <ul className="list-disc list-inside space-y-1 text-sm max-h-48 overflow-y-auto">
-                        {result.errors.map((error: string, index: number) => (
-                          <li key={index} className="text-red-600">{error}</li>
-                        ))}
-                      </ul>
+                    <div className="space-y-3">
+                      <p className="font-semibold text-red-700 text-lg">File Rejected - Duplicate Entries Found</p>
+                      <p className="text-red-600">{result.message}</p>
+                      <div className="bg-white border border-red-300 rounded p-3 mt-3">
+                        <p className="font-semibold text-red-700 mb-2">Duplicate Drivers Found:</p>
+                        <ul className="list-disc list-inside space-y-1 text-sm max-h-48 overflow-y-auto">
+                          {result.duplicates?.map((dup: string, index: number) => (
+                            <li key={index} className="text-red-600 font-mono text-xs">{dup}</li>
+                          ))}
+                        </ul>
+                      </div>
+                      <p className="text-sm text-red-700 mt-3">
+                        <strong>Action required:</strong> Please remove the duplicate entries from your CSV file and try importing again. 
+                        Each driver can only have one entry per day.
+                      </p>
                     </div>
                   </AlertDescription>
                 </Alert>
+              ) : (
+                <>
+                  <Alert className={result.errors?.length > 0 ? "border-yellow-500" : "border-green-500"}>
+                    {result.errors?.length > 0 ? (
+                      <AlertCircle className="h-4 w-4 text-yellow-500" />
+                    ) : (
+                      <CheckCircle className="h-4 w-4 text-green-500" />
+                    )}
+                    <AlertDescription>
+                      <div className="space-y-2">
+                        <p className="font-semibold">Import Results:</p>
+                        <ul className="list-disc list-inside space-y-1 text-sm">
+                          <li>Successfully imported: <span className="font-bold text-green-600">{result.success}</span> records</li>
+                          <li>Skipped: <span className="font-bold text-gray-600">{result.skipped}</span> records (No Vehicle/Leave entries or existing entries)</li>
+                          {result.details?.tripsCreated > 0 && (
+                            <li>Trips created: <span className="font-bold">{result.details.tripsCreated}</span></li>
+                          )}
+                          {result.details?.rentLogsCreated > 0 && (
+                            <li>Rent logs created: <span className="font-bold">{result.details.rentLogsCreated}</span></li>
+                          )}
+                          {result.details?.vehiclesCreated?.length > 0 && (
+                            <li>New vehicles created: <span className="font-bold">{result.details.vehiclesCreated.join(', ')}</span></li>
+                          )}
+                          {result.details?.driversCreated?.length > 0 && (
+                            <li>New drivers created: <span className="font-bold">{result.details.driversCreated.join(', ')}</span></li>
+                          )}
+                        </ul>
+                      </div>
+                    </AlertDescription>
+                  </Alert>
+
+                  {result.errors?.length > 0 && (
+                    <Alert className="border-red-500">
+                      <AlertCircle className="h-4 w-4 text-red-500" />
+                      <AlertDescription>
+                        <div className="space-y-2">
+                          <p className="font-semibold text-red-700">Errors ({result.errors.length}):</p>
+                          <ul className="list-disc list-inside space-y-1 text-sm max-h-48 overflow-y-auto">
+                            {result.errors.map((error: string, index: number) => (
+                              <li key={index} className="text-red-600">{error}</li>
+                            ))}
+                          </ul>
+                        </div>
+                      </AlertDescription>
+                    </Alert>
+                  )}
+                </>
               )}
             </div>
           )}
@@ -194,6 +229,9 @@ export default function ImportPage() {
               <li>Fuel: Numeric value (can be empty)</li>
             </ul>
             <p className="text-sm text-blue-700 mt-3">
+              <strong>Important:</strong> Each driver can only have ONE entry per day. The file will be rejected if duplicate drivers are found on the same date.
+            </p>
+            <p className="text-sm text-blue-700 mt-1">
               <strong>Note:</strong> Rows with "No Vechicle" or "Leave" will be automatically skipped. 
               Missing vehicles and drivers will be created automatically.
             </p>

@@ -116,10 +116,14 @@ Preferred communication style: Simple, everyday language.
 
 #### Duplicate Driver Prevention
 - Enforces unique driver per day constraint across all entry methods
-- Prevents duplicate entries when adding trip logs manually through the form
-- Prevents duplicate entries when importing data via CSV
-- Validates during edit operations - prevents changing to a date where driver already has an entry
-- Clear error messages indicating which driver and date has a conflict
+- **Manual Entry**: Prevents duplicate entries when adding trip logs manually through the form
+- **CSV Import**: Pre-validates CSV file and rejects entire file if internal duplicates found
+  - Scans CSV file before importing any data
+  - Shows detailed list of duplicate drivers with dates and row numbers
+  - No data is imported if duplicates are detected
+  - Clear error messages with actionable instructions
+- **Edit Operations**: Validates during edit operations - prevents changing to a date where driver already has an entry
+- **Database Protection**: Also checks against existing database entries to prevent conflicts
 - Maintains data integrity by ensuring one trip log per driver per day
 
 ### October 27, 2025 - Investment Management Enhancements

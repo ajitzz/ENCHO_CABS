@@ -1123,6 +1123,78 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Invalid CSV data format" });
       }
 
+      // STEP 1: Pre-validate CSV file for internal duplicates
+      const driverDateMap = new Map<string, Set<string>>();
+      const duplicates: Array<{ driver: string; date: string; rows: number[] }> = [];
+      
+      for (let i = 0; i < csvData.length; i++) {
+        const rawRow = csvData[i];
+        
+        // Normalize field names
+        let driverName = '';
+        let dateStr = '';
+        
+        for (const [key, value] of Object.entries(rawRow)) {
+          const normalizedKey = key.trim().toLowerCase();
+          if (normalizedKey === 'driver' && value && typeof value === 'string') {
+            driverName = value.toString().trim().toUpperCase();
+          }
+          if (normalizedKey === 'date' && value && typeof value === 'string') {
+            dateStr = value.toString().trim();
+          }
+        }
+        
+        // Skip if no driver or date (will be caught later as validation error)
+        if (!driverName || !dateStr) continue;
+        
+        // Skip "No Vehicle" and "Leave" entries
+        let shift = '';
+        let vehicle = '';
+        for (const [key, value] of Object.entries(rawRow)) {
+          const normalizedKey = key.trim().toLowerCase();
+          if (normalizedKey === 'shift') shift = value?.toString().toLowerCase() || '';
+          if (normalizedKey === 'vehicle') vehicle = value?.toString().toLowerCase() || '';
+        }
+        
+        if (vehicle.includes('no vechicle') || shift === 'leave' || shift.includes('no vechicle')) {
+          continue;
+        }
+        
+        // Check for duplicates
+        const key = `${driverName}|${dateStr}`;
+        if (!driverDateMap.has(key)) {
+          driverDateMap.set(key, new Set([i.toString()]));
+        } else {
+          const existingRows = driverDateMap.get(key)!;
+          existingRows.add(i.toString());
+          
+          // Check if we already recorded this duplicate
+          const existing = duplicates.find(d => d.driver === driverName && d.date === dateStr);
+          if (!existing) {
+            duplicates.push({
+              driver: driverName,
+              date: dateStr,
+              rows: Array.from(existingRows).map(r => parseInt(r) + 2) // +2 for Excel row numbers (header + 0-index)
+            });
+          } else {
+            existing.rows = Array.from(existingRows).map(r => parseInt(r) + 2);
+          }
+        }
+      }
+      
+      // If duplicates found, reject the entire file
+      if (duplicates.length > 0) {
+        const duplicateMessages = duplicates.map(d => 
+          `Driver "${d.driver}" on ${d.date} (rows: ${d.rows.join(', ')})`
+        );
+        
+        return res.status(400).json({
+          message: "CSV file contains duplicate driver entries on the same day. Please fix these duplicates and try again.",
+          duplicates: duplicateMessages,
+          rejected: true
+        });
+      }
+
       const results = {
         success: 0,
         skipped: 0,
