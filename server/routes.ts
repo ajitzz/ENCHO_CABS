@@ -804,6 +804,107 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.post("/api/import/weekly-summary", async (req, res) => {
+    try {
+      const { csvData, startDate, endDate } = req.body;
+
+      if (!csvData || !Array.isArray(csvData)) {
+        return res.status(400).json({ message: "csvData array is required" });
+      }
+
+      if (!startDate || !endDate) {
+        return res.status(400).json({ message: "startDate and endDate are required" });
+      }
+
+      // Get the aggregates for the date range to get valid driver list
+      const aggregates = await storage.getDriverAggregatesForDateRange(
+        String(startDate),
+        String(endDate)
+      );
+
+      // Create a map of driver names to driver IDs (case-insensitive)
+      const driverMap = new Map<string, { driverId: number; driverName: string }>();
+      aggregates.forEach(agg => {
+        driverMap.set(agg.driverName.toUpperCase(), {
+          driverId: agg.driverId,
+          driverName: agg.driverName
+        });
+      });
+
+      const results = {
+        success: 0,
+        skipped: 0,
+        errors: [] as string[],
+        driversNotFound: [] as string[],
+      };
+
+      // Process each CSV row
+      for (let i = 0; i < csvData.length; i++) {
+        const row = csvData[i];
+        
+        try {
+          // Validate required fields
+          if (!row.Driver || typeof row.Driver !== 'string' || !row.Driver.trim()) {
+            results.errors.push(`Row ${i + 2}: Missing or invalid driver name`);
+            continue;
+          }
+
+          const driverName = row.Driver.trim();
+          const driverInfo = driverMap.get(driverName.toUpperCase());
+
+          if (!driverInfo) {
+            // Driver not found in computed weekly summary
+            if (!results.driversNotFound.includes(driverName)) {
+              results.driversNotFound.push(driverName);
+            }
+            results.skipped++;
+            continue;
+          }
+
+          // Parse numeric fields
+          const trips = row.Trips ? parseInt(String(row.Trips)) : 0;
+          const totalEarnings = row['Total earnings'] ? Math.round(parseFloat(String(row['Total earnings']))) : 0;
+          const cash = row['Cash collected'] ? Math.round(Math.abs(parseFloat(String(row['Cash collected'])))) : 0;
+          const refund = row.Refunds ? Math.round(parseFloat(String(row.Refunds))) : 0;
+
+          // Validate parsed numbers
+          if (isNaN(trips) || isNaN(totalEarnings) || isNaN(cash) || isNaN(refund)) {
+            results.errors.push(`Row ${i + 2}: Invalid numeric values for ${driverName}`);
+            continue;
+          }
+
+          // Update weekly summary for this driver
+          await storage.upsertWeeklySummary({
+            driverId: driverInfo.driverId,
+            startDate: String(startDate),
+            endDate: String(endDate),
+            trips,
+            totalEarnings,
+            cash,
+            refund,
+            expenses: 0, // Not provided in CSV
+            dues: 0,     // Not provided in CSV
+            payout: 0,   // Not provided in CSV
+          });
+
+          results.success++;
+        } catch (error: any) {
+          results.errors.push(`Row ${i + 2}: ${error.message}`);
+        }
+      }
+
+      broadcast("weeklysummary:changed", { range: { start: startDate, end: endDate } });
+
+      res.json({
+        message: "Import completed",
+        ...results
+      });
+    } catch (error: any) {
+      console.error("Weekly summary import error:", error);
+      res.status(500).json({ message: "Failed to import weekly summary data", error: error.message });
+    }
+  });
+
   // Investment routes
   app.get("/api/investments", async (req, res) => {
     try {

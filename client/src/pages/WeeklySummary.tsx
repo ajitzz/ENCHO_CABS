@@ -1,4 +1,5 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
+import Papa from "papaparse";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -9,7 +10,9 @@ import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { CalendarIcon, Save, RotateCcw } from "lucide-react";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { AlertDialog, AlertDialogAction, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { CalendarIcon, Save, RotateCcw, Upload, AlertCircle } from "lucide-react";
 
 interface WeeklySummaryRow {
   driverId: number;
@@ -61,6 +64,11 @@ export default function WeeklySummary() {
   const [startDate, setStartDate] = useState<Date>(getMondayOfCurrentWeek());
   const [endDate, setEndDate] = useState<Date>(getTodayIST());
   const [editableData, setEditableData] = useState<Record<number, EditableFields>>({});
+  const [isImporting, setIsImporting] = useState(false);
+  const [importResult, setImportResult] = useState<any>(null);
+  const [showNotFoundDialog, setShowNotFoundDialog] = useState(false);
+  const [driversNotFound, setDriversNotFound] = useState<string[]>([]);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
 
   const startDateStr = format(startDate, "yyyy-MM-dd");
@@ -201,6 +209,77 @@ export default function WeeklySummary() {
     return collection + wallet + data.dues - rent - data.payout;
   };
 
+  const handleImportCSV = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    setIsImporting(true);
+    setImportResult(null);
+
+    try {
+      const text = await file.text();
+      
+      const parseResult = Papa.parse(text, {
+        header: true,
+        skipEmptyLines: true,
+        trimHeaders: true,
+        transform: (value) => value.trim(),
+      });
+
+      if (parseResult.errors.length > 0) {
+        console.error("CSV parsing errors:", parseResult.errors);
+      }
+
+      const csvData = parseResult.data;
+
+      // Send to API
+      const response = await fetch('/api/import/weekly-summary', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          csvData,
+          startDate: startDateStr,
+          endDate: endDateStr,
+        }),
+      });
+
+      const result = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(result.message || 'Import failed');
+      }
+
+      setImportResult(result);
+      
+      if (result.driversNotFound && result.driversNotFound.length > 0) {
+        setDriversNotFound(result.driversNotFound);
+        setShowNotFoundDialog(true);
+      }
+
+      // Refresh the summary data
+      queryClient.invalidateQueries({ 
+        queryKey: ["/api/weekly-summary/aggregates", startDateStr, endDateStr] 
+      });
+
+      toast({
+        title: "Import completed",
+        description: `Successfully imported ${result.success} records. ${result.skipped} skipped.`,
+      });
+    } catch (error: any) {
+      console.error("Import error:", error);
+      toast({
+        title: "Import failed",
+        description: error.message || "Failed to import CSV file",
+        variant: "destructive",
+      });
+    } finally {
+      setIsImporting(false);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="container mx-auto p-6">
@@ -216,8 +295,8 @@ export default function WeeklySummary() {
           <CardTitle className="text-2xl font-bold text-gray-900">Weekly Summary</CardTitle>
         </CardHeader>
         <CardContent>
-          {/* Date Range Filter */}
-          <div className="flex gap-4 mb-6 items-end">
+          {/* Date Range Filter and Import */}
+          <div className="flex gap-4 mb-6 items-end flex-wrap">
             <div>
               <Label>Start Date</Label>
               <Popover>
@@ -272,7 +351,38 @@ export default function WeeklySummary() {
             >
               Refresh
             </Button>
+
+            <div className="flex gap-2">
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".csv"
+                onChange={handleImportCSV}
+                className="hidden"
+                data-testid="input-file-csv"
+              />
+              <Button
+                onClick={() => fileInputRef.current?.click()}
+                disabled={isImporting}
+                variant="outline"
+                data-testid="button-import-csv"
+              >
+                <Upload className="h-4 w-4 mr-2" />
+                {isImporting ? "Importing..." : "Import CSV"}
+              </Button>
+            </div>
           </div>
+
+          {/* Import Results */}
+          {importResult && (
+            <Alert className="mb-4">
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>
+                Import completed: {importResult.success} successful, {importResult.skipped} skipped
+                {importResult.errors.length > 0 && `, ${importResult.errors.length} errors`}
+              </AlertDescription>
+            </Alert>
+          )}
 
           {/* Summary Table */}
           {summaries && summaries.length > 0 ? (
@@ -415,6 +525,30 @@ export default function WeeklySummary() {
           )}
         </CardContent>
       </Card>
+
+      {/* Drivers Not Found Dialog */}
+      <AlertDialog open={showNotFoundDialog} onOpenChange={setShowNotFoundDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Drivers Not Found</AlertDialogTitle>
+            <AlertDialogDescription>
+              The following drivers from the CSV were not found in the computed weekly summary for the selected date range and were skipped:
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="my-4">
+            <ul className="list-disc list-inside space-y-1">
+              {driversNotFound.map((driver, index) => (
+                <li key={index} className="text-sm text-gray-700">{driver}</li>
+              ))}
+            </ul>
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogAction onClick={() => setShowNotFoundDialog(false)}>
+              OK
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

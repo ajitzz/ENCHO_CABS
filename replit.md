@@ -67,6 +67,16 @@ Preferred communication style: Simple, everyday language.
 - Stored in weekly_summaries table for record keeping
 - Blue highlighted background for easy identification
 
+#### Weekly Summary CSV Import
+- Added "Import CSV" button to Weekly Summary page
+- Allows bulk import of weekly summary data (trips, total earnings, cash, refunds)
+- CSV format: Date, Driver, Trips, Total earnings, Cash collected, Refunds
+- Automatically matches drivers to computed weekly summary for the selected date range
+- Skips drivers not found in the computed list and displays them in a popup dialog
+- Updates weekly_summaries table with imported data
+- Shows import results with success count, skipped count, and errors
+- API endpoint: POST /api/import/weekly-summary
+
 #### CSV Data Import
 - Added bulk import functionality for trip logs via CSV files
 - New "Import Data" page in navigation with upload interface
