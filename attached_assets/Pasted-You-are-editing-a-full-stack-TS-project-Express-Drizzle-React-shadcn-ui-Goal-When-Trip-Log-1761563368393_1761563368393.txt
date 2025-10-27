@@ -1,0 +1,167 @@
+You are editing a full-stack TS project (Express + Drizzle + React + shadcn/ui).
+Goal: When Trip Logs (or Weekly Summary / Settlements) change, update ALL affected pages immediately:
+- Trip Logs page
+- Weekly Summary page
+- Drivers Payments page
+- Settlements page
+
+We’ll add:
+1) A tiny server-side Event Bus + /api/events (SSE stream)
+2) Broadcast events after every write on Trip Logs / Weekly Summary / Settlements
+3) A client hook that listens to /api/events and invalidates the right React Query caches
+4) Fallback: also invalidate caches after each mutation’s success
+
+===============================
+SERVER — Event Bus + SSE
+===============================
+1) Create server/eventBus.ts
+--------------------------------
+import { EventEmitter } from "node:events";
+
+export type AppEventType =
+  | "triplogs:changed"
+  | "weeklysummary:changed"
+  | "settlements:changed";
+
+type AppEvent = { type: AppEventType; payload?: any };
+
+class Bus extends EventEmitter {
+  broadcast(e: AppEvent) {
+    this.emit("event", e);
+  }
+}
+
+export const bus = new Bus();
+
+export function broadcast(type: AppEventType, payload?: any) {
+  bus.broadcast({ type, payload });
+}
+
+2) Add SSE route in server/routes.ts
+------------------------------------
+import { bus, broadcast } from "./eventBus"; // adjust path
+
+app.get("/api/events", (req, res) => {
+  res.setHeader("Content-Type", "text/event-stream");
+  res.setHeader("Cache-Control", "no-cache");
+  res.setHeader("Connection", "keep-alive");
+  res.flushHeaders?.();
+
+  const listener = (e: { type: string; payload?: any }) => {
+    res.write(`event: ${e.type}\n`);
+    res.write(`data: ${JSON.stringify(e.payload ?? {})}\n\n`);
+  };
+
+  bus.on("event", listener);
+
+  req.on("close", () => {
+    bus.off("event", listener);
+  });
+});
+
+3) After every write, broadcast:
+--------------------------------
+- Trip Logs routes (create/update/delete):
+  broadcast("triplogs:changed");
+
+- Weekly Summary save (POST /api/weekly-summary):
+  broadcast("weeklysummary:changed", { range: { start: payload.startDate, end: payload.endDate } });
+
+- Settlements save/delete:
+  broadcast("settlements:changed", { weekStart, weekEnd });
+
+Make sure these calls run AFTER a successful DB commit.
+
+===============================
+CLIENT — Listen & invalidate
+===============================
+4) Add client/src/lib/events.ts
+--------------------------------
+import { useEffect } from "react";
+import { QueryClient } from "@tanstack/react-query";
+
+export function useServerEvents(queryClient: QueryClient) {
+  useEffect(() => {
+    const es = new EventSource("/api/events");
+
+    const invalidate = (matcher: (key: unknown) => boolean) =>
+      queryClient.invalidateQueries({ predicate: (q) => matcher(q.queryKey[0]) });
+
+    es.addEventListener("triplogs:changed", () => {
+      // Trip Logs changed → everything that depends on trip data
+      queryClient.invalidateQueries({ predicate: (q) => {
+        const k = q.queryKey[0];
+        return k === "trip-logs" || k === "weekly-summary" || k === "drivers-payments" || k === "settlements";
+      }});
+    });
+
+    es.addEventListener("weeklysummary:changed", () => {
+      // Manual fields changed → affects settlements + any open weekly-summary/drivers-payments
+      queryClient.invalidateQueries({ predicate: (q) => {
+        const k = q.queryKey[0];
+        return k === "weekly-summary" || k === "drivers-payments" || k === "settlements";
+      }});
+    });
+
+    es.addEventListener("settlements:changed", () => {
+      queryClient.invalidateQueries({ predicate: (q) => q.queryKey[0] === "settlements" });
+    });
+
+    es.onerror = () => {
+      // SSE will auto-reconnect; no-op
+    };
+
+    return () => es.close();
+  }, [queryClient]);
+}
+
+5) Wire it at app root — client/src/App.tsx (or a top-level layout)
+-------------------------------------------------------------------
+import { useQueryClient } from "@tanstack/react-query";
+import { useServerEvents } from "./lib/events";
+
+// inside App component:
+const qc = useQueryClient();
+useServerEvents(qc);
+
+6) Strengthen React Query defaults — client/src/lib/queryClient.ts
+-------------------------------------------------------------------
+export const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 0,                // always refetch on invalidation
+      refetchOnReconnect: true,
+      refetchOnWindowFocus: true,  // helps when user tabs back
+      retry: 1,
+    },
+    mutations: {
+      retry: 0,
+    }
+  }
+});
+
+7) Add cache invalidations on local mutations (fallback)
+--------------------------------------------------------
+- After Trip Log create/update/delete success:
+  queryClient.invalidateQueries({ predicate: (q) => {
+    const k = q.queryKey[0];
+    return k === "trip-logs" || k === "weekly-summary" || k === "drivers-payments" || k === "settlements";
+  }});
+
+- After Weekly Summary save success:
+  queryClient.invalidateQueries({ predicate: (q) => {
+    const k = q.queryKey[0];
+    return k === "weekly-summary" || k === "drivers-payments" || k === "settlements";
+  }});
+
+- After Settlements save/delete success:
+  queryClient.invalidateQueries({ queryKey: ["settlements"] });
+
+===============================
+ACCEPTANCE
+===============================
+- Add/Update/Delete a Trip Log → within a moment, Weekly Summary, Drivers Payments, Settlements all refresh automatically (SSE).
+- Edit Weekly Summary (manual fields) → Settlements refreshes and recalculates wallet-based totals.
+- Edit/Delete Settlements → only Settlements page refetches.
+- Switching browser tabs auto-refetches (window focus) even if an SSE reconnect was missed.
+- No hard refresh required; re-computation always uses inclusive dates and latest DB state.

@@ -1,8 +1,9 @@
 import { Switch, Route } from "wouter";
 import { queryClient } from "./lib/queryClient";
-import { QueryClientProvider } from "@tanstack/react-query";
+import { QueryClientProvider, useQueryClient } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { useServerEvents } from "@/lib/events";
 import Layout from "@/components/Layout";
 import Dashboard from "@/pages/dashboard";
 import Vehicles from "@/pages/vehicles";
@@ -15,6 +16,9 @@ import WeeklySummary from "@/pages/WeeklySummary";
 import NotFound from "@/pages/not-found";
 
 function Router() {
+  const qc = useQueryClient();
+  useServerEvents(qc);
+
   return (
     <Layout>
       <Switch>

@@ -10,6 +10,7 @@ import {
 import { getRentalInfo, getAllSlabs, getDriverRent, getRentalRate } from "./services/rentalCalculator";
 import { calculateWeeklySettlement, processWeeklySettlement, processAllVehicleSettlements, generateDailyRentLogs } from "./services/settlementProcessor";
 import { resetAllSequences, checkSequenceSync } from "./utils/resetSequences";
+import { bus, broadcast } from "./eventBus";
 
 // Validation schemas
 const vehicleIdSchema = z.object({
@@ -31,6 +32,25 @@ function getWeekStart(date: Date): Date {
 }
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  // Server-Sent Events for real-time updates
+  app.get("/api/events", (req, res) => {
+    res.setHeader("Content-Type", "text/event-stream");
+    res.setHeader("Cache-Control", "no-cache");
+    res.setHeader("Connection", "keep-alive");
+    res.flushHeaders?.();
+
+    const listener = (e: { type: string; payload?: any }) => {
+      res.write(`event: ${e.type}\n`);
+      res.write(`data: ${JSON.stringify(e.payload ?? {})}\n\n`);
+    };
+
+    bus.on("event", listener);
+
+    req.on("close", () => {
+      bus.off("event", listener);
+    });
+  });
+
   // Vehicle routes
   app.get("/api/vehicles", async (req, res) => {
     try {
@@ -256,6 +276,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       );
       
       res.status(201).json(trip);
+      broadcast("triplogs:changed");
     } catch (error) {
       res.status(400).json({ message: "Invalid trip data", error: error.message });
     }
@@ -294,6 +315,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       );
       
       res.json(trip);
+      broadcast("triplogs:changed");
     } catch (error) {
       res.status(400).json({ message: "Failed to update trip", error: error.message });
     }
@@ -326,6 +348,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       await storage.deleteTrip(id);
 
       res.json({ message: "Trip deleted successfully" });
+      broadcast("triplogs:changed");
     } catch (error) {
       res.status(400).json({ message: "Failed to delete trip", error: error.message });
     }
@@ -549,6 +572,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
       const items = await storage.listWeeklySettlements();
       res.json({ ok: true, items });
+      broadcast("settlements:changed", { weekStart, weekEnd });
     } catch (error) {
       res.status(500).json({ message: "Failed to save settlement", error: error.message });
     }
@@ -563,6 +587,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       await storage.deleteWeeklySettlement(weekStart, weekEnd);
       const items = await storage.listWeeklySettlements();
       res.json({ ok: true, items });
+      broadcast("settlements:changed", { weekStart, weekEnd });
     } catch (error) {
       res.status(500).json({ message: "Failed to delete settlement", error: error.message });
     }
@@ -750,6 +775,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const summaryData = upsertWeeklySummarySchema.parse(req.body);
       const summary = await storage.upsertWeeklySummary(summaryData);
       res.json(summary);
+      broadcast("weeklysummary:changed", { range: { start: summaryData.startDate, end: summaryData.endDate } });
     } catch (error: any) {
       res.status(400).json({ message: "Failed to save weekly summary", error: error.message });
     }
@@ -770,6 +796,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       );
 
       res.json({ message: "Weekly summary cleared successfully" });
+      broadcast("weeklysummary:changed", { range: { start: startDate, end: endDate } });
     } catch (error: any) {
       res.status(500).json({ message: "Failed to clear weekly summary", error: error.message });
     }
