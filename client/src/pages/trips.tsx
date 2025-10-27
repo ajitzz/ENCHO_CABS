@@ -77,26 +77,39 @@ export default function Trips() {
     const handleKeyPress = (event: KeyboardEvent) => {
       // Don't trigger if user is typing in an input, textarea, or has a modal open
       const target = event.target as HTMLElement;
+      
+      console.log('Key pressed:', event.key, 'Target:', target.tagName);
+      
       if (
         target.tagName === 'INPUT' ||
         target.tagName === 'TEXTAREA' ||
+        target.tagName === 'SELECT' ||
         target.isContentEditable ||
         isTripLogModalOpen ||
         editModalOpen ||
         deleteConfirm !== null
       ) {
+        console.log('Skipping due to:', {
+          isInput: target.tagName === 'INPUT',
+          isTextarea: target.tagName === 'TEXTAREA',
+          isSelect: target.tagName === 'SELECT',
+          modalOpen: isTripLogModalOpen,
+          editOpen: editModalOpen,
+          confirmOpen: deleteConfirm !== null
+        });
         return;
       }
 
       // Press 'n' to open Add Trip Log
       if (event.key === 'n' || event.key === 'N') {
+        console.log('Opening modal via keyboard shortcut');
         event.preventDefault();
         setIsTripLogModalOpen(true);
       }
     };
 
-    window.addEventListener('keydown', handleKeyPress);
-    return () => window.removeEventListener('keydown', handleKeyPress);
+    document.addEventListener('keydown', handleKeyPress);
+    return () => document.removeEventListener('keydown', handleKeyPress);
   }, [isTripLogModalOpen, editModalOpen, deleteConfirm]);
 
   if (isLoading) {
