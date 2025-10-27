@@ -9,7 +9,12 @@ export function useServerEvents(queryClient: QueryClient) {
       // Trip Logs changed → everything that depends on trip data
       queryClient.invalidateQueries({ predicate: (q) => {
         const k = q.queryKey[0];
-        return k === "trip-logs" || k === "weekly-summary" || k === "drivers-payments" || k === "settlements";
+        if (typeof k !== 'string') return false;
+        return k === "/api/trips" || k.startsWith("/api/trips/") || 
+               k.startsWith("/api/weekly-summary") || 
+               k.startsWith("/api/driver-rent-logs") ||
+               k === "/api/settlements" ||
+               k.startsWith("/api/dashboard");
       }});
     });
 
@@ -17,12 +22,19 @@ export function useServerEvents(queryClient: QueryClient) {
       // Manual fields changed → affects settlements + any open weekly-summary/drivers-payments
       queryClient.invalidateQueries({ predicate: (q) => {
         const k = q.queryKey[0];
-        return k === "weekly-summary" || k === "drivers-payments" || k === "settlements";
+        if (typeof k !== 'string') return false;
+        return k.startsWith("/api/weekly-summary") || 
+               k.startsWith("/api/driver-rent-logs") || 
+               k === "/api/settlements";
       }});
     });
 
     es.addEventListener("settlements:changed", () => {
-      queryClient.invalidateQueries({ predicate: (q) => q.queryKey[0] === "settlements" });
+      queryClient.invalidateQueries({ predicate: (q) => {
+        const k = q.queryKey[0];
+        if (typeof k !== 'string') return false;
+        return k === "/api/settlements" || k.startsWith("/api/dashboard");
+      }});
     });
 
     es.onerror = () => {
