@@ -14,6 +14,7 @@ import Settlements from "@/pages/settlements";
 import DriversPayments from "@/pages/drivers-payments";
 import WeeklySummary from "@/pages/WeeklySummary";
 import Investments from "@/pages/investments";
+import Import from "@/pages/import";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -33,6 +34,7 @@ function Router() {
         <Route path="/drivers-payments" component={DriversPayments} />
         <Route path="/weekly-summary" component={WeeklySummary} />
         <Route path="/investments" component={Investments} />
+        <Route path="/import" component={Import} />
         <Route component={NotFound} />
       </Switch>
     </Layout>

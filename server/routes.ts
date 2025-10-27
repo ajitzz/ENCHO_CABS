@@ -962,6 +962,175 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Import route for bulk trip log data
+  app.post("/api/import/trip-logs", async (req, res) => {
+    try {
+      const { csvData } = req.body;
+      
+      if (!csvData || !Array.isArray(csvData)) {
+        return res.status(400).json({ message: "Invalid CSV data format" });
+      }
+
+      const results = {
+        success: 0,
+        skipped: 0,
+        errors: [] as string[],
+        details: {
+          vehiclesCreated: [] as string[],
+          driversCreated: [] as string[],
+          tripsCreated: 0,
+          rentLogsCreated: 0,
+        }
+      };
+
+      // Get all existing vehicles and drivers
+      const allVehicles = await storage.getAllVehicles();
+      const allDrivers = await storage.getAllDrivers();
+      
+      const vehicleMap = new Map(allVehicles.map(v => [v.vehicleNumber.toUpperCase(), v]));
+      const driverMap = new Map(allDrivers.map(d => [d.name.toUpperCase(), d]));
+
+      // Process each row
+      for (let i = 0; i < csvData.length; i++) {
+        const row = csvData[i];
+        
+        try {
+          // Validate required fields exist
+          if (!row.Date || typeof row.Date !== 'string' || !row.Date.trim()) {
+            results.errors.push(`Row ${i + 2}: Missing or invalid date`);
+            continue;
+          }
+
+          if (!row.Vehicle || typeof row.Vehicle !== 'string' || !row.Vehicle.trim()) {
+            results.errors.push(`Row ${i + 2}: Missing or invalid vehicle`);
+            continue;
+          }
+
+          if (!row.Driver || typeof row.Driver !== 'string' || !row.Driver.trim()) {
+            results.errors.push(`Row ${i + 2}: Missing or invalid driver`);
+            continue;
+          }
+
+          // Skip rows with "No Vechicle", "Leave", or empty vehicle/driver
+          if (row.Vehicle.toLowerCase().includes('no vechicle') || 
+              row.Shift?.toLowerCase() === 'leave' ||
+              row.Shift?.toLowerCase().includes('no vechicle')) {
+            results.skipped++;
+            continue;
+          }
+
+          // Parse date (DD/MM/YYYY format)
+          const dateParts = row.Date.trim().split('/');
+          if (dateParts.length !== 3) {
+            results.errors.push(`Row ${i + 2}: Invalid date format (expected DD/MM/YYYY)`);
+            continue;
+          }
+
+          const [day, month, year] = dateParts.map(p => parseInt(p.trim()));
+          
+          if (isNaN(day) || isNaN(month) || isNaN(year)) {
+            results.errors.push(`Row ${i + 2}: Invalid date values`);
+            continue;
+          }
+
+          const tripDate = new Date(year, month - 1, day);
+          
+          if (isNaN(tripDate.getTime()) || tripDate.getFullYear() !== year || 
+              tripDate.getMonth() !== month - 1 || tripDate.getDate() !== day) {
+            results.errors.push(`Row ${i + 2}: Invalid date (${row.Date})`);
+            continue;
+          }
+
+          // Get or create vehicle
+          let vehicle = vehicleMap.get(row.Vehicle.toUpperCase());
+          if (!vehicle) {
+            // Create new vehicle
+            vehicle = await storage.createVehicle({
+              vehicleNumber: row.Vehicle,
+              company: "PMV", // Default company
+              purchasedDate: tripDate.toISOString().split('T')[0],
+            });
+            vehicleMap.set(row.Vehicle.toUpperCase(), vehicle);
+            results.details.vehiclesCreated.push(row.Vehicle);
+          }
+
+          // Get or create driver
+          let driver = driverMap.get(row.Driver.toUpperCase());
+          if (!driver) {
+            // Create new driver
+            driver = await storage.createDriver({
+              name: row.Driver,
+              phone: "0000000000", // Placeholder phone
+              hasAccommodation: false,
+              joinedDate: tripDate.toISOString().split('T')[0],
+            });
+            driverMap.set(row.Driver.toUpperCase(), driver);
+            results.details.driversCreated.push(row.Driver);
+          }
+
+          // Parse shift
+          const shift = row.Shift?.toLowerCase() === 'evening' ? 'evening' : 'morning';
+
+          // Parse rent, collection, fuel (default to 0 if empty)
+          const rent = row.Rent ? parseFloat(row.Rent.toString()) : 0;
+          const amountCollected = row.Collection ? parseFloat(row.Collection.toString()) : 0;
+          const fuel = row.Fuel ? parseFloat(row.Fuel.toString()) : 0;
+
+          // Calculate week boundaries
+          const weekStart = new Date(tripDate);
+          const day2 = weekStart.getDay();
+          const diff = weekStart.getDate() - day2 + (day2 === 0 ? -6 : 1);
+          weekStart.setDate(diff);
+          weekStart.setHours(0, 0, 0, 0);
+          
+          const weekEnd = new Date(weekStart);
+          weekEnd.setDate(weekStart.getDate() + 6);
+          weekEnd.setHours(23, 59, 59, 999);
+
+          // Create trip
+          const trip = await storage.createTrip({
+            driverId: driver.id,
+            vehicleId: vehicle.id,
+            tripDate: tripDate.toISOString(),
+            shift,
+            weekStart: weekStart.toISOString(),
+            weekEnd: weekEnd.toISOString(),
+          });
+          results.details.tripsCreated++;
+
+          // Create rent log
+          const rentLog = await storage.createDriverRentLog({
+            driverId: driver.id,
+            vehicleId: vehicle.id,
+            date: tripDate.toISOString(),
+            shift,
+            rent: Math.round(rent),
+            amountCollected: Math.round(amountCollected),
+            fuel: Math.round(fuel),
+            weekStart: weekStart.toISOString(),
+            weekEnd: weekEnd.toISOString(),
+          });
+          results.details.rentLogsCreated++;
+
+          results.success++;
+        } catch (error: any) {
+          results.errors.push(`Row ${i + 2}: ${error.message}`);
+        }
+      }
+
+      broadcast({ type: "trip:created" });
+      broadcast({ type: "rentLog:created" });
+
+      res.json({
+        message: "Import completed",
+        ...results
+      });
+    } catch (error: any) {
+      console.error("Import error:", error);
+      res.status(500).json({ message: "Failed to import data", error: error.message });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }

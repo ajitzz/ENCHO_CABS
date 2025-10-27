@@ -58,6 +58,31 @@ Preferred communication style: Simple, everyday language.
 
 ## Recent Updates
 
+### October 27, 2025 - Data Import & Vehicle Filtering
+
+#### CSV Data Import
+- Added bulk import functionality for trip logs via CSV files
+- New "Import Data" page in navigation with upload interface
+- Automatically creates missing vehicles and drivers during import
+- Skips invalid entries (No Vehicle, Leave status)
+- Comprehensive import results with success/error reporting
+- Validates and parses CSV format: Date (DD/MM/YYYY), Vehicle, Driver, Shift, Rent, Collection, Fuel
+- API endpoint: POST /api/import/trip-logs
+
+#### Dropped Vehicle Filtering
+- Vehicles with droppedDate <= today are automatically hidden from all forms
+- Filtered from: Trip Log forms, Substitute Driver forms, Vehicle Selector, and filter dropdowns
+- Date comparison at midnight ensures accurate day-based filtering
+- Vehicles without droppedDate or with future droppedDate remain visible
+- Consistent filtering logic across all pages
+
+#### Confirmation Dialogs
+- Added user confirmation dialogs for all edit and delete operations
+- Implemented using AlertDialog components from shadcn/ui
+- Replaced all native window.confirm() with proper dialog components
+- Covers: Investments, Vehicles, Drivers, Trips, Trip Logs, Settlements
+- Clear messaging with contextual information and destructive styling for delete actions
+
 ### October 27, 2025 - Investment Management Enhancements
 
 #### Add More Investment Feature
