@@ -5,7 +5,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import Sidebar from "@/components/Sidebar";
 
 const inr = (n: number) =>
   new Intl.NumberFormat("en-IN", {
@@ -70,11 +69,9 @@ export default function DriversPaymentsPage() {
   };
 
   return (
-    <div className="flex h-screen bg-gray-50">
-      <Sidebar />
-      <main className="flex-1 p-6 overflow-auto">
-        <div className="max-w-6xl mx-auto space-y-6">
-          <h1 className="text-2xl font-bold text-gray-900">Drivers Payments</h1>
+    <div className="p-6">
+      <div className="max-w-6xl mx-auto space-y-6">
+        <h1 className="text-2xl font-bold text-gray-900">Drivers Payments</h1>
 
           <Card>
             <CardContent className="p-4">
@@ -148,8 +145,7 @@ export default function DriversPaymentsPage() {
               </Table>
             </CardContent>
           </Card>
-        </div>
-      </main>
+      </div>
     </div>
   );
 }
