@@ -273,6 +273,34 @@ export const api = {
     return response.json();
   },
 
+  updateRentLog: async (id: number, rentLogData: {
+    vehicleId?: number;
+    driverId?: number;
+    date?: Date | string;
+    shift?: "morning" | "evening";
+    rent?: number;
+    amountCollected?: number;
+    fuel?: number;
+  }): Promise<DriverRentLog> => {
+    const serializedData = {
+      ...rentLogData,
+      date: rentLogData.date instanceof Date ? rentLogData.date.toISOString() : rentLogData.date,
+    };
+    const response = await fetch(`/api/driver-rent-logs/${id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(serializedData),
+    });
+    if (!response.ok) throw new Error("Failed to update rent log");
+    return response.json();
+  },
+
+  deleteRentLog: async (id: number): Promise<void> => {
+    const response = await fetch(`/api/driver-rent-logs/${id}`, {
+      method: "DELETE",
+    });
+    if (!response.ok) throw new Error("Failed to delete rent log");
+  },
 
   // Dashboard APIs
   getProfitGraphData: async (): Promise<ProfitData[]> => {

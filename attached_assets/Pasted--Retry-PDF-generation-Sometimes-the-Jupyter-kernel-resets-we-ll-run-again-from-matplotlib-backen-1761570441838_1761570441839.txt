@@ -1,0 +1,243 @@
+# Retry PDF generation. Sometimes the Jupyter kernel resets; we'll run again.
+from matplotlib.backends.backend_pdf import PdfPages
+import matplotlib.pyplot as plt
+import textwrap
+from datetime import datetime
+
+prompt = r"""
+You are editing a full-stack TS project (Express + Drizzle + React Query).
+
+============================================================
+TASK: Make edits REPLACE rows and deletes REMOVE rows in DB
+============================================================
+Symptoms
+- Editing Trip Logs creates new rows instead of updating.
+- Deleting Trip Logs doesn’t remove from DB.
+- Weekly Summary/Settlements saves produce duplicates.
+
+Goal
+- Trip Logs: PATCH must UPDATE the row by primary key; DELETE must remove.
+- Weekly Summary: POST must UPSERT using a UNIQUE/PRIMARY KEY (replace, not duplicate).
+- Settlements: POST must UPSERT using a UNIQUE/PRIMARY KEY; DELETE must remove.
+- After each write, invalidate dependent queries so UI refreshes immediately (and SSE if you added it).
+
+============================
+1) SCHEMA — ensure keys/uniques
+============================
+(shared/schema.ts)
+
+A) Trip Logs (driver_rent_logs) needs a stable PK `id` (uuid).
+
+```ts
+import { pgTable, uuid, date, integer, varchar, timestamp } from "drizzle-orm/pg-core";
+
+export const driverRentLogs = pgTable("driver_rent_logs", {
+  id: uuid("id").primaryKey().defaultRandom(),  // <-- used for PATCH/DELETE
+  vehicleId: uuid("vehicle_id").notNull(),
+  driverId: uuid("driver_id").notNull(),
+  tripDate: date("trip_date").notNull(),
+  shift: varchar("shift", { length: 12 }).notNull(),
+  rent: integer("rent").notNull().default(0),
+  amountCollected: integer("amount_collected").notNull().default(0),
+  fuel: integer("fuel").notNull().default(0),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+Run a migration to add/backfill id if missing.
+B) Weekly Summary needs a composite PRIMARY KEY (driver + range) for UPSERT:
+
+Always show details
+
+import { pgTable, uuid, date, integer, primaryKey } from "drizzle-orm/pg-core";
+
+export const weeklySummaries = pgTable("weekly_summaries", {
+  driverId: uuid("driver_id").notNull(),
+  startDate: date("start_date").notNull(),
+  endDate: date("end_date").notNull(),
+  totalEarnings: integer("total_earnings").notNull().default(0),
+  cash: integer("cash").notNull().default(0),
+  refund: integer("refund").notNull().default(0),
+  expenses: integer("expenses").notNull().default(0),
+  dues: integer("dues").notNull().default(0),
+  payout: integer("payout").notNull().default(0),
+}, (t) => ({
+  pk: primaryKey({ columns: [t.driverId, t.startDate, t.endDate] }), // <-- upsert target
+}));
+C) Settlements needs a composite PRIMARY KEY (weekStart + weekEnd):
+Always show details
+
+import { pgTable, date, integer, primaryKey } from "drizzle-orm/pg-core";
+
+export const weeklySettlements = pgTable("weekly_settlements", {
+  weekStart: date("week_start").notNull(),  // Monday
+  weekEnd: date("week_end").notNull(),      // Sunday
+  companyRent: integer("company_rent"),
+  companyWallet: integer("company_wallet"),
+}, (t) => ({
+  pk: primaryKey({ columns: [t.weekStart, t.weekEnd] }),             // <-- upsert target
+}));
+Run migrations: npm run db:push
+=================================
+2) SERVER — true UPDATE / DELETE
+(server/routes.ts)
+A) Trip Logs — PATCH & DELETE must target id:
+
+Always show details
+
+import { eq } from "drizzle-orm";
+import { driverRentLogs } from "../shared/schema";
+
+app.patch("/api/trip-logs/:id", async (req, res) => {
+  const id = req.params.id;
+  // validate with zod if you have schemas
+  const [row] = await req.db
+    .update(driverRentLogs)
+    .set({
+      vehicleId: req.body.vehicleId,
+      driverId: req.body.driverId,
+      tripDate: req.body.tripDate, // 'YYYY-MM-DD'
+      shift: req.body.shift,
+      rent: req.body.rent,
+      amountCollected: req.body.amountCollected,
+      fuel: req.body.fuel,
+    })
+    .where(eq(driverRentLogs.id, id))
+    .returning();
+  if (!row) return res.status(404).json({ error: "Not found" });
+  res.json(row);
+  // optional: broadcast("triplogs:changed");
+});
+
+app.delete("/api/trip-logs/:id", async (req, res) => {
+  const id = req.params.id;
+  await req.db.delete(driverRentLogs).where(eq(driverRentLogs.id, id));
+  res.json({ ok: true });
+  // optional: broadcast("triplogs:changed");
+});
+B) Weekly Summary — UPSERT replaces rows by composite key:
+Always show details
+
+import { weeklySummaries } from "../shared/schema";
+import { sql } from "drizzle-orm";
+
+app.post("/api/weekly-summary", async (req, res) => {
+  const d = req.body; // already zod-validated if possible
+  const start = d.startDate.slice(0,10);
+  const end = d.endDate.slice(0,10);
+
+  await req.db.insert(weeklySummaries).values({
+    driverId: d.driverId,
+    startDate: start,
+    endDate: end,
+    totalEarnings: d.totalEarnings ?? 0,
+    cash: d.cash ?? 0,
+    refund: d.refund ?? 0,
+    expenses: d.expenses ?? 0,
+    dues: d.dues ?? 0,
+    payout: d.payout ?? 0,
+  })
+  .onConflictDoUpdate({
+    target: [weeklySummaries.driverId, weeklySummaries.startDate, weeklySummaries.endDate],
+    set: {
+      totalEarnings: d.totalEarnings ?? sql`${weeklySummaries.totalEarnings}`,
+      cash: d.cash ?? sql`${weeklySummaries.cash}`,
+      refund: d.refund ?? sql`${weeklySummaries.refund}`,
+      expenses: d.expenses ?? sql`${weeklySummaries.expenses}`,
+      dues: d.dues ?? sql`${weeklySummaries.dues}`,
+      payout: d.payout ?? sql`${weeklySummaries.payout}`,
+    },
+  });
+
+  res.json({ ok: true });
+  // optional: broadcast("weeklysummary:changed", { start, end });
+});
+C) Settlements — UPSERT & DELETE by composite key:
+Always show details
+
+import { weeklySettlements } from "../shared/schema";
+import { sql } from "drizzle-orm";
+
+app.post("/api/settlements", async (req, res) => {
+  const { weekStart, weekEnd, companyRent, companyWallet } = req.body;
+  await req.db.insert(weeklySettlements).values({
+    weekStart, weekEnd, companyRent, companyWallet
+  })
+  .onConflictDoUpdate({
+    target: [weeklySettlements.weekStart, weeklySettlements.weekEnd],
+    set: {
+      companyRent: companyRent ?? sql`${weeklySettlements.companyRent}`,
+      companyWallet: companyWallet ?? sql`${weeklySettlements.companyWallet}`,
+    },
+  });
+  res.json({ ok: true });
+  // optional: broadcast("settlements:changed", { weekStart, weekEnd });
+});
+
+app.delete("/api/settlements", async (req, res) => {
+  const { weekStart, weekEnd } = req.query as { weekStart?: string; weekEnd?: string };
+  if (!weekStart || !weekEnd) return res.status(400).json({ error: "weekStart and weekEnd required" });
+  await req.db.execute(sql`
+    DELETE FROM weekly_settlements WHERE week_start=${weekStart}::date AND week_end=${weekEnd}::date
+  `);
+  res.json({ ok: true });
+  // optional: broadcast("settlements:changed", { weekStart, weekEnd });
+});
+=================================
+3) CLIENT — call PATCH/DELETE & invalidate
+Trip Log edit must PATCH /api/trip-logs/:id (not POST).
+Trip Log delete must DELETE /api/trip-logs/:id.
+Weekly Summary & Settlements POST now REPLACE due to onConflict target.
+After each mutation, invalidate dependent queries:
+Always show details
+
+queryClient.invalidateQueries({ predicate: (q) => {
+  const k = q.queryKey[0];
+  return k === "trip-logs" || k === "weekly-summary" || k === "drivers-payments" || k === "settlements";
+}});
+(If you added SSE, server routes can also broadcast events, and the client event listener invalidates the same keys.)
+=================================
+4) QUICK SANITY SQL (optional)
+Run these to verify behavior:
+Did PATCH change the same Trip Log row?
+SELECT * FROM driver_rent_logs WHERE id = '...';
+Is Weekly Summary unique per driver/week?
+SELECT driver_id, start_date, end_date, COUNT(*) FROM weekly_summaries GROUP BY 1,2,3 HAVING COUNT(*)>1; (should return 0 rows)
+Is Settlement unique per week?
+SELECT week_start, week_end, COUNT(*) FROM weekly_settlements GROUP BY 1,2 HAVING COUNT(*)>1; (0 rows)
+=================================
+5) ACCEPTANCE
+Editing a Trip Log updates the same record (no duplicate).
+Deleting a Trip Log removes it from DB.
+Weekly Summary and Settlements saves overwrite previous values (no duplicates).
+All pages refetch & show latest values (React Query invalidation / SSE).
+Always show details
+
+
+# Build the PDF
+wrap_width = 100
+lines = []
+for paragraph in prompt.strip().split("\n"):
+    if paragraph.strip() == "":
+        lines.append("")
+    else:
+        wrapped = textwrap.wrap(paragraph, width=wrap_width, replace_whitespace=False, drop_whitespace=False)
+        lines.extend(wrapped if wrapped else [""])
+
+pdf_path = "/mnt/data/Fix_Update_Delete_Prompt.pdf"
+lines_per_page = 54
+
+from matplotlib import rcParams
+rcParams.update({'pdf.fonttype': 42})
+
+with PdfPages(pdf_path) as pdf:
+    for i in range(0, len(lines), lines_per_page):
+        page_lines = lines[i:i+lines_per_page]
+        fig = plt.figure(figsize=(8.27, 11.69))
+        fig.subplots_adjust(left=0.06, right=0.96, top=0.95, bottom=0.05)
+        plt.axis('off')
+        plt.text(0.02, 0.98, "Fix Update/Delete Semantics - Replit Prompt", fontsize=12, va='top', fontweight='bold')
+        plt.text(0.02, 0.95, f"Generated: {datetime.now().strftime('%Y-%m-%d %H:%M')}", fontsize=8, va='top')
+        plt.text(0.02, 0.92, "\n".join(page_lines), fontsize=9, va='top', family='monospace')
+        pdf.savefig(fig)
+        plt.close(fig)
+
+pdf_path
