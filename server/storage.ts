@@ -1,10 +1,10 @@
 import { 
-  vehicles, drivers, vehicleDriverAssignments, trips, driverRentLogs, 
+  vehicles, drivers, vehicleDriverAssignments, driverRentLogs, 
   weeklySettlements, substituteDrivers, weeklySummaries, investments, investmentReturns,
-  type Vehicle, type Driver, type VehicleDriverAssignment, type Trip, 
+  type Vehicle, type Driver, type VehicleDriverAssignment, 
   type DriverRentLog, type WeeklySettlement, type SubstituteDriver, type WeeklySummary, type Investment, type InvestmentReturn,
   type InsertVehicle, type InsertDriver, type InsertVehicleDriverAssignment, 
-  type InsertTrip, type InsertDriverRentLog, type UpsertWeeklySettlementInput, 
+  type InsertDriverRentLog, type UpsertWeeklySettlementInput, 
   type InsertSubstituteDriver, type UpsertWeeklySummary, type InsertInvestment, type UpdateInvestment,
   type InsertInvestmentReturn, type UpdateInvestmentReturn
 } from "@shared/schema";
@@ -32,16 +32,8 @@ export interface IStorage {
   getVehicleDriverAssignment(vehicleId: number): Promise<VehicleDriverAssignment | undefined>;
   updateVehicleDriverAssignment(vehicleId: number, assignment: Partial<InsertVehicleDriverAssignment>): Promise<VehicleDriverAssignment>;
 
-  // Trip operations
-  createTrip(trip: InsertTrip): Promise<Trip>;
-  getTrip(id: number): Promise<Trip | undefined>;
-  getTripsByVehicleAndDateRange(vehicleId: number, startDate: Date, endDate: Date): Promise<Trip[]>;
-  getTripsByDriverAndDateRange(driverId: number, startDate: Date, endDate: Date): Promise<Trip[]>;
-  getRecentTrips(limit: number): Promise<Array<Trip & { driverName: string; vehicleNumber: string }>>;
-  updateTrip(id: number, trip: Partial<InsertTrip>): Promise<Trip>;
-  deleteTrip(id: number): Promise<void>;
-
   // Driver rent log operations
+  getRecentRentLogs(limit: number): Promise<Array<DriverRentLog & { driverName: string; vehicleNumber: string }>>;
   createDriverRentLog(rentLog: InsertDriverRentLog): Promise<DriverRentLog>;
   getDriverRentLog(id: number): Promise<DriverRentLog | undefined>;
   getDriverRentLogsByDateRange(driverId: number, startDate: Date, endDate: Date): Promise<DriverRentLog[]>;
@@ -198,71 +190,32 @@ export class DatabaseStorage implements IStorage {
     return result;
   }
 
-  // Trip operations
-  async createTrip(trip: InsertTrip): Promise<Trip> {
-    const [result] = await db.insert(trips).values(trip).returning();
-    return result;
-  }
-
-  async getTrip(id: number): Promise<Trip | undefined> {
-    const [result] = await db.select().from(trips).where(eq(trips.id, id));
-    return result || undefined;
-  }
-
-  async getTripsByVehicleAndDateRange(vehicleId: number, startDate: Date, endDate: Date): Promise<Trip[]> {
-    return await db.select().from(trips)
-      .where(and(
-        eq(trips.vehicleId, vehicleId),
-        gte(trips.tripDate, startDate),
-        lte(trips.tripDate, endDate)
-      ))
-      .orderBy(desc(trips.tripDate));
-  }
-
-  async getTripsByDriverAndDateRange(driverId: number, startDate: Date, endDate: Date): Promise<Trip[]> {
-    return await db.select().from(trips)
-      .where(and(
-        eq(trips.driverId, driverId),
-        gte(trips.tripDate, startDate),
-        lte(trips.tripDate, endDate)
-      ))
-      .orderBy(desc(trips.tripDate));
-  }
-
-  async getRecentTrips(limit: number): Promise<Array<Trip & { driverName: string; vehicleNumber: string }>> {
+  // Driver rent log operations
+  async getRecentRentLogs(limit: number): Promise<Array<DriverRentLog & { driverName: string; vehicleNumber: string }>> {
     const result = await db.select({
-      id: trips.id,
-      driverId: trips.driverId,
-      vehicleId: trips.vehicleId,
-      tripDate: trips.tripDate,
-      shift: trips.shift,
-      weekStart: trips.weekStart,
-      weekEnd: trips.weekEnd,
-      createdAt: trips.createdAt,
-      updatedAt: trips.updatedAt,
+      id: driverRentLogs.id,
+      driverId: driverRentLogs.driverId,
+      vehicleId: driverRentLogs.vehicleId,
+      date: driverRentLogs.date,
+      shift: driverRentLogs.shift,
+      rent: driverRentLogs.rent,
+      amountCollected: driverRentLogs.amountCollected,
+      fuel: driverRentLogs.fuel,
+      weekStart: driverRentLogs.weekStart,
+      weekEnd: driverRentLogs.weekEnd,
+      createdAt: driverRentLogs.createdAt,
+      updatedAt: driverRentLogs.updatedAt,
       driverName: drivers.name,
       vehicleNumber: vehicles.vehicleNumber,
-    }).from(trips)
-      .innerJoin(drivers, eq(trips.driverId, drivers.id))
-      .innerJoin(vehicles, eq(trips.vehicleId, vehicles.id))
-      .orderBy(desc(trips.tripDate))
+    }).from(driverRentLogs)
+      .innerJoin(drivers, eq(driverRentLogs.driverId, drivers.id))
+      .innerJoin(vehicles, eq(driverRentLogs.vehicleId, vehicles.id))
+      .orderBy(desc(driverRentLogs.date))
       .limit(limit);
     
     return result;
   }
-
-  async updateTrip(id: number, trip: Partial<InsertTrip>): Promise<Trip> {
-    const [result] = await db.update(trips)
-      .set({ ...trip, updatedAt: new Date() })
-      .where(eq(trips.id, id))
-      .returning();
-    return result;
-  }
-
-  async deleteTrip(id: number): Promise<void> {
-    await db.delete(trips).where(eq(trips.id, id));
-  }
-
+  
   // Driver rent log operations
   async createDriverRentLog(rentLog: InsertDriverRentLog): Promise<DriverRentLog> {
     const [result] = await db.insert(driverRentLogs).values(rentLog).returning();
