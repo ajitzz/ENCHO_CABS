@@ -65,21 +65,15 @@ export const driverRentLogs = pgTable("driver_rent_logs", {
 }));
 
 export const weeklySettlements = pgTable("weekly_settlements", {
-  id: serial("id").primaryKey(),
-  vehicleId: integer("vehicle_id").notNull(),
-  weekStart: timestamp("week_start").notNull(),
-  weekEnd: timestamp("week_end").notNull(),
-  totalTrips: integer("total_trips").notNull().default(0),
-  rentalRate: integer("rental_rate").notNull(),
-  totalRentToCompany: integer("total_rent_to_company").notNull(),
-  driver1Data: json("driver1_data"), // { id: number, rent: number }
-  driver2Data: json("driver2_data"), // { id: number, rent: number }
-  totalDriverRent: integer("total_driver_rent").notNull(),
-  profit: integer("profit").notNull(),
-  paid: boolean("paid").notNull().default(false),
+  weekStart: date("week_start").notNull(),
+  weekEnd: date("week_end").notNull(),
+  companyRent: integer("company_rent"),
+  companyWallet: integer("company_wallet"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
-});
+}, (t) => ({
+  pk: primaryKey({ columns: [t.weekStart, t.weekEnd] }),
+}));
 
 export const substituteDrivers = pgTable("substitute_drivers", {
   id: serial("id").primaryKey(),
@@ -118,7 +112,6 @@ export const vehiclesRelations = relations(vehicles, ({ many, one }) => ({
     fields: [vehicles.id],
     references: [vehicleDriverAssignments.vehicleId],
   }),
-  weeklySettlements: many(weeklySettlements),
   substituteDrivers: many(substituteDrivers),
 }));
 
@@ -160,12 +153,6 @@ export const driverRentLogsRelations = relations(driverRentLogs, ({ one }) => ({
   }),
 }));
 
-export const weeklySettlementsRelations = relations(weeklySettlements, ({ one }) => ({
-  vehicle: one(vehicles, {
-    fields: [weeklySettlements.vehicleId],
-    references: [vehicles.id],
-  }),
-}));
 
 export const substituteDriversRelations = relations(substituteDrivers, ({ one }) => ({
   vehicle: one(vehicles, {
@@ -228,10 +215,11 @@ export const insertDriverRentLogSchema = createInsertSchema(driverRentLogs).omit
   weekEnd: z.coerce.date(),
 });
 
-export const insertWeeklySettlementSchema = createInsertSchema(weeklySettlements).omit({
-  id: true,
-  createdAt: true,
-  updatedAt: true,
+export const upsertWeeklySettlementSchema = z.object({
+  weekStart: z.string(),
+  weekEnd: z.string(),
+  companyRent: z.number().int().min(0).nullable().optional(),
+  companyWallet: z.number().int().min(0).nullable().optional(),
 });
 
 export const insertSubstituteDriverSchema = createInsertSchema(substituteDrivers).omit({
@@ -271,6 +259,6 @@ export type UpdateDriver = z.infer<typeof updateDriverSchema>;
 export type InsertVehicleDriverAssignment = z.infer<typeof insertVehicleDriverAssignmentSchema>;
 export type InsertTrip = z.infer<typeof insertTripSchema>;
 export type InsertDriverRentLog = z.infer<typeof insertDriverRentLogSchema>;
-export type InsertWeeklySettlement = z.infer<typeof insertWeeklySettlementSchema>;
+export type UpsertWeeklySettlementInput = z.infer<typeof upsertWeeklySettlementSchema>;
 export type InsertSubstituteDriver = z.infer<typeof insertSubstituteDriverSchema>;
 export type UpsertWeeklySummary = z.infer<typeof upsertWeeklySummarySchema>;
