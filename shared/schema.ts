@@ -110,7 +110,15 @@ export const investments = pgTable("investments", {
   investorName: text("investor_name").notNull(),
   amountInvested: integer("amount_invested").notNull(),
   paymentGivenDate: date("payment_given_date").notNull(),
-  paymentReturnDate: date("payment_return_date"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const investmentReturns = pgTable("investment_returns", {
+  id: serial("id").primaryKey(),
+  investmentId: integer("investment_id").notNull(),
+  returnDate: date("return_date").notNull(),
+  amountReturned: integer("amount_returned").notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
@@ -175,6 +183,17 @@ export const weeklySummariesRelations = relations(weeklySummaries, ({ one }) => 
   driver: one(drivers, {
     fields: [weeklySummaries.driverId],
     references: [drivers.id],
+  }),
+}));
+
+export const investmentsRelations = relations(investments, ({ many }) => ({
+  returns: many(investmentReturns),
+}));
+
+export const investmentReturnsRelations = relations(investmentReturns, ({ one }) => ({
+  investment: one(investments, {
+    fields: [investmentReturns.investmentId],
+    references: [investments.id],
   }),
 }));
 
@@ -264,6 +283,18 @@ export const updateInvestmentSchema = createInsertSchema(investments).omit({
   updatedAt: true,
 }).partial();
 
+export const insertInvestmentReturnSchema = createInsertSchema(investmentReturns).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const updateInvestmentReturnSchema = createInsertSchema(investmentReturns).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+}).partial();
+
 // Types
 export type Vehicle = typeof vehicles.$inferSelect;
 export type Driver = typeof drivers.$inferSelect;
@@ -287,3 +318,6 @@ export type UpsertWeeklySummary = z.infer<typeof upsertWeeklySummarySchema>;
 export type Investment = typeof investments.$inferSelect;
 export type InsertInvestment = z.infer<typeof insertInvestmentSchema>;
 export type UpdateInvestment = z.infer<typeof updateInvestmentSchema>;
+export type InvestmentReturn = typeof investmentReturns.$inferSelect;
+export type InsertInvestmentReturn = z.infer<typeof insertInvestmentReturnSchema>;
+export type UpdateInvestmentReturn = z.infer<typeof updateInvestmentReturnSchema>;
