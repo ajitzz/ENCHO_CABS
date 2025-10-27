@@ -1,11 +1,11 @@
 import { 
   vehicles, drivers, vehicleDriverAssignments, trips, driverRentLogs, 
-  weeklySettlements, substituteDrivers, weeklySummaries,
+  weeklySettlements, substituteDrivers, weeklySummaries, investments,
   type Vehicle, type Driver, type VehicleDriverAssignment, type Trip, 
-  type DriverRentLog, type WeeklySettlement, type SubstituteDriver, type WeeklySummary,
+  type DriverRentLog, type WeeklySettlement, type SubstituteDriver, type WeeklySummary, type Investment,
   type InsertVehicle, type InsertDriver, type InsertVehicleDriverAssignment, 
   type InsertTrip, type InsertDriverRentLog, type UpsertWeeklySettlementInput, 
-  type InsertSubstituteDriver, type UpsertWeeklySummary
+  type InsertSubstituteDriver, type UpsertWeeklySummary, type InsertInvestment, type UpdateInvestment
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, or, gte, lte, desc, asc, ne, sql } from "drizzle-orm";
@@ -97,6 +97,13 @@ export interface IStorage {
   upsertWeeklySummary(summary: UpsertWeeklySummary): Promise<WeeklySummary>;
   getWeeklySummary(driverId: number, startDate: string, endDate: string): Promise<WeeklySummary | undefined>;
   clearWeeklySummary(driverId: number, startDate: string, endDate: string): Promise<void>;
+  
+  // Investment operations
+  createInvestment(investment: InsertInvestment): Promise<Investment>;
+  getInvestment(id: number): Promise<Investment | undefined>;
+  getAllInvestments(): Promise<Investment[]>;
+  updateInvestment(id: number, investment: UpdateInvestment): Promise<Investment>;
+  deleteInvestment(id: number): Promise<void>;
   
   // Meta operations
   getFirstTripDate(): Promise<string | null>;
@@ -675,6 +682,33 @@ export class DatabaseStorage implements IStorage {
           eq(weeklySummaries.endDate, endDate)
         )
       );
+  }
+
+  // Investment operations
+  async createInvestment(investment: InsertInvestment): Promise<Investment> {
+    const [result] = await db.insert(investments).values(investment).returning();
+    return result;
+  }
+
+  async getInvestment(id: number): Promise<Investment | undefined> {
+    const [result] = await db.select().from(investments).where(eq(investments.id, id));
+    return result || undefined;
+  }
+
+  async getAllInvestments(): Promise<Investment[]> {
+    return await db.select().from(investments).orderBy(desc(investments.paymentGivenDate));
+  }
+
+  async updateInvestment(id: number, investment: UpdateInvestment): Promise<Investment> {
+    const [result] = await db.update(investments)
+      .set(investment)
+      .where(eq(investments.id, id))
+      .returning();
+    return result;
+  }
+
+  async deleteInvestment(id: number): Promise<void> {
+    await db.delete(investments).where(eq(investments.id, id));
   }
 
   // Meta operations
