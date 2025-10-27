@@ -5,7 +5,8 @@ import { z } from "zod";
 import { 
   insertVehicleSchema, updateVehicleSchema, insertDriverSchema, updateDriverSchema, insertVehicleDriverAssignmentSchema,
   insertTripSchema, insertDriverRentLogSchema, insertSubstituteDriverSchema,
-  upsertWeeklySummarySchema, insertInvestmentSchema, updateInvestmentSchema
+  upsertWeeklySummarySchema, insertInvestmentSchema, updateInvestmentSchema,
+  insertInvestmentReturnSchema, updateInvestmentReturnSchema
 } from "@shared/schema";
 import { getRentalInfo, getAllSlabs, getDriverRent, getRentalRate } from "./services/rentalCalculator";
 import { calculateWeeklySettlement, processWeeklySettlement, processAllVehicleSettlements, generateDailyRentLogs } from "./services/settlementProcessor";
@@ -849,6 +850,60 @@ export async function registerRoutes(app: Express): Promise<Server> {
       broadcast("investments:changed", {});
     } catch (error: any) {
       res.status(400).json({ message: "Failed to delete investment", error: error.message });
+    }
+  });
+
+  // Investment return routes
+  app.get("/api/investments/:id/returns", async (req, res) => {
+    try {
+      const id = Number(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ message: "Invalid investment ID" });
+      }
+      const returns = await storage.getInvestmentReturnsByInvestment(id);
+      res.json(returns);
+    } catch (error: any) {
+      res.status(500).json({ message: "Failed to fetch investment returns", error: error.message });
+    }
+  });
+
+  app.post("/api/investment-returns", async (req, res) => {
+    try {
+      const returnData = insertInvestmentReturnSchema.parse(req.body);
+      const investmentReturn = await storage.createInvestmentReturn(returnData);
+      res.status(201).json(investmentReturn);
+      broadcast("investments:changed", {});
+    } catch (error: any) {
+      res.status(400).json({ message: "Failed to create investment return", error: error.message });
+    }
+  });
+
+  app.put("/api/investment-returns/:id", async (req, res) => {
+    try {
+      const id = Number(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ message: "Invalid return ID" });
+      }
+      const returnData = updateInvestmentReturnSchema.parse(req.body);
+      const investmentReturn = await storage.updateInvestmentReturn(id, returnData);
+      res.json(investmentReturn);
+      broadcast("investments:changed", {});
+    } catch (error: any) {
+      res.status(400).json({ message: "Failed to update investment return", error: error.message });
+    }
+  });
+
+  app.delete("/api/investment-returns/:id", async (req, res) => {
+    try {
+      const id = Number(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ message: "Invalid return ID" });
+      }
+      await storage.deleteInvestmentReturn(id);
+      res.json({ message: "Investment return deleted successfully" });
+      broadcast("investments:changed", {});
+    } catch (error: any) {
+      res.status(400).json({ message: "Failed to delete investment return", error: error.message });
     }
   });
 
