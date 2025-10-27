@@ -311,6 +311,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Recent rent logs endpoint
+  app.get("/api/driver-rent-logs/recent/:limit", async (req, res) => {
+    try {
+      const limit = parseInt(req.params.limit) || 10;
+      const rentLogs = await storage.getRecentRentLogs(limit);
+      res.json(rentLogs);
+    } catch (error: any) {
+      res.status(500).json({ message: "Failed to fetch recent rent logs", error: error.message });
+    }
+  });
+
   // Vehicle weekly summary route
   app.get("/api/vehicles/:id/weekly-summary", async (req, res) => {
     try {

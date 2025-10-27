@@ -15,40 +15,40 @@ export default function RecentTripsTable() {
   const [editTrip, setEditTrip] = useState<any>(null);
   const [editModalOpen, setEditModalOpen] = useState(false);
 
-  const { data: recentTrips, isLoading } = useQuery({
-    queryKey: ["/api/trips/recent/10"],
-    queryFn: () => api.getRecentTrips(10),
+  const { data: recentRentLogs, isLoading } = useQuery({
+    queryKey: ["/api/driver-rent-logs/recent/10"],
+    queryFn: () => api.getRecentRentLogs(10),
   });
 
-  const deleteTripMutation = useMutation({
-    mutationFn: (tripId: number) => api.deleteTrip(tripId),
+  const deleteRentLogMutation = useMutation({
+    mutationFn: (rentLogId: number) => api.deleteRentLog(rentLogId),
     onSuccess: () => {
       // Invalidate all related queries for complete responsiveness
-      queryClient.invalidateQueries({ queryKey: ["/api/trips/recent/10"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/trips/recent/50"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/driver-rent-logs/recent/10"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/driver-rent-logs/recent/50"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/driver-rent-logs"] });
       queryClient.invalidateQueries({ queryKey: ["/api/dashboard/profit-graph"] });
       queryClient.invalidateQueries({ queryKey: ["/api/settlements"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/driver-rent-logs"] });
       queryClient.invalidateQueries({ queryKey: ["/api/vehicles"] });
       // Invalidate all vehicle summaries
       queryClient.invalidateQueries({ 
         predicate: (query) => query.queryKey[0] === "/api/vehicles" && query.queryKey[2] === "weekly-summary"
       });
-      toast({ title: "Trip deleted successfully - rent logs updated", variant: "default" });
+      toast({ title: "Trip log deleted successfully", variant: "default" });
     },
     onError: (error) => {
-      toast({ title: "Failed to delete trip", description: error.message, variant: "destructive" });
+      toast({ title: "Failed to delete trip log", description: error.message, variant: "destructive" });
     },
   });
 
-  const handleDeleteTrip = (tripId: number, driverName: string, vehicleNumber: string) => {
-    if (window.confirm(`Are you sure you want to delete the trip for ${driverName} (${vehicleNumber})?`)) {
-      deleteTripMutation.mutate(tripId);
+  const handleDeleteRentLog = (rentLogId: number, driverName: string, vehicleNumber: string) => {
+    if (window.confirm(`Are you sure you want to delete the trip log for ${driverName} (${vehicleNumber})?`)) {
+      deleteRentLogMutation.mutate(rentLogId);
     }
   };
 
-  const handleEditTrip = (trip: any) => {
-    setEditTrip(trip);
+  const handleEditRentLog = (rentLog: any) => {
+    setEditTrip(rentLog);
     setEditModalOpen(true);
   };
 
@@ -67,7 +67,7 @@ export default function RecentTripsTable() {
         </div>
       </CardHeader>
       <CardContent>
-        {recentTrips && recentTrips.length > 0 ? (
+        {recentRentLogs && recentRentLogs.length > 0 ? (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
@@ -80,19 +80,19 @@ export default function RecentTripsTable() {
                 </tr>
               </thead>
               <tbody>
-                {recentTrips.slice(0, 4).map((trip) => (
-                  <tr key={trip.id} className="border-b border-gray-100">
+                {recentRentLogs.slice(0, 4).map((rentLog) => (
+                  <tr key={rentLog.id} className="border-b border-gray-100">
                     <td className="py-3 text-gray-900">
-                      {format(new Date(trip.tripDate), "MMM dd")}
+                      {format(new Date(rentLog.date), "MMM dd")}
                     </td>
-                    <td className="py-3 text-gray-900">{trip.driverName}</td>
-                    <td className="py-3 text-gray-600">{trip.vehicleNumber}</td>
+                    <td className="py-3 text-gray-900">{rentLog.driverName}</td>
+                    <td className="py-3 text-gray-600">{rentLog.vehicleNumber}</td>
                     <td className="py-3 text-center">
                       <Badge 
                         variant="secondary" 
-                        className={trip.shift === "morning" ? "bg-blue-100 text-blue-800" : "bg-purple-100 text-purple-800"}
+                        className={rentLog.shift === "morning" ? "bg-blue-100 text-blue-800" : "bg-purple-100 text-purple-800"}
                       >
-                        {trip.shift === "morning" ? "Morning" : "Evening"}
+                        {rentLog.shift === "morning" ? "Morning" : "Evening"}
                       </Badge>
                     </td>
                     <td className="py-3 text-center">
@@ -100,7 +100,7 @@ export default function RecentTripsTable() {
                         <Button 
                           variant="ghost" 
                           size="sm" 
-                          onClick={() => handleEditTrip(trip)}
+                          onClick={() => handleEditRentLog(rentLog)}
                           className="h-8 w-8 p-0 hover:bg-blue-50 hover:text-blue-600"
                         >
                           <Edit className="h-4 w-4" />
@@ -108,8 +108,8 @@ export default function RecentTripsTable() {
                         <Button 
                           variant="ghost" 
                           size="sm" 
-                          onClick={() => handleDeleteTrip(trip.id, trip.driverName, trip.vehicleNumber)}
-                          disabled={deleteTripMutation.isPending}
+                          onClick={() => handleDeleteRentLog(rentLog.id, rentLog.driverName, rentLog.vehicleNumber)}
+                          disabled={deleteRentLogMutation.isPending}
                           className="h-8 w-8 p-0 hover:bg-red-50 hover:text-red-600"
                         >
                           <Trash2 className="h-4 w-4" />
@@ -123,7 +123,7 @@ export default function RecentTripsTable() {
           </div>
         ) : (
           <div className="text-center py-8 text-gray-500">
-            <p>No recent trips found</p>
+            <p>No recent trip logs found</p>
           </div>
         )}
       </CardContent>

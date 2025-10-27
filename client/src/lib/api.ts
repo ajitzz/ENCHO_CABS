@@ -208,65 +208,12 @@ export const api = {
     if (!response.ok) throw new Error("Failed to delete driver");
   },
 
-  // Trip APIs
-  createTrip: async (tripData: {
-    driverId: number;
-    vehicleId: number;
-    tripDate: Date | string;
-    shift: "morning" | "evening";
-    rent: number;
-    amountCollected: number;
-    fuel: number;
-  }): Promise<Trip> => {
-    const serializedData = {
-      ...tripData,
-      tripDate: tripData.tripDate instanceof Date ? tripData.tripDate.toISOString() : tripData.tripDate,
-    };
-    const response = await fetch("/api/trips", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(serializedData),
-    });
-    if (!response.ok) throw new Error("Failed to create trip");
-    return response.json();
-  },
-
-  getRecentTrips: async (limit: number = 10): Promise<RecentTrip[]> => {
-    const response = await fetch(`/api/trips/recent/${limit}`);
-    if (!response.ok) throw new Error("Failed to fetch recent trips");
-    return response.json();
-  },
-
-  updateTrip: async (id: number, tripData: {
-    driverId: number;
-    vehicleId: number;
-    tripDate: Date | string;
-    shift: "morning" | "evening";
-    rent: number;
-    amountCollected: number;
-    fuel: number;
-  }): Promise<Trip> => {
-    const serializedData = {
-      ...tripData,
-      tripDate: tripData.tripDate instanceof Date ? tripData.tripDate.toISOString() : tripData.tripDate,
-    };
-    const response = await fetch(`/api/trips/${id}`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(serializedData),
-    });
-    if (!response.ok) throw new Error("Failed to update trip");
-    return response.json();
-  },
-
-  deleteTrip: async (id: number): Promise<void> => {
-    const response = await fetch(`/api/trips/${id}`, {
-      method: "DELETE",
-    });
-    if (!response.ok) throw new Error("Failed to delete trip");
-  },
-
   // Driver rent log APIs
+  getRecentRentLogs: async (limit: number = 10): Promise<RentLogWithDetails[]> => {
+    const response = await fetch(`/api/driver-rent-logs/recent/${limit}`);
+    if (!response.ok) throw new Error("Failed to fetch recent rent logs");
+    return response.json();
+  },
   getAllRentLogs: async (): Promise<RentLogWithDetails[]> => {
     const response = await fetch("/api/driver-rent-logs");
     if (!response.ok) throw new Error("Failed to fetch rent logs");
