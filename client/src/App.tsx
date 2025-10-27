@@ -10,7 +10,7 @@ import Drivers from "@/pages/drivers";
 import Trips from "@/pages/trips";
 import TripLogs from "@/pages/TripLogs";
 import Settlements from "@/pages/settlements";
-import RentTracking from "@/pages/rent-tracking";
+import DriversPayments from "@/pages/drivers-payments";
 import WeeklySummary from "@/pages/WeeklySummary";
 import NotFound from "@/pages/not-found";
 
@@ -25,7 +25,7 @@ function Router() {
         <Route path="/trips" component={Trips} />
         <Route path="/trip-logs" component={TripLogs} />
         <Route path="/settlements" component={Settlements} />
-        <Route path="/rent-tracking" component={RentTracking} />
+        <Route path="/drivers-payments" component={DriversPayments} />
         <Route path="/weekly-summary" component={WeeklySummary} />
         <Route component={NotFound} />
       </Switch>
