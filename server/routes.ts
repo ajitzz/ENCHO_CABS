@@ -735,11 +735,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
             continue;
           }
 
-          // Parse numeric fields
-          const trips = row.Trips ? parseInt(String(row.Trips)) : 0;
-          const totalEarnings = row['Total earnings'] ? Math.round(parseFloat(String(row['Total earnings']))) : 0;
-          const cash = row['Cash collected'] ? Math.round(Math.abs(parseFloat(String(row['Cash collected'])))) : 0;
-          const refund = row.Refunds ? Math.round(parseFloat(String(row.Refunds))) : 0;
+          // Parse numeric fields (handle case variations)
+          const trips = row.Trips || row.trips ? parseInt(String(row.Trips || row.trips)) : 0;
+          const totalEarnings = row['Total earnings'] || row['Total Earnings'] || row['total earnings'] ? 
+            Math.round(parseFloat(String(row['Total earnings'] || row['Total Earnings'] || row['total earnings']))) : 0;
+          const cash = row['Cash collected'] || row['Cash Collected'] || row['cash collected'] ? 
+            Math.round(Math.abs(parseFloat(String(row['Cash collected'] || row['Cash Collected'] || row['cash collected'])))) : 0;
+          const refund = row.Refunds || row.Refund || row.refunds || row.refund ? 
+            Math.round(parseFloat(String(row.Refunds || row.Refund || row.refunds || row.refund))) : 0;
 
           // Validate parsed numbers
           if (isNaN(trips) || isNaN(totalEarnings) || isNaN(cash) || isNaN(refund)) {
