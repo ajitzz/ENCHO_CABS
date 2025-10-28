@@ -11,8 +11,8 @@ import { format } from "date-fns";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { AlertDialog, AlertDialogAction, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { CalendarIcon, Save, RotateCcw, Upload, AlertCircle } from "lucide-react";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { CalendarIcon, Upload, AlertCircle } from "lucide-react";
 
 interface WeeklySummaryRow {
   driverId: number;
@@ -60,16 +60,31 @@ function getTodayIST(): Date {
   return istDate;
 }
 
+const inr = (n: number) => `₹${n.toLocaleString()}`;
+
 export default function WeeklySummary() {
   const [startDate, setStartDate] = useState<Date>(getMondayOfCurrentWeek());
   const [endDate, setEndDate] = useState<Date>(getTodayIST());
-  const [editableData, setEditableData] = useState<Record<number, EditableFields>>({});
   const [isImporting, setIsImporting] = useState(false);
   const [importResult, setImportResult] = useState<any>(null);
   const [showNotFoundDialog, setShowNotFoundDialog] = useState(false);
   const [driversNotFound, setDriversNotFound] = useState<string[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
+
+  // Edit mode state
+  const [editingDriverId, setEditingDriverId] = useState<number | null>(null);
+  const [draftTrips, setDraftTrips] = useState<string>("");
+  const [draftTotalEarnings, setDraftTotalEarnings] = useState<string>("");
+  const [draftCash, setDraftCash] = useState<string>("");
+  const [draftRefund, setDraftRefund] = useState<string>("");
+  const [draftExpenses, setDraftExpenses] = useState<string>("");
+  const [draftDues, setDraftDues] = useState<string>("");
+  const [draftPayout, setDraftPayout] = useState<string>("");
+
+  // Confirmation dialog states
+  const [saveConfirm, setSaveConfirm] = useState<{ driverId: number; driverName: string } | null>(null);
+  const [clearConfirm, setClearConfirm] = useState<{ driverId: number; driverName: string } | null>(null);
 
   const startDateStr = format(startDate, "yyyy-MM-dd");
   const endDateStr = format(endDate, "yyyy-MM-dd");
@@ -87,25 +102,6 @@ export default function WeeklySummary() {
     },
   });
 
-  // Initialize editable data when summaries load
-  useEffect(() => {
-    if (summaries) {
-      const initialData: Record<number, EditableFields> = {};
-      summaries.forEach((row) => {
-        initialData[row.driverId] = {
-          trips: row.trips,
-          totalEarnings: row.totalEarnings,
-          cash: row.cash,
-          refund: row.refund,
-          expenses: row.expenses,
-          dues: row.dues,
-          payout: row.payout,
-        };
-      });
-      setEditableData(initialData);
-    }
-  }, [summaries]);
-
   const saveMutation = useMutation({
     mutationFn: async (data: { driverId: number } & EditableFields) => {
       return apiRequest("POST", "/api/weekly-summary", {
@@ -122,6 +118,7 @@ export default function WeeklySummary() {
       });
     },
     onSuccess: () => {
+      setEditingDriverId(null);
       queryClient.invalidateQueries({ 
         queryKey: ["/api/weekly-summary/aggregates", startDateStr, endDateStr] 
       });
@@ -143,19 +140,17 @@ export default function WeeklySummary() {
     mutationFn: async (driverId: number) => {
       return apiRequest("DELETE", `/api/weekly-summary?driverId=${driverId}&startDate=${startDateStr}&endDate=${endDateStr}`);
     },
-    onSuccess: (_, driverId) => {
-      // Reset editable fields to zero
-      setEditableData((prev) => ({
-        ...prev,
-        [driverId]: {
-          totalEarnings: 0,
-          cash: 0,
-          refund: 0,
-          expenses: 0,
-          dues: 0,
-          payout: 0,
-        },
-      }));
+    onSuccess: () => {
+      // Exit edit mode and reset draft state
+      setEditingDriverId(null);
+      setDraftTrips("");
+      setDraftTotalEarnings("");
+      setDraftCash("");
+      setDraftRefund("");
+      setDraftExpenses("");
+      setDraftDues("");
+      setDraftPayout("");
+      
       queryClient.invalidateQueries({ 
         queryKey: ["/api/weekly-summary/aggregates", startDateStr, endDateStr] 
       });
@@ -173,40 +168,66 @@ export default function WeeklySummary() {
     },
   });
 
-  const handleFieldChange = (driverId: number, field: keyof EditableFields, value: number) => {
-    setEditableData((prev) => ({
-      ...prev,
-      [driverId]: {
-        ...prev[driverId],
-        [field]: value,
-      },
-    }));
+  const onEdit = (row: WeeklySummaryRow) => {
+    setEditingDriverId(row.driverId);
+    setDraftTrips(String(row.trips));
+    setDraftTotalEarnings(String(row.totalEarnings));
+    setDraftCash(String(row.cash));
+    setDraftRefund(String(row.refund));
+    setDraftExpenses(String(row.expenses));
+    setDraftDues(String(row.dues));
+    setDraftPayout(String(row.payout));
   };
 
-  const handleSave = (driverId: number) => {
-    const data = editableData[driverId];
-    saveMutation.mutate({ driverId, ...data });
+  const onCancel = () => {
+    setEditingDriverId(null);
+    setDraftTrips("");
+    setDraftTotalEarnings("");
+    setDraftCash("");
+    setDraftRefund("");
+    setDraftExpenses("");
+    setDraftDues("");
+    setDraftPayout("");
   };
 
-  const handleClear = (driverId: number) => {
-    if (window.confirm("Are you sure you want to clear all editable fields for this driver?")) {
-      clearMutation.mutate(driverId);
+  const onSave = (driverId: number, driverName: string) => {
+    setSaveConfirm({ driverId, driverName });
+  };
+
+  const confirmSave = () => {
+    if (saveConfirm) {
+      saveMutation.mutate({
+        driverId: saveConfirm.driverId,
+        trips: draftTrips === "" ? 0 : Number(draftTrips),
+        totalEarnings: draftTotalEarnings === "" ? 0 : Number(draftTotalEarnings),
+        cash: draftCash === "" ? 0 : Number(draftCash),
+        refund: draftRefund === "" ? 0 : Number(draftRefund),
+        expenses: draftExpenses === "" ? 0 : Number(draftExpenses),
+        dues: draftDues === "" ? 0 : Number(draftDues),
+        payout: draftPayout === "" ? 0 : Number(draftPayout),
+      });
+      setSaveConfirm(null);
     }
   };
 
-  const calculateWallet = (driverId: number): number => {
-    const data = editableData[driverId];
-    if (!data) return 0;
-    return data.totalEarnings - data.cash + data.refund - data.expenses - 100;
+  const onClear = (driverId: number, driverName: string) => {
+    setClearConfirm({ driverId, driverName });
   };
 
-  const calculateTotal = (driverId: number, collection: number): number => {
-    const data = editableData[driverId];
-    if (!data) return 0;
-    const wallet = calculateWallet(driverId);
-    const row = summaries?.find(s => s.driverId === driverId);
-    const rent = row?.rent || 0;
-    return collection + wallet + data.dues - rent - data.payout;
+  const confirmClear = () => {
+    if (clearConfirm) {
+      clearMutation.mutate(clearConfirm.driverId);
+      setClearConfirm(null);
+    }
+  };
+
+  const calculateWallet = (trips: number, totalEarnings: number, cash: number, refund: number, expenses: number): number => {
+    return totalEarnings - cash + refund - expenses - 100;
+  };
+
+  const calculateTotal = (collection: number, rent: number, trips: number, totalEarnings: number, cash: number, refund: number, expenses: number, dues: number, payout: number): number => {
+    const wallet = calculateWallet(trips, totalEarnings, cash, refund, expenses);
+    return collection + wallet + dues - rent - payout;
   };
 
   const handleImportCSV = async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -219,14 +240,14 @@ export default function WeeklySummary() {
     try {
       const text = await file.text();
       
-      const parseResult = Papa.parse(text, {
+      const parseResult: any = Papa.parse(text, {
         header: true,
         skipEmptyLines: true,
         trimHeaders: true,
-        transform: (value) => value.trim(),
+        transform: (value: any) => value.trim(),
       });
 
-      if (parseResult.errors.length > 0) {
+      if (parseResult.errors && parseResult.errors.length > 0) {
         console.error("CSV parsing errors:", parseResult.errors);
       }
 
@@ -395,121 +416,175 @@ export default function WeeklySummary() {
                     <th className="text-right py-3 px-2 text-gray-700 font-semibold">Rent</th>
                     <th className="text-right py-3 px-2 text-gray-700 font-semibold">Collection</th>
                     <th className="text-right py-3 px-2 text-gray-700 font-semibold">Fuel</th>
-                    <th className="text-right py-3 px-2 text-gray-700 font-semibold bg-blue-50">Trips*</th>
-                    <th className="text-right py-3 px-2 text-gray-700 font-semibold bg-blue-50">Total Earnings*</th>
-                    <th className="text-right py-3 px-2 text-gray-700 font-semibold bg-blue-50">Cash*</th>
-                    <th className="text-right py-3 px-2 text-gray-700 font-semibold bg-blue-50">Refund*</th>
-                    <th className="text-right py-3 px-2 text-gray-700 font-semibold bg-blue-50">Expenses*</th>
-                    <th className="text-right py-3 px-2 text-gray-700 font-semibold bg-green-50">Wallet</th>
-                    <th className="text-right py-3 px-2 text-gray-700 font-semibold bg-blue-50">Dues*</th>
-                    <th className="text-right py-3 px-2 text-gray-700 font-semibold bg-blue-50">Payout*</th>
-                    <th className="text-right py-3 px-2 text-gray-700 font-semibold bg-green-50">Total</th>
+                    <th className="text-right py-3 px-2 text-gray-700 font-semibold">Trips</th>
+                    <th className="text-right py-3 px-2 text-gray-700 font-semibold">Total Earnings</th>
+                    <th className="text-right py-3 px-2 text-gray-700 font-semibold">Cash</th>
+                    <th className="text-right py-3 px-2 text-gray-700 font-semibold">Refund</th>
+                    <th className="text-right py-3 px-2 text-gray-700 font-semibold">Expenses</th>
+                    <th className="text-right py-3 px-2 text-gray-700 font-semibold">Wallet</th>
+                    <th className="text-right py-3 px-2 text-gray-700 font-semibold">Dues</th>
+                    <th className="text-right py-3 px-2 text-gray-700 font-semibold">Payout</th>
+                    <th className="text-right py-3 px-2 text-gray-700 font-semibold">Total</th>
                     <th className="text-center py-3 px-2 text-gray-700 font-semibold">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
                   {summaries.map((row) => {
-                    const data = editableData[row.driverId] || row;
-                    const wallet = calculateWallet(row.driverId);
-                    const total = calculateTotal(row.driverId, row.collection);
+                    const editing = editingDriverId === row.driverId;
+                    
+                    // Use draft values when editing, else use saved values
+                    const trips = editing ? (draftTrips === "" ? 0 : Number(draftTrips)) : row.trips;
+                    const totalEarnings = editing ? (draftTotalEarnings === "" ? 0 : Number(draftTotalEarnings)) : row.totalEarnings;
+                    const cash = editing ? (draftCash === "" ? 0 : Number(draftCash)) : row.cash;
+                    const refund = editing ? (draftRefund === "" ? 0 : Number(draftRefund)) : row.refund;
+                    const expenses = editing ? (draftExpenses === "" ? 0 : Number(draftExpenses)) : row.expenses;
+                    const dues = editing ? (draftDues === "" ? 0 : Number(draftDues)) : row.dues;
+                    const payout = editing ? (draftPayout === "" ? 0 : Number(draftPayout)) : row.payout;
+
+                    const wallet = calculateWallet(trips, totalEarnings, cash, refund, expenses);
+                    const total = calculateTotal(row.collection, row.rent, trips, totalEarnings, cash, refund, expenses, dues, payout);
 
                     return (
                       <tr key={row.driverId} className="border-b border-gray-200 hover:bg-gray-50">
                         <td className="py-3 px-2 text-gray-900" data-testid={`text-driver-id-${row.driverId}`}>{row.driverId}</td>
                         <td className="py-3 px-2 text-gray-900" data-testid={`text-driver-name-${row.driverId}`}>{row.driverName}</td>
-                        <td className="py-3 px-2 text-right text-gray-900" data-testid={`text-rent-${row.driverId}`}>₹{row.rent.toLocaleString()}</td>
-                        <td className="py-3 px-2 text-right text-gray-900" data-testid={`text-collection-${row.driverId}`}>₹{row.collection.toLocaleString()}</td>
-                        <td className="py-3 px-2 text-right text-gray-900" data-testid={`text-fuel-${row.driverId}`}>₹{row.fuel.toLocaleString()}</td>
-                        <td className="py-3 px-2 bg-blue-50">
-                          <Input
-                            type="number"
-                            value={data.trips}
-                            onChange={(e) => handleFieldChange(row.driverId, "trips", parseInt(e.target.value) || 0)}
-                            className="w-24 text-right"
-                            data-testid={`input-trips-${row.driverId}`}
-                          />
+                        <td className="py-3 px-2 text-right text-gray-900" data-testid={`text-rent-${row.driverId}`}>{inr(row.rent)}</td>
+                        <td className="py-3 px-2 text-right text-gray-900" data-testid={`text-collection-${row.driverId}`}>{inr(row.collection)}</td>
+                        <td className="py-3 px-2 text-right text-gray-900" data-testid={`text-fuel-${row.driverId}`}>{inr(row.fuel)}</td>
+                        
+                        <td className="py-3 px-2 text-right">
+                          {editing ? (
+                            <Input
+                              type="number"
+                              value={draftTrips}
+                              onChange={(e) => setDraftTrips(e.target.value)}
+                              className="w-24 text-right"
+                              data-testid={`input-trips-${row.driverId}`}
+                            />
+                          ) : (trips || "—")}
                         </td>
-                        <td className="py-3 px-2 bg-blue-50">
-                          <Input
-                            type="number"
-                            value={data.totalEarnings}
-                            onChange={(e) => handleFieldChange(row.driverId, "totalEarnings", parseInt(e.target.value) || 0)}
-                            className="w-24 text-right"
-                            data-testid={`input-total-earnings-${row.driverId}`}
-                          />
+
+                        <td className="py-3 px-2 text-right">
+                          {editing ? (
+                            <Input
+                              type="number"
+                              value={draftTotalEarnings}
+                              onChange={(e) => setDraftTotalEarnings(e.target.value)}
+                              className="w-24 text-right"
+                              data-testid={`input-total-earnings-${row.driverId}`}
+                            />
+                          ) : (totalEarnings ? inr(totalEarnings) : "—")}
                         </td>
-                        <td className="py-3 px-2 bg-blue-50">
-                          <Input
-                            type="number"
-                            value={data.cash}
-                            onChange={(e) => handleFieldChange(row.driverId, "cash", parseInt(e.target.value) || 0)}
-                            className="w-24 text-right"
-                            data-testid={`input-cash-${row.driverId}`}
-                          />
+
+                        <td className="py-3 px-2 text-right">
+                          {editing ? (
+                            <Input
+                              type="number"
+                              value={draftCash}
+                              onChange={(e) => setDraftCash(e.target.value)}
+                              className="w-24 text-right"
+                              data-testid={`input-cash-${row.driverId}`}
+                            />
+                          ) : (cash ? inr(cash) : "—")}
                         </td>
-                        <td className="py-3 px-2 bg-blue-50">
-                          <Input
-                            type="number"
-                            value={data.refund}
-                            onChange={(e) => handleFieldChange(row.driverId, "refund", parseInt(e.target.value) || 0)}
-                            className="w-24 text-right"
-                            data-testid={`input-refund-${row.driverId}`}
-                          />
+
+                        <td className="py-3 px-2 text-right">
+                          {editing ? (
+                            <Input
+                              type="number"
+                              value={draftRefund}
+                              onChange={(e) => setDraftRefund(e.target.value)}
+                              className="w-24 text-right"
+                              data-testid={`input-refund-${row.driverId}`}
+                            />
+                          ) : (refund ? inr(refund) : "—")}
                         </td>
-                        <td className="py-3 px-2 bg-blue-50">
-                          <Input
-                            type="number"
-                            value={data.expenses}
-                            onChange={(e) => handleFieldChange(row.driverId, "expenses", parseInt(e.target.value) || 0)}
-                            className="w-24 text-right"
-                            data-testid={`input-expenses-${row.driverId}`}
-                          />
+
+                        <td className="py-3 px-2 text-right">
+                          {editing ? (
+                            <Input
+                              type="number"
+                              value={draftExpenses}
+                              onChange={(e) => setDraftExpenses(e.target.value)}
+                              className="w-24 text-right"
+                              data-testid={`input-expenses-${row.driverId}`}
+                            />
+                          ) : (expenses ? inr(expenses) : "—")}
                         </td>
-                        <td className="py-3 px-2 text-right font-semibold bg-green-50" data-testid={`text-wallet-${row.driverId}`}>
-                          ₹{wallet.toLocaleString()}
+
+                        <td className="py-3 px-2 text-right font-semibold" data-testid={`text-wallet-${row.driverId}`}>
+                          {inr(wallet)}
                         </td>
-                        <td className="py-3 px-2 bg-blue-50">
-                          <Input
-                            type="number"
-                            value={data.dues}
-                            onChange={(e) => handleFieldChange(row.driverId, "dues", parseInt(e.target.value) || 0)}
-                            className="w-24 text-right"
-                            data-testid={`input-dues-${row.driverId}`}
-                          />
+
+                        <td className="py-3 px-2 text-right">
+                          {editing ? (
+                            <Input
+                              type="number"
+                              value={draftDues}
+                              onChange={(e) => setDraftDues(e.target.value)}
+                              className="w-24 text-right"
+                              data-testid={`input-dues-${row.driverId}`}
+                            />
+                          ) : (dues ? inr(dues) : "—")}
                         </td>
-                        <td className="py-3 px-2 bg-blue-50">
-                          <Input
-                            type="number"
-                            value={data.payout}
-                            onChange={(e) => handleFieldChange(row.driverId, "payout", parseInt(e.target.value) || 0)}
-                            className="w-24 text-right"
-                            data-testid={`input-payout-${row.driverId}`}
-                          />
+
+                        <td className="py-3 px-2 text-right">
+                          {editing ? (
+                            <Input
+                              type="number"
+                              value={draftPayout}
+                              onChange={(e) => setDraftPayout(e.target.value)}
+                              className="w-24 text-right"
+                              data-testid={`input-payout-${row.driverId}`}
+                            />
+                          ) : (payout ? inr(payout) : "—")}
                         </td>
-                        <td className="py-3 px-2 text-right font-bold bg-green-50" data-testid={`text-total-${row.driverId}`}>
-                          ₹{total.toLocaleString()}
+
+                        <td className="py-3 px-2 text-right font-bold" data-testid={`text-total-${row.driverId}`}>
+                          {inr(total)}
                         </td>
+
                         <td className="py-3 px-2 text-center">
                           <div className="flex gap-2 justify-center">
-                            <Button
-                              size="sm"
-                              onClick={() => handleSave(row.driverId)}
-                              disabled={saveMutation.isPending}
-                              data-testid={`button-save-${row.driverId}`}
-                            >
-                              <Save className="h-4 w-4 mr-1" />
-                              Save
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => handleClear(row.driverId)}
-                              disabled={clearMutation.isPending}
-                              data-testid={`button-clear-${row.driverId}`}
-                            >
-                              <RotateCcw className="h-4 w-4 mr-1" />
-                              Clear
-                            </Button>
+                            {!editing ? (
+                              <>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => onEdit(row)}
+                                  data-testid={`button-edit-${row.driverId}`}
+                                >
+                                  ✎ Edit
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="destructive"
+                                  onClick={() => onClear(row.driverId, row.driverName)}
+                                  data-testid={`button-clear-${row.driverId}`}
+                                >
+                                  🗑 Clear
+                                </Button>
+                              </>
+                            ) : (
+                              <>
+                                <Button
+                                  size="sm"
+                                  onClick={() => onSave(row.driverId, row.driverName)}
+                                  disabled={saveMutation.isPending}
+                                  data-testid={`button-save-${row.driverId}`}
+                                >
+                                  ✓ Save
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  onClick={onCancel}
+                                  data-testid={`button-cancel-${row.driverId}`}
+                                >
+                                  ↩ Cancel
+                                </Button>
+                              </>
+                            )}
                           </div>
                         </td>
                       </tr>
@@ -525,6 +600,45 @@ export default function WeeklySummary() {
           )}
         </CardContent>
       </Card>
+
+      {/* Save Confirmation Dialog */}
+      <AlertDialog open={saveConfirm !== null} onOpenChange={() => setSaveConfirm(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirm Save</AlertDialogTitle>
+            <AlertDialogDescription>
+              {saveConfirm && `Are you sure you want to save the weekly summary for ${saveConfirm.driverName}? This will update the financial data in the database.`}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmSave}>
+              Save
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Clear Confirmation Dialog */}
+      <AlertDialog open={clearConfirm !== null} onOpenChange={() => setClearConfirm(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirm Clear</AlertDialogTitle>
+            <AlertDialogDescription>
+              {clearConfirm && `Are you sure you want to clear the weekly summary data (Trips, Total Earnings, Cash, Refund, Expenses) for ${clearConfirm.driverName}? This action will delete the imported data from the database and cannot be undone.`}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmClear}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              Clear
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Drivers Not Found Dialog */}
       <AlertDialog open={showNotFoundDialog} onOpenChange={setShowNotFoundDialog}>
