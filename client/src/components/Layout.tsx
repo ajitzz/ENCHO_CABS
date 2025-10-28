@@ -11,7 +11,7 @@ export default function Layout({ children }: LayoutProps) {
   const [sidebarOpen, setSidebarOpen] = useState(true);
 
   return (
-    <div className="flex h-screen bg-gray-50 relative">
+    <div className="h-screen bg-gray-50 relative">
       {/* Toggle Button - Always Visible, positioned relative to sidebar state */}
       <div 
         className={`fixed top-4 z-50 transition-all duration-300 ${
@@ -38,11 +38,14 @@ export default function Layout({ children }: LayoutProps) {
         <Sidebar />
       </div>
 
-      {/* Main Content - adjusts width based on sidebar state */}
+      {/* Main Content - takes full width when sidebar is hidden */}
       <main 
-        className={`flex-1 overflow-y-auto transition-all duration-300 ${
+        className={`h-full overflow-y-auto transition-all duration-300 ${
           sidebarOpen ? "ml-64" : "ml-0"
         }`}
+        style={{
+          width: sidebarOpen ? "calc(100% - 16rem)" : "100%"
+        }}
       >
         {children}
       </main>
