@@ -51,6 +51,16 @@ function getMondayOfCurrentWeek(): Date {
   return monday;
 }
 
+// Helper function to get Sunday of the week for any given date
+function getSundayOfWeek(date: Date): Date {
+  const d = new Date(date);
+  const day = d.getDay();
+  const diff = d.getDate() + (day === 0 ? 0 : 7 - day); // If Sunday, stay; otherwise add days to reach Sunday
+  const sunday = new Date(d.setDate(diff));
+  sunday.setHours(0, 0, 0, 0);
+  return sunday;
+}
+
 // Helper function to get today in IST
 function getTodayIST(): Date {
   const now = new Date();
@@ -64,13 +74,18 @@ const inr = (n: number) => `₹${n.toLocaleString()}`;
 
 export default function WeeklySummary() {
   const [startDate, setStartDate] = useState<Date>(getMondayOfCurrentWeek());
-  const [endDate, setEndDate] = useState<Date>(getTodayIST());
+  const [endDate, setEndDate] = useState<Date>(getSundayOfWeek(getMondayOfCurrentWeek()));
   const [isImporting, setIsImporting] = useState(false);
   const [importResult, setImportResult] = useState<any>(null);
   const [showNotFoundDialog, setShowNotFoundDialog] = useState(false);
   const [driversNotFound, setDriversNotFound] = useState<string[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
+
+  // Automatically update end date to Sunday of the selected start date's week
+  useEffect(() => {
+    setEndDate(getSundayOfWeek(startDate));
+  }, [startDate]);
 
   // Edit mode state
   const [editingDriverId, setEditingDriverId] = useState<number | null>(null);
@@ -409,27 +424,14 @@ export default function WeeklySummary() {
             </div>
 
             <div>
-              <Label>End Date</Label>
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button
-                    variant="outline"
-                    className="w-[200px] justify-start text-left font-normal"
-                    data-testid="button-end-date"
-                  >
-                    <CalendarIcon className="mr-2 h-4 w-4" />
-                    {format(endDate, "PPP")}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0">
-                  <Calendar
-                    mode="single"
-                    selected={endDate}
-                    onSelect={(date) => date && setEndDate(date)}
-                    initialFocus
-                  />
-                </PopoverContent>
-              </Popover>
+              <Label>End Date (Auto)</Label>
+              <div
+                className="w-[200px] h-10 px-3 py-2 border border-gray-200 rounded-md bg-gray-50 flex items-center text-sm text-gray-700"
+                data-testid="text-end-date"
+              >
+                <CalendarIcon className="mr-2 h-4 w-4 text-gray-400" />
+                {format(endDate, "PPP")}
+              </div>
             </div>
 
             <Button 

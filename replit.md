@@ -90,6 +90,12 @@ Preferred communication style: Simple, everyday language.
 - Stored in weekly_summaries table for record keeping
 - Blue highlighted background for easy identification
 
+#### Weekly Summary Date Selection
+- **Auto-computed End Date**: End date automatically set to Sunday of the selected start date's week
+- Non-editable end date (labeled "End Date (Auto)") ensures week boundaries are Monday-Sunday
+- Example: Select Oct 13, 2025 (Monday) → End date automatically becomes Oct 19, 2025 (Sunday)
+- Prevents selecting partial weeks or inconsistent date ranges
+
 #### Weekly Summary CSV Import
 - Added "Import CSV" button to Weekly Summary page
 - Allows bulk import of weekly summary data (trips, total earnings, cash, refunds)
