@@ -627,6 +627,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           // Sum up values from all overlapping weeks
           const totals = overlappingSummaries.reduce(
             (acc, summary) => ({
+              trips: acc.trips + (summary.trips || 0),
               totalEarnings: acc.totalEarnings + (summary.totalEarnings || 0),
               cash: acc.cash + (summary.cash || 0),
               refund: acc.refund + (summary.refund || 0),
@@ -634,8 +635,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
               dues: acc.dues + (summary.dues || 0),
               payout: acc.payout + (summary.payout || 0),
             }),
-            { totalEarnings: 0, cash: 0, refund: 0, expenses: 0, dues: 0, payout: 0 }
+            { trips: 0, totalEarnings: 0, cash: 0, refund: 0, expenses: 0, dues: 0, payout: 0 }
           );
+
+          // If no saved summaries exist, use computed trip count; otherwise use saved values
+          const hasSavedData = overlappingSummaries.length > 0;
 
           return {
             driverId: aggregate.driverId,
@@ -643,7 +647,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             rent: aggregate.totalRent,
             collection: aggregate.totalCollection,
             fuel: aggregate.totalFuel,
-            trips: aggregate.tripCount,
+            trips: hasSavedData ? totals.trips : aggregate.tripCount,
             totalEarnings: totals.totalEarnings,
             cash: totals.cash,
             refund: totals.refund,

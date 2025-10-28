@@ -30,6 +30,7 @@ interface WeeklySummaryRow {
 }
 
 interface EditableFields {
+  trips: number;
   totalEarnings: number;
   cash: number;
   refund: number;
@@ -88,6 +89,7 @@ export default function WeeklySummary() {
 
   // Edit mode state
   const [editingDriverId, setEditingDriverId] = useState<number | null>(null);
+  const [draftTrips, setDraftTrips] = useState<string>("");
   const [draftTotalEarnings, setDraftTotalEarnings] = useState<string>("");
   const [draftCash, setDraftCash] = useState<string>("");
   const [draftRefund, setDraftRefund] = useState<string>("");
@@ -125,6 +127,7 @@ export default function WeeklySummary() {
         driverId: data.driverId,
         startDate: startDateStr,
         endDate: endDateStr,
+        trips: data.trips,
         totalEarnings: data.totalEarnings,
         cash: data.cash,
         refund: data.refund,
@@ -159,6 +162,7 @@ export default function WeeklySummary() {
     onSuccess: () => {
       // Exit edit mode and reset draft state
       setEditingDriverId(null);
+      setDraftTrips("");
       setDraftTotalEarnings("");
       setDraftCash("");
       setDraftRefund("");
@@ -185,6 +189,7 @@ export default function WeeklySummary() {
 
   const onEdit = (row: WeeklySummaryRow) => {
     setEditingDriverId(row.driverId);
+    setDraftTrips(String(row.trips));
     setDraftTotalEarnings(String(row.totalEarnings));
     setDraftCash(String(row.cash));
     setDraftRefund(String(row.refund));
@@ -195,6 +200,7 @@ export default function WeeklySummary() {
 
   const onCancel = () => {
     setEditingDriverId(null);
+    setDraftTrips("");
     setDraftTotalEarnings("");
     setDraftCash("");
     setDraftRefund("");
@@ -211,6 +217,7 @@ export default function WeeklySummary() {
     if (saveConfirm) {
       saveMutation.mutate({
         driverId: saveConfirm.driverId,
+        trips: draftTrips === "" ? 0 : Number(draftTrips),
         totalEarnings: draftTotalEarnings === "" ? 0 : Number(draftTotalEarnings),
         cash: draftCash === "" ? 0 : Number(draftCash),
         refund: draftRefund === "" ? 0 : Number(draftRefund),
@@ -233,12 +240,12 @@ export default function WeeklySummary() {
     }
   };
 
-  const calculateWallet = (totalEarnings: number, cash: number, refund: number, expenses: number): number => {
+  const calculateWallet = (trips: number, totalEarnings: number, cash: number, refund: number, expenses: number): number => {
     return totalEarnings - cash + refund - expenses - 100;
   };
 
-  const calculateTotal = (collection: number, rent: number, totalEarnings: number, cash: number, refund: number, expenses: number, dues: number, payout: number): number => {
-    const wallet = calculateWallet(totalEarnings, cash, refund, expenses);
+  const calculateTotal = (collection: number, rent: number, trips: number, totalEarnings: number, cash: number, refund: number, expenses: number, dues: number, payout: number): number => {
+    const wallet = calculateWallet(trips, totalEarnings, cash, refund, expenses);
     return collection + wallet + dues - rent - payout;
   };
 
@@ -477,6 +484,7 @@ export default function WeeklySummary() {
                     <th className="text-right py-3 px-2 text-gray-700 font-semibold">Rent</th>
                     <th className="text-right py-3 px-2 text-gray-700 font-semibold">Collection</th>
                     <th className="text-right py-3 px-2 text-gray-700 font-semibold">Fuel</th>
+                    <th className="text-right py-3 px-2 text-gray-700 font-semibold">Trips</th>
                     <th className="text-right py-3 px-2 text-gray-700 font-semibold">Total Earnings</th>
                     <th className="text-right py-3 px-2 text-gray-700 font-semibold">Cash</th>
                     <th className="text-right py-3 px-2 text-gray-700 font-semibold">Refund</th>
@@ -493,6 +501,7 @@ export default function WeeklySummary() {
                     const editing = editingDriverId === row.driverId;
                     
                     // Use draft values when editing, else use saved values
+                    const trips = editing ? (draftTrips === "" ? 0 : Number(draftTrips)) : row.trips;
                     const totalEarnings = editing ? (draftTotalEarnings === "" ? 0 : Number(draftTotalEarnings)) : row.totalEarnings;
                     const cash = editing ? (draftCash === "" ? 0 : Number(draftCash)) : row.cash;
                     const refund = editing ? (draftRefund === "" ? 0 : Number(draftRefund)) : row.refund;
@@ -500,8 +509,8 @@ export default function WeeklySummary() {
                     const dues = editing ? (draftDues === "" ? 0 : Number(draftDues)) : row.dues;
                     const payout = editing ? (draftPayout === "" ? 0 : Number(draftPayout)) : row.payout;
 
-                    const wallet = calculateWallet(totalEarnings, cash, refund, expenses);
-                    const total = calculateTotal(row.collection, row.rent, totalEarnings, cash, refund, expenses, dues, payout);
+                    const wallet = calculateWallet(trips, totalEarnings, cash, refund, expenses);
+                    const total = calculateTotal(row.collection, row.rent, trips, totalEarnings, cash, refund, expenses, dues, payout);
 
                     return (
                       <tr key={row.driverId} className="border-b border-gray-200 hover:bg-gray-50">
@@ -510,6 +519,18 @@ export default function WeeklySummary() {
                         <td className="py-3 px-2 text-right text-gray-900" data-testid={`text-rent-${row.driverId}`}>{inr(row.rent)}</td>
                         <td className="py-3 px-2 text-right text-gray-900" data-testid={`text-collection-${row.driverId}`}>{inr(row.collection)}</td>
                         <td className="py-3 px-2 text-right text-gray-900" data-testid={`text-fuel-${row.driverId}`}>{inr(row.fuel)}</td>
+                        
+                        <td className="py-3 px-2 text-right">
+                          {editing ? (
+                            <Input
+                              type="number"
+                              value={draftTrips}
+                              onChange={(e) => setDraftTrips(e.target.value)}
+                              className="w-24 text-right"
+                              data-testid={`input-trips-${row.driverId}`}
+                            />
+                          ) : (trips || "—")}
+                        </td>
 
                         <td className="py-3 px-2 text-right">
                           {editing ? (
@@ -672,7 +693,7 @@ export default function WeeklySummary() {
           <AlertDialogHeader>
             <AlertDialogTitle>Confirm Clear</AlertDialogTitle>
             <AlertDialogDescription>
-              {clearConfirm && `Are you sure you want to clear the weekly summary data (Total Earnings, Cash, Refund, Expenses) for ${clearConfirm.driverName}? This action will delete the imported data from the database and cannot be undone.`}
+              {clearConfirm && `Are you sure you want to clear the weekly summary data (Trips, Total Earnings, Cash, Refund, Expenses) for ${clearConfirm.driverName}? This action will delete the imported data from the database and cannot be undone.`}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
