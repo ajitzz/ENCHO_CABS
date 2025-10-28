@@ -638,13 +638,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
             { trips: 0, totalEarnings: 0, cash: 0, refund: 0, expenses: 0, dues: 0, payout: 0 }
           );
 
+          // If no saved summaries exist, use computed trip count; otherwise use saved values
+          const hasSavedData = overlappingSummaries.length > 0;
+
           return {
             driverId: aggregate.driverId,
             driverName: aggregate.driverName,
             rent: aggregate.totalRent,
             collection: aggregate.totalCollection,
             fuel: aggregate.totalFuel,
-            trips: totals.trips,
+            trips: hasSavedData ? totals.trips : aggregate.tripCount,
             totalEarnings: totals.totalEarnings,
             cash: totals.cash,
             refund: totals.refund,

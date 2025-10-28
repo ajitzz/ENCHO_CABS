@@ -658,12 +658,14 @@ export class DatabaseStorage implements IStorage {
   }
 
   async clearWeeklySummary(driverId: number, startDate: string, endDate: string): Promise<void> {
+    // Delete all weekly summaries for this driver that overlap with the selected date range
+    // A week overlaps if: week_start <= endDate AND week_end >= startDate
     await db.delete(weeklySummaries)
       .where(
         and(
           eq(weeklySummaries.driverId, driverId),
-          eq(weeklySummaries.startDate, startDate),
-          eq(weeklySummaries.endDate, endDate)
+          sql`${weeklySummaries.startDate}::date <= ${endDate}::date`,
+          sql`${weeklySummaries.endDate}::date >= ${startDate}::date`
         )
       );
   }

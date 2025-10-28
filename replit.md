@@ -96,6 +96,15 @@ Preferred communication style: Simple, everyday language.
 - Example: Select Oct 13, 2025 (Monday) → End date automatically becomes Oct 19, 2025 (Sunday)
 - Prevents selecting partial weeks or inconsistent date ranges
 
+#### Weekly Summary Edit & Clear Functions
+- **Edit Mode Fix**: When clicking Edit, form now correctly shows saved values (trips, total earnings, cash, refund, expenses)
+  - If no saved data exists, displays computed trip count from database and 0 for other fields
+  - Properly pre-fills all editable fields with existing data when editing
+- **Clear Function Fix**: Clear button now properly removes all saved data that overlaps with the selected date range
+  - Deletes ALL weekly summary records that overlap (not just exact date matches)
+  - After clearing, fields reset to show computed values from database
+  - Properly handles multi-week data clearance
+
 #### Weekly Summary CSV Import
 - Added "Import CSV" button to Weekly Summary page
 - Allows bulk import of weekly summary data (trips, total earnings, cash, refunds)
