@@ -78,9 +78,9 @@ export default function TripLogs() {
   
 
   // Fetch data
-  const { data: trips = [], isLoading: tripsLoading } = useQuery({
-    queryKey: ["/api/trips/recent/500"],
-    queryFn: () => api.getRecentTrips(500),
+  const { data: rentLogs = [], isLoading: tripsLoading } = useQuery({
+    queryKey: ["/api/driver-rent-logs/recent/500"],
+    queryFn: () => api.getRecentRentLogs(500),
   });
 
   const { data: substituteDrivers = [], isLoading: substitutesLoading } = useQuery({
@@ -214,77 +214,29 @@ export default function TripLogs() {
     }
   }, [queryClient]);
 
-  // Manual data repair function
+  // Manual data repair function (obsolete - kept for backwards compatibility)
   const repairAllMissingRentLogs = useCallback(async () => {
-    setRepairingData(true);
-    try {
-      // Find all trips that are missing rent logs
-      const missingLogs: Array<{tripId: number, driverId: number, date: Date, vehicleId: number, amount: number, shift: string}> = [];
-      
-      for (const trip of trips) {
-        const tripDate = new Date(trip.tripDate);
-        const tripDateStr = tripDate.toISOString().split('T')[0];
-        
-        const hasRentLog = allRentLogs.some((rent: any) => {
-          const rentDateStr = new Date(rent.date).toISOString().split('T')[0];
-          return rent.driverId === trip.driverId && rentDateStr === tripDateStr && rent.shift === trip.shift;
-        });
-        
-        if (!hasRentLog) {
-          const driver = drivers.find(d => d.id === trip.driverId);
-          const amount = driver?.hasAccommodation ? 600 : 500;
-          missingLogs.push({
-            tripId: trip.id,
-            driverId: trip.driverId,
-            date: tripDate,
-            vehicleId: trip.vehicleId,
-            amount,
-            shift: trip.shift
-          });
-        }
-      }
-      
-      if (missingLogs.length === 0) {
-        toast({
-          title: "No Issues Found",
-          description: "All trip entries have corresponding rent logs.",
-        });
-        return;
-      }
-      
-      // Create missing rent logs
-      let successCount = 0;
-      for (const missing of missingLogs) {
-        try {
-          await autoCreateMissingRentLog(missing.driverId, missing.date, missing.vehicleId, missing.amount, missing.shift, 0, 0);
-          successCount++;
-        } catch (error) {
-          console.error(`Failed to create rent log for trip ${missing.tripId}:`, error);
-        }
-      }
-      
-      toast({
-        title: "Data Repair Complete",
-        description: `Created ${successCount} missing rent logs out of ${missingLogs.length} needed.`,
-      });
-      
-    } catch (error) {
-      console.error("Data repair failed:", error);
-      toast({
-        title: "Repair Failed",
-        description: "Failed to repair missing rent logs. Check console for details.",
-        variant: "destructive"
-      });
-    } finally {
-      setRepairingData(false);
-    }
-  }, [trips, allRentLogs, drivers, autoCreateMissingRentLog, toast]);
+    // This function is no longer needed since trips and rent logs are now the same table
+    toast({
+      title: "Repair Not Needed",
+      description: "This feature is obsolete. Trip logs and rent logs are now unified in a single table.",
+    });
+  }, [toast]);
 
-  // Combine trips and substitute drivers
+  // Combine rent logs and substitute drivers
   const allLogs = useMemo(() => {
-    const tripLogs: TripLog[] = trips.map(trip => ({
-      ...trip,
-      isSubstitute: false
+    const tripLogs: TripLog[] = rentLogs.map(rentLog => ({
+      id: rentLog.id,
+      driverId: rentLog.driverId,
+      vehicleId: rentLog.vehicleId,
+      tripDate: rentLog.date,
+      shift: rentLog.shift,
+      driverName: rentLog.driverName,
+      vehicleNumber: rentLog.vehicleNumber,
+      isSubstitute: false,
+      rent: rentLog.rent,
+      amountCollected: rentLog.amountCollected,
+      fuel: rentLog.fuel
     }));
 
     const substituteLogs: TripLog[] = substituteDrivers.map(sub => ({
@@ -302,7 +254,7 @@ export default function TripLogs() {
     return [...tripLogs, ...substituteLogs].sort((a, b) => 
       new Date(b.tripDate).getTime() - new Date(a.tripDate).getTime()
     );
-  }, [trips, substituteDrivers]);
+  }, [rentLogs, substituteDrivers]);
 
   // Filter logs
   const filteredLogs = useMemo(() => {
@@ -385,26 +337,24 @@ export default function TripLogs() {
   }, [filteredLogs, getRentDetails]);
 
   const deleteTripMutation = useMutation({
-    mutationFn: (tripId: number) => api.deleteTrip(tripId),
+    mutationFn: (rentLogId: number) => api.deleteRentLog(rentLogId),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/trips/recent/500"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/driver-rent-logs/recent/500"] });
       queryClient.invalidateQueries({ queryKey: ["/api/dashboard/profit-graph"] });
       queryClient.invalidateQueries({ queryKey: ["/api/settlements"] });
       queryClient.invalidateQueries({ queryKey: ["/api/driver-rent-logs"] });
-      toast({ title: "Trip deleted successfully", variant: "default" });
+      toast({ title: "Trip log deleted successfully", variant: "default" });
     },
     onError: (error) => {
-      toast({ title: "Failed to delete trip", description: error.message, variant: "destructive" });
+      toast({ title: "Failed to delete trip log", description: error.message, variant: "destructive" });
     },
   });
 
+  // Pay rent feature is disabled - no 'paid' field in schema
   const payRentMutation = useMutation({
     mutationFn: async (rentLogId: number) => {
-      // First make the API call
-      await api.payDriverRent(rentLogId);
-      
-      // Return the rentLogId for use in onSuccess
-      return rentLogId;
+      // Feature disabled - no backend support
+      throw new Error("Pay rent feature is not implemented");
     },
     onSuccess: async (rentLogId) => {
       console.log(`Successfully marked rent log ${rentLogId} as paid`);
