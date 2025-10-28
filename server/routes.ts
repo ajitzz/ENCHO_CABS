@@ -624,18 +624,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
             String(endDate)
           );
 
-          console.log(`[DEBUG] Driver ${aggregate.driverId} (${aggregate.driverName}):`, {
-            startDate: String(startDate),
-            endDate: String(endDate),
-            overlappingSummaries: overlappingSummaries.map(s => ({
-              startDate: s.startDate,
-              startDateType: typeof s.startDate,
-              endDate: s.endDate,
-              endDateType: typeof s.endDate,
-              trips: s.trips,
-            }))
-          });
-
           // Sum up values from all overlapping weeks
           const totals = overlappingSummaries.reduce(
             (acc, summary) => ({
@@ -679,6 +667,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/weekly-summary", async (req, res) => {
     try {
       const summaryData = upsertWeeklySummarySchema.parse(req.body);
+      
+      // First, clear any overlapping summaries to avoid duplicates with different date ranges
+      await storage.clearWeeklySummary(
+        summaryData.driverId,
+        summaryData.startDate,
+        summaryData.endDate
+      );
+      
+      // Then insert the new summary
       const summary = await storage.upsertWeeklySummary(summaryData);
       res.json(summary);
       broadcast("weeklysummary:changed", { range: { start: summaryData.startDate, end: summaryData.endDate } });
