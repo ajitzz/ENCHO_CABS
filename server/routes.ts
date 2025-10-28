@@ -614,13 +614,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
         String(endDate)
       );
 
-      // Fetch saved summaries for each driver
+      // Fetch saved summaries for each driver (may span multiple weeks)
       const results = await Promise.all(
         aggregates.map(async (aggregate) => {
-          const savedSummary = await storage.getWeeklySummary(
+          // Get all weekly summaries that overlap with the selected date range
+          const overlappingSummaries = await storage.getWeeklySummariesOverlappingRange(
             aggregate.driverId,
             String(startDate),
             String(endDate)
+          );
+
+          // Sum up values from all overlapping weeks
+          const totals = overlappingSummaries.reduce(
+            (acc, summary) => ({
+              trips: acc.trips + (summary.trips || 0),
+              totalEarnings: acc.totalEarnings + (summary.totalEarnings || 0),
+              cash: acc.cash + (summary.cash || 0),
+              refund: acc.refund + (summary.refund || 0),
+              expenses: acc.expenses + (summary.expenses || 0),
+              dues: acc.dues + (summary.dues || 0),
+              payout: acc.payout + (summary.payout || 0),
+            }),
+            { trips: 0, totalEarnings: 0, cash: 0, refund: 0, expenses: 0, dues: 0, payout: 0 }
           );
 
           return {
@@ -629,13 +644,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
             rent: aggregate.totalRent,
             collection: aggregate.totalCollection,
             fuel: aggregate.totalFuel,
-            trips: savedSummary?.trips || 0,
-            totalEarnings: savedSummary?.totalEarnings || 0,
-            cash: savedSummary?.cash || 0,
-            refund: savedSummary?.refund || 0,
-            expenses: savedSummary?.expenses || 0,
-            dues: savedSummary?.dues || 0,
-            payout: savedSummary?.payout || 0,
+            trips: totals.trips,
+            totalEarnings: totals.totalEarnings,
+            cash: totals.cash,
+            refund: totals.refund,
+            expenses: totals.expenses,
+            dues: totals.dues,
+            payout: totals.payout,
           };
         })
       );

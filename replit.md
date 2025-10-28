@@ -103,6 +103,10 @@ Preferred communication style: Simple, everyday language.
   - Shows confirmation dialog listing all drivers with existing data and their week ranges
   - User must confirm to overwrite existing data
   - Only one entry per driver per week is allowed
+- **Smart Date Range Display**: Weekly Summary page automatically shows all imported data that overlaps with selected date range
+  - When selecting dates that span multiple weeks (e.g., Oct 13-20), aggregates data from all overlapping weeks
+  - Values are summed across weeks when displaying in UI
+  - Example: If Oct 13-19 and Oct 20-26 both have imported data, selecting Oct 13-20 shows combined totals
 - Automatically matches drivers to computed weekly summary for the week calculated from the date
 - Skips drivers not found in the computed list and displays them in a popup dialog
 - Updates weekly_summaries table with imported data

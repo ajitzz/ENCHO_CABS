@@ -90,6 +90,7 @@ export interface IStorage {
   }>>;
   upsertWeeklySummary(summary: UpsertWeeklySummary): Promise<WeeklySummary>;
   getWeeklySummary(driverId: number, startDate: string, endDate: string): Promise<WeeklySummary | undefined>;
+  getWeeklySummariesOverlappingRange(driverId: number, startDate: string, endDate: string): Promise<WeeklySummary[]>;
   clearWeeklySummary(driverId: number, startDate: string, endDate: string): Promise<void>;
   
   // Investment operations
@@ -638,6 +639,22 @@ export class DatabaseStorage implements IStorage {
       );
 
     return result || undefined;
+  }
+
+  async getWeeklySummariesOverlappingRange(driverId: number, startDate: string, endDate: string): Promise<WeeklySummary[]> {
+    // Find all weekly summaries for this driver where the week overlaps with the selected date range
+    // A week overlaps if: week_start <= endDate AND week_end >= startDate
+    const results = await db.select()
+      .from(weeklySummaries)
+      .where(
+        and(
+          eq(weeklySummaries.driverId, driverId),
+          sql`${weeklySummaries.startDate}::date <= ${endDate}::date`,
+          sql`${weeklySummaries.endDate}::date >= ${startDate}::date`
+        )
+      );
+
+    return results;
   }
 
   async clearWeeklySummary(driverId: number, startDate: string, endDate: string): Promise<void> {
