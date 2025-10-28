@@ -624,6 +624,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
             String(endDate)
           );
 
+          console.log(`[DEBUG] Driver ${aggregate.driverId} (${aggregate.driverName}):`, {
+            startDate: String(startDate),
+            endDate: String(endDate),
+            overlappingSummaries: overlappingSummaries.map(s => ({
+              startDate: s.startDate,
+              startDateType: typeof s.startDate,
+              endDate: s.endDate,
+              endDateType: typeof s.endDate,
+              trips: s.trips,
+            }))
+          });
+
           // Sum up values from all overlapping weeks
           const totals = overlappingSummaries.reduce(
             (acc, summary) => ({
