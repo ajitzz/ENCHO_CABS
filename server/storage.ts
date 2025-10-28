@@ -600,7 +600,6 @@ export class DatabaseStorage implements IStorage {
         driverId: summary.driverId,
         startDate: summary.startDate,
         endDate: summary.endDate,
-        trips: summary.trips || 0,
         totalEarnings: summary.totalEarnings || 0,
         cash: summary.cash || 0,
         refund: summary.refund || 0,
@@ -612,7 +611,6 @@ export class DatabaseStorage implements IStorage {
       .onConflictDoUpdate({
         target: [weeklySummaries.driverId, weeklySummaries.startDate, weeklySummaries.endDate],
         set: {
-          trips: summary.trips || 0,
           totalEarnings: summary.totalEarnings || 0,
           cash: summary.cash || 0,
           refund: summary.refund || 0,
