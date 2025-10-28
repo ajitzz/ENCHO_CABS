@@ -680,30 +680,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/import/weekly-summary", async (req, res) => {
     try {
-      const { csvData, startDate, endDate } = req.body;
+      const { csvData } = req.body;
 
       if (!csvData || !Array.isArray(csvData)) {
         return res.status(400).json({ message: "csvData array is required" });
       }
 
-      if (!startDate || !endDate) {
-        return res.status(400).json({ message: "startDate and endDate are required" });
-      }
+      // Helper function to get Monday of the week for a given date
+      const getMondayOfWeek = (date: Date): Date => {
+        const d = new Date(date);
+        const day = d.getDay();
+        const diff = d.getDate() - day + (day === 0 ? -6 : 1);
+        const monday = new Date(d.setDate(diff));
+        monday.setHours(0, 0, 0, 0);
+        return monday;
+      };
 
-      // Get the aggregates for the date range to get valid driver list
-      const aggregates = await storage.getDriverAggregatesForDateRange(
-        String(startDate),
-        String(endDate)
-      );
-
-      // Create a map of driver names to driver IDs (case-insensitive)
-      const driverMap = new Map<string, { driverId: number; driverName: string }>();
-      aggregates.forEach(agg => {
-        driverMap.set(agg.driverName.toUpperCase(), {
-          driverId: agg.driverId,
-          driverName: agg.driverName
-        });
-      });
+      // Helper function to get Sunday of the week for a given date
+      const getSundayOfWeek = (date: Date): Date => {
+        const monday = getMondayOfWeek(date);
+        const sunday = new Date(monday);
+        sunday.setDate(monday.getDate() + 6);
+        sunday.setHours(23, 59, 59, 999);
+        return sunday;
+      };
 
       const results = {
         success: 0,
@@ -712,11 +712,40 @@ export async function registerRoutes(app: Express): Promise<Server> {
         driversNotFound: [] as string[],
       };
 
+      // Group rows by week and driver
+      const weeklyData = new Map<string, Map<number, any>>();
+
       // Process each CSV row
       for (let i = 0; i < csvData.length; i++) {
         const row = csvData[i];
         
         try {
+          // Validate Date field
+          if (!row.Date || typeof row.Date !== 'string' || !row.Date.trim()) {
+            results.errors.push(`Row ${i + 2}: Missing or invalid Date`);
+            continue;
+          }
+
+          // Parse date (supports DD/MM/YYYY and other formats)
+          const dateParts = row.Date.trim().split('/');
+          let rowDate: Date;
+          if (dateParts.length === 3) {
+            // DD/MM/YYYY format
+            rowDate = new Date(parseInt(dateParts[2]), parseInt(dateParts[1]) - 1, parseInt(dateParts[0]));
+          } else {
+            rowDate = new Date(row.Date.trim());
+          }
+
+          if (isNaN(rowDate.getTime())) {
+            results.errors.push(`Row ${i + 2}: Invalid date format`);
+            continue;
+          }
+
+          // Calculate week range
+          const weekStart = getMondayOfWeek(rowDate);
+          const weekEnd = getSundayOfWeek(rowDate);
+          const weekKey = `${weekStart.toISOString().split('T')[0]}_${weekEnd.toISOString().split('T')[0]}`;
+
           // Validate required fields
           if (!row.Driver || typeof row.Driver !== 'string' || !row.Driver.trim()) {
             results.errors.push(`Row ${i + 2}: Missing or invalid driver name`);
@@ -724,16 +753,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
           }
 
           const driverName = row.Driver.trim();
-          const driverInfo = driverMap.get(driverName.toUpperCase());
-
-          if (!driverInfo) {
-            // Driver not found in computed weekly summary
-            if (!results.driversNotFound.includes(driverName)) {
-              results.driversNotFound.push(driverName);
-            }
-            results.skipped++;
-            continue;
-          }
 
           // Parse numeric fields (handle case variations)
           const trips = row.Trips || row.trips ? parseInt(String(row.Trips || row.trips)) : 0;
@@ -750,27 +769,75 @@ export async function registerRoutes(app: Express): Promise<Server> {
             continue;
           }
 
-          // Update weekly summary for this driver
-          await storage.upsertWeeklySummary({
-            driverId: driverInfo.driverId,
-            startDate: String(startDate),
-            endDate: String(endDate),
+          // Store data grouped by week
+          if (!weeklyData.has(weekKey)) {
+            weeklyData.set(weekKey, new Map());
+          }
+
+          weeklyData.get(weekKey)!.set(driverName.toUpperCase(), {
+            driverName,
+            weekStart: weekStart.toISOString().split('T')[0],
+            weekEnd: weekEnd.toISOString().split('T')[0],
             trips,
             totalEarnings,
             cash,
             refund,
+          });
+        } catch (error: any) {
+          results.errors.push(`Row ${i + 2}: ${error.message}`);
+        }
+      }
+
+      // Now process each week's data
+      for (const [weekKey, driversMap] of weeklyData.entries()) {
+        const firstDriver = driversMap.values().next().value;
+        const weekStart = firstDriver.weekStart;
+        const weekEnd = firstDriver.weekEnd;
+
+        // Get aggregates for this week to validate drivers
+        const aggregates = await storage.getDriverAggregatesForDateRange(weekStart, weekEnd);
+
+        // Create driver map for this week
+        const driverMap = new Map<string, { driverId: number; driverName: string }>();
+        aggregates.forEach(agg => {
+          driverMap.set(agg.driverName.toUpperCase(), {
+            driverId: agg.driverId,
+            driverName: agg.driverName
+          });
+        });
+
+        // Save data for each driver in this week
+        for (const [driverNameUpper, data] of driversMap.entries()) {
+          const driverInfo = driverMap.get(driverNameUpper);
+
+          if (!driverInfo) {
+            // Driver not found in computed weekly summary for this week
+            if (!results.driversNotFound.includes(data.driverName)) {
+              results.driversNotFound.push(data.driverName);
+            }
+            results.skipped++;
+            continue;
+          }
+
+          // Update weekly summary for this driver
+          await storage.upsertWeeklySummary({
+            driverId: driverInfo.driverId,
+            startDate: data.weekStart,
+            endDate: data.weekEnd,
+            trips: data.trips,
+            totalEarnings: data.totalEarnings,
+            cash: data.cash,
+            refund: data.refund,
             expenses: 0, // Not provided in CSV
             dues: 0,     // Not provided in CSV
             payout: 0,   // Not provided in CSV
           });
 
           results.success++;
-        } catch (error: any) {
-          results.errors.push(`Row ${i + 2}: ${error.message}`);
         }
-      }
 
-      broadcast("weeklysummary:changed", { range: { start: startDate, end: endDate } });
+        broadcast("weeklysummary:changed", { range: { start: weekStart, end: weekEnd } });
+      }
 
       res.json({
         message: "Import completed",

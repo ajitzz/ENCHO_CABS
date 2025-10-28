@@ -253,14 +253,12 @@ export default function WeeklySummary() {
 
       const csvData = parseResult.data;
 
-      // Send to API
+      // Send to API (date is now taken from CSV, not from UI selection)
       const response = await fetch('/api/import/weekly-summary', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           csvData,
-          startDate: startDateStr,
-          endDate: endDateStr,
         }),
       });
 
