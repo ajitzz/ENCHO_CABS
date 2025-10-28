@@ -41,13 +41,12 @@ export default function Layout({ children }: LayoutProps) {
       {/* Main Content - takes full width when sidebar is hidden */}
       <main 
         className={`h-full overflow-y-auto transition-all duration-300 ${
-          sidebarOpen ? "ml-64" : "ml-0"
+          sidebarOpen ? "ml-64 w-[calc(100%-16rem)]" : "ml-0 w-full"
         }`}
-        style={{
-          width: sidebarOpen ? "calc(100% - 16rem)" : "100%"
-        }}
       >
-        {children}
+        <div className="w-full h-full">
+          {children}
+        </div>
       </main>
     </div>
   );

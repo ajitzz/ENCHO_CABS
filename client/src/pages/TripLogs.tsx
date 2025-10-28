@@ -531,14 +531,14 @@ export default function TripLogs() {
 
   if (isLoading) {
     return (
-      <div className="container mx-auto p-4">
+      <div className="w-full p-4 md:p-6 lg:p-8">
         <div className="text-center">Loading trip logs...</div>
       </div>
     );
   }
 
   return (
-    <div className="container mx-auto p-4 space-y-4">
+    <div className="w-full p-4 md:p-6 lg:p-8 space-y-4">
       <div className="flex justify-between items-center">
         <h1 className="text-2xl font-bold">Trip Logs</h1>
         <div className="flex items-center gap-2">

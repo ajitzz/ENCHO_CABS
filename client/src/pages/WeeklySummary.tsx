@@ -282,14 +282,14 @@ export default function WeeklySummary() {
 
   if (isLoading) {
     return (
-      <div className="container mx-auto p-6">
+      <div className="w-full p-4 md:p-6 lg:p-8">
         <div className="animate-pulse h-96 bg-gray-200 rounded-xl"></div>
       </div>
     );
   }
 
   return (
-    <div className="container mx-auto p-6">
+    <div className="w-full p-4 md:p-6 lg:p-8">
       <Card className="rounded-xl shadow-sm border border-gray-200">
         <CardHeader>
           <CardTitle className="text-2xl font-bold text-gray-900">Weekly Summary</CardTitle>
