@@ -93,12 +93,21 @@ Preferred communication style: Simple, everyday language.
 #### Weekly Summary CSV Import
 - Added "Import CSV" button to Weekly Summary page
 - Allows bulk import of weekly summary data (trips, total earnings, cash, refunds)
-- CSV format: Date, Driver, Trips, Total earnings, Cash collected, Refunds
-- Automatically matches drivers to computed weekly summary for the selected date range
+- CSV format: Date, Driver, Trips, Total earnings, Cash collected, Refund/Refunds
+- **Date Column Usage**: Uses Date column from CSV to automatically calculate and save to correct week (Monday-Sunday)
+  - Supports DD/MM/YYYY format (e.g., 25/10/2025)
+  - Automatically determines which week (Monday to Sunday) the date falls into
+  - Can import data for multiple weeks in a single CSV file
+- **Duplicate Detection**: Prevents overwriting existing weekly summary data without confirmation
+  - Checks if driver already has data for the week before importing
+  - Shows confirmation dialog listing all drivers with existing data and their week ranges
+  - User must confirm to overwrite existing data
+  - Only one entry per driver per week is allowed
+- Automatically matches drivers to computed weekly summary for the week calculated from the date
 - Skips drivers not found in the computed list and displays them in a popup dialog
 - Updates weekly_summaries table with imported data
 - Shows import results with success count, skipped count, and errors
-- API endpoint: POST /api/import/weekly-summary
+- API endpoint: POST /api/import/weekly-summary (accepts confirmOverwrite parameter)
 
 #### CSV Data Import
 - Added bulk import functionality for trip logs via CSV files

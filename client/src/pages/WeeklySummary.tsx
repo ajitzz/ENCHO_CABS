@@ -85,6 +85,10 @@ export default function WeeklySummary() {
   // Confirmation dialog states
   const [saveConfirm, setSaveConfirm] = useState<{ driverId: number; driverName: string } | null>(null);
   const [clearConfirm, setClearConfirm] = useState<{ driverId: number; driverName: string } | null>(null);
+  const [duplicateConfirm, setDuplicateConfirm] = useState<{
+    csvData: any[];
+    existingData: Array<{ driverName: string; weekStart: string; weekEnd: string }>;
+  } | null>(null);
 
   const startDateStr = format(startDate, "yyyy-MM-dd");
   const endDateStr = format(endDate, "yyyy-MM-dd");
@@ -230,7 +234,7 @@ export default function WeeklySummary() {
     return collection + wallet + dues - rent - payout;
   };
 
-  const handleImportCSV = async (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImportCSV = async (event: React.ChangeEvent<HTMLInputElement>, confirmOverwrite = false) => {
     const file = event.target.files?.[0];
     if (!file) return;
 
@@ -259,6 +263,72 @@ export default function WeeklySummary() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           csvData,
+          confirmOverwrite,
+        }),
+      });
+
+      const result = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(result.message || 'Import failed');
+      }
+
+      // Check if duplicates were found
+      if (result.duplicatesFound && !confirmOverwrite) {
+        setDuplicateConfirm({
+          csvData,
+          existingData: result.existingData,
+        });
+        setIsImporting(false);
+        if (fileInputRef.current) {
+          fileInputRef.current.value = '';
+        }
+        return;
+      }
+
+      setImportResult(result);
+      
+      if (result.driversNotFound && result.driversNotFound.length > 0) {
+        setDriversNotFound(result.driversNotFound);
+        setShowNotFoundDialog(true);
+      }
+
+      // Refresh the summary data
+      queryClient.invalidateQueries({ 
+        queryKey: ["/api/weekly-summary/aggregates", startDateStr, endDateStr] 
+      });
+
+      toast({
+        title: "Import completed",
+        description: `Successfully imported ${result.success} records. ${result.skipped} skipped.`,
+      });
+    } catch (error: any) {
+      console.error("Import error:", error);
+      toast({
+        title: "Import failed",
+        description: error.message || "Failed to import CSV file",
+        variant: "destructive",
+      });
+    } finally {
+      setIsImporting(false);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    }
+  };
+
+  const confirmOverwriteImport = async () => {
+    if (!duplicateConfirm) return;
+
+    setIsImporting(true);
+
+    try {
+      const response = await fetch('/api/import/weekly-summary', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          csvData: duplicateConfirm.csvData,
+          confirmOverwrite: true,
         }),
       });
 
@@ -293,9 +363,7 @@ export default function WeeklySummary() {
       });
     } finally {
       setIsImporting(false);
-      if (fileInputRef.current) {
-        fileInputRef.current.value = '';
-      }
+      setDuplicateConfirm(null);
     }
   };
 
@@ -657,6 +725,36 @@ export default function WeeklySummary() {
           <AlertDialogFooter>
             <AlertDialogAction onClick={() => setShowNotFoundDialog(false)}>
               OK
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Duplicate Data Confirmation Dialog */}
+      <AlertDialog open={duplicateConfirm !== null} onOpenChange={() => setDuplicateConfirm(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Data Already Exists</AlertDialogTitle>
+            <AlertDialogDescription>
+              The following drivers already have data for these weeks. Do you want to overwrite the existing data?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="my-4 max-h-64 overflow-y-auto">
+            <ul className="list-disc list-inside space-y-1">
+              {duplicateConfirm?.existingData.map((item, index) => (
+                <li key={index} className="text-sm text-gray-700">
+                  <strong>{item.driverName}</strong> - Week of {format(new Date(item.weekStart), "MMM d")} to {format(new Date(item.weekEnd), "MMM d, yyyy")}
+                </li>
+              ))}
+            </ul>
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmOverwriteImport}
+              className="bg-orange-600 hover:bg-orange-700"
+            >
+              Overwrite
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

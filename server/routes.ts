@@ -680,7 +680,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/import/weekly-summary", async (req, res) => {
     try {
-      const { csvData } = req.body;
+      const { csvData, confirmOverwrite } = req.body;
 
       if (!csvData || !Array.isArray(csvData)) {
         return res.status(400).json({ message: "csvData array is required" });
@@ -711,6 +711,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         errors: [] as string[],
         driversNotFound: [] as string[],
       };
+
+      // Track existing data for duplicate detection
+      const existingData: Array<{ driverName: string; weekStart: string; weekEnd: string }> = [];
 
       // Group rows by week and driver
       const weeklyData = new Map<string, Map<number, any>>();
@@ -789,6 +792,57 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Now process each week's data
+      for (const [weekKey, driversMap] of weeklyData.entries()) {
+        const firstDriver = driversMap.values().next().value;
+        const weekStart = firstDriver.weekStart;
+        const weekEnd = firstDriver.weekEnd;
+
+        // Get aggregates for this week to validate drivers
+        const aggregates = await storage.getDriverAggregatesForDateRange(weekStart, weekEnd);
+
+        // Create driver map for this week
+        const driverMap = new Map<string, { driverId: number; driverName: string }>();
+        aggregates.forEach(agg => {
+          driverMap.set(agg.driverName.toUpperCase(), {
+            driverId: agg.driverId,
+            driverName: agg.driverName
+          });
+        });
+
+        // Check for existing data if not confirming overwrite
+        if (!confirmOverwrite) {
+          for (const [driverNameUpper, data] of driversMap.entries()) {
+            const driverInfo = driverMap.get(driverNameUpper);
+            if (!driverInfo) continue;
+
+            // Check if this driver already has data for this week
+            const existingSummary = await storage.getWeeklySummary(
+              driverInfo.driverId,
+              data.weekStart,
+              data.weekEnd
+            );
+
+            if (existingSummary && (existingSummary.trips > 0 || existingSummary.totalEarnings > 0 || existingSummary.cash > 0 || existingSummary.refund > 0)) {
+              existingData.push({
+                driverName: driverInfo.driverName,
+                weekStart: data.weekStart,
+                weekEnd: data.weekEnd,
+              });
+            }
+          }
+        }
+      }
+
+      // If duplicates found and not confirming overwrite, return them
+      if (existingData.length > 0 && !confirmOverwrite) {
+        return res.json({
+          duplicatesFound: true,
+          existingData,
+          message: "Data already exists for some drivers in these weeks. Please confirm to overwrite."
+        });
+      }
+
+      // Proceed with import (either no duplicates or confirmed overwrite)
       for (const [weekKey, driversMap] of weeklyData.entries()) {
         const firstDriver = driversMap.values().next().value;
         const weekStart = firstDriver.weekStart;
